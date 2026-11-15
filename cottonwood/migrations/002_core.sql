@@ -126,8 +126,10 @@ CREATE TABLE agent_runs (
 );
 
 -- Suppression is never deleted or changed (R-24); it outlives contact deletion (R-35).
+-- A non-INTEGER PRIMARY KEY accepts NULL in SQLite, so NOT NULL is explicit: a NULL or empty
+-- entry would suppress no one and could never be removed.
 CREATE TABLE suppression (
-    email_norm TEXT PRIMARY KEY,
+    email_norm TEXT PRIMARY KEY NOT NULL CHECK (email_norm <> ''),
     reason TEXT NOT NULL,
     source TEXT,
     added_at TEXT NOT NULL
