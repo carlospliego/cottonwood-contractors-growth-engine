@@ -75,6 +75,14 @@ def user_version(conn: sqlite3.Connection) -> int:
     return int(row[0])
 
 
+def _read_version(conn: sqlite3.Connection, db_path: Path) -> int:
+    """Return user_version, turning a SQLite error into a MigrationError naming ``db_path``."""
+    try:
+        return user_version(conn)
+    except sqlite3.Error as exc:
+        raise MigrationError(f"cannot read database {db_path}: {exc}") from exc
+
+
 def _apply(conn: sqlite3.Connection, migration: Migration) -> None:
     """Run one migration and set user_version to its number, in one transaction."""
     try:
@@ -96,15 +104,18 @@ def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResu
     if not folder.is_dir():
         raise FolderMissingError(folder)
     migrations = discover_migrations(migrations_dir)
-    conn = sqlite3.connect(db_path, isolation_level=None)
     try:
-        start = user_version(conn)
+        conn = sqlite3.connect(db_path, isolation_level=None)
+    except sqlite3.Error as exc:
+        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+    try:
+        start = _read_version(conn, db_path)
         applied: list[Migration] = []
         for migration in migrations:
             if migration.number <= start:
                 continue
             _apply(conn, migration)
             applied.append(migration)
-        return MigrateResult(start, user_version(conn), tuple(applied))
+        return MigrateResult(start, _read_version(conn, db_path), tuple(applied))
     finally:
         conn.close()
