@@ -205,7 +205,7 @@ def load_records(path: Path) -> list[RawRecord]:
     if suffix not in FILE_SUFFIXES:
         raise FileError(f"{path}: research files must end in .json or .csv")
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except FileNotFoundError:
         raise FileError(f"file does not exist: {path}") from None
     except (OSError, UnicodeDecodeError) as exc:

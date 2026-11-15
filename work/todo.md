@@ -73,6 +73,20 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-085` — Make the events and review helpers the report uses public → [CCGE-085.md](tasks/CCGE-085.md)
 - [ ] `CCGE-086` — Test that non-finite agent_runs.cost_usd values are skipped → [CCGE-086.md](tasks/CCGE-086.md)
 - [ ] `CCGE-087` — Test the report command's --out write failure and database read failure branches → [CCGE-087.md](tasks/CCGE-087.md)
+- [x] `CCGE-088` — Research-record schema, file loading and record validation → [CCGE-088.md](tasks/CCGE-088.md)
+- [x] `CCGE-089` — prospects-import command: create leads, record rejections, suppression, referrals and test labels → [CCGE-089.md](tasks/CCGE-089.md)
+- [x] `CCGE-090` — Re-import matching: no duplicates, new evidence only, differing fields printed → [CCGE-090.md](tasks/CCGE-090.md)
+- [ ] `CCGE-091` — CSV research import cannot express an empty hypothesis or empty verified_facts → [CCGE-091.md](tasks/CCGE-091.md)
+- [ ] `CCGE-092` — Research import accepts value.amount and referred_by with a trailing newline or non-ASCII digits → [CCGE-092.md](tasks/CCGE-092.md)
+- [ ] `CCGE-093` — CSV research rows with more cells than the header lose the extra cells silently → [CCGE-093.md](tasks/CCGE-093.md)
+- [ ] `CCGE-094` — Research import accepts Infinity and NaN for founder_time_h → [CCGE-094.md](tasks/CCGE-094.md)
+- [ ] `CCGE-095` — prospects-import uses a deferred BEGIN, so a concurrent writer aborts the import → [CCGE-095.md](tasks/CCGE-095.md)
+- [ ] `CCGE-096` — Re-import difference lines print distinct founder_time_h values identically → [CCGE-096.md](tasks/CCGE-096.md)
+- [ ] `CCGE-097` — Remove unused RULE_REQUIRED, DIRECT and ProspectRecord.label from validate.py → [CCGE-097.md](tasks/CCGE-097.md)
+- [ ] `CCGE-098` — Lead type and initial stage literals are defined separately in validate, report, events and prospects → [CCGE-098.md](tasks/CCGE-098.md)
+- [ ] `CCGE-099` — Test every compared field in re-import difference reporting → [CCGE-099.md](tasks/CCGE-099.md)
+- [ ] `CCGE-100` — Test evidence dedupe key parts and CSV re-import → [CCGE-100.md](tasks/CCGE-100.md)
+- [ ] `CCGE-101` — record_id is unbounded and unfiltered, yet stored in append-only activities and echoed to the terminal → [CCGE-101.md](tasks/CCGE-101.md)
 
 ## Done
 
