@@ -58,6 +58,20 @@ STAGES_BY_LEAD_TYPE = {
 # R-16: the only way into this stage is an event stating the need or a procurement URL.
 QUALIFIED_STAGE = "buyer_need_confirmed"
 
+# The stage_change payload key naming the activity that CAUSED the move (AC-4.3). Despite the
+# name it is not always an R-15 event: log_event writes the event's id, but log_correction
+# writes the correction's id for a revert. Tell the two apart by the type of the row it names
+# (see is_revert / _IS_REVERT_SQL); never join it to "the event behind the move" unchecked.
+# The SQL below also relies on corrections never being voidable, so a revert's cause is never
+# itself void.
+STAGE_CHANGE_CAUSE_KEY = "event_activity_id"
+# The causing activity id of a stage_change row aliased ``a``.
+_CAUSE_SQL = f"json_extract(a.payload, '$.{STAGE_CHANGE_CAUSE_KEY}')"
+# True when the stage_change row aliased ``a`` is a revert: its cause is a correction.
+_IS_REVERT_SQL = (
+    f"EXISTS (SELECT 1 FROM activities r WHERE r.type = 'correction' AND r.id = {_CAUSE_SQL})"
+)
+
 
 class EventError(ValueError):
     """An event field failed validation or a refusal rule; ``field`` names it."""
@@ -228,11 +242,12 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         stage_change_id = None
         if event.stage is not None:
             conn.execute("UPDATE leads SET stage = ? WHERE id = ?", (event.stage, event.lead_id))
+            # The cause of this move is the R-15 event just written (STAGE_CHANGE_CAUSE_KEY).
             stage_change_id = _insert_activity(
                 conn,
                 event.lead_id,
                 "stage_change",
-                {"from": from_stage, "to": event.stage, "event_activity_id": event_id},
+                {"from": from_stage, "to": event.stage, STAGE_CHANGE_CAUSE_KEY: event_id},
                 event.actor,
                 event.occurred_at,
                 now,
@@ -281,22 +296,34 @@ COUNTED_ACTIVITIES_SQL = (
     "a.type <> 'correction'"
     " AND NOT EXISTS (SELECT 1 FROM activities c"
     " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
-    " AND NOT (a.type = 'stage_change' AND EXISTS (SELECT 1 FROM activities c"
-    " WHERE c.type = 'correction'"
-    " AND (c.voids_activity_id = json_extract(a.payload, '$.event_activity_id')"
-    " OR c.id = json_extract(a.payload, '$.event_activity_id'))))"
+    " AND NOT (a.type = 'stage_change' AND (EXISTS (SELECT 1 FROM activities c"
+    f" WHERE c.type = 'correction' AND c.voids_activity_id = {_CAUSE_SQL})"
+    f" OR {_IS_REVERT_SQL}))"
     " AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l"
     " WHERE l.id = a.lead_id AND l.is_test = 0))"
 )
 
-# A stage change still in force: nothing voids it and nothing voids the event behind it.
+# A stage change still in force: nothing voids it and nothing voids the activity that caused
+# it (an event; a revert's cause is a correction, which is never voidable, so it stays).
 _EFFECTIVE_STAGE_CHANGE_SQL = (
     "a.type = 'stage_change'"
     " AND NOT EXISTS (SELECT 1 FROM activities c"
     " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
     " AND NOT EXISTS (SELECT 1 FROM activities c WHERE c.type = 'correction'"
-    " AND c.voids_activity_id = json_extract(a.payload, '$.event_activity_id'))"
+    f" AND c.voids_activity_id = {_CAUSE_SQL})"
 )
+
+
+def is_revert(conn: sqlite3.Connection, stage_change_id: int) -> bool:
+    """True when the stage_change was written by a correction (its cause is a correction).
+
+    False for a move caused by an R-15 event, and for an id that is not a stage_change.
+    """
+    row = conn.execute(
+        f"SELECT {_IS_REVERT_SQL} FROM activities a WHERE a.id = ? AND a.type = 'stage_change'",
+        (stage_change_id,),
+    ).fetchone()
+    return row is not None and bool(row[0])
 
 
 def counted_activities(
@@ -396,7 +423,7 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
             )
         caused = conn.execute(
             f"SELECT a.id, a.payload FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
-            " AND json_extract(a.payload, '$.event_activity_id') = ?",
+            f" AND {_CAUSE_SQL} = ?",
             (voids_id,),
         ).fetchone()
         if caused is not None:
@@ -404,9 +431,7 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
             # the latest change still in force is the newest effective one caused by an event.
             latest = conn.execute(
                 f"SELECT a.id FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
-                " AND a.lead_id = ? AND NOT EXISTS (SELECT 1 FROM activities r"
-                " WHERE r.id = json_extract(a.payload, '$.event_activity_id')"
-                " AND r.type = 'correction')"
+                f" AND a.lead_id = ? AND NOT {_IS_REVERT_SQL}"
                 " ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
                 (lead_id,),
             ).fetchone()
@@ -435,11 +460,13 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
             from_stage = str(lead["stage"])
             to_stage = str(json.loads(caused["payload"])["from"])
             conn.execute("UPDATE leads SET stage = ? WHERE id = ?", (to_stage, lead_id))
+            # A revert: its cause (STAGE_CHANGE_CAUSE_KEY) is this correction, not an event,
+            # which is what makes is_revert / _IS_REVERT_SQL true for it.
             stage_change_id = _insert_activity(
                 conn,
                 lead_id,
                 "stage_change",
-                {"from": from_stage, "to": to_stage, "event_activity_id": correction_id},
+                {"from": from_stage, "to": to_stage, STAGE_CHANGE_CAUSE_KEY: correction_id},
                 correction.actor,
                 correction.occurred_at,
                 now,
