@@ -12,25 +12,41 @@ Later features add the inbound checklist and relay sections to this file.
 Use this when the live database is lost, damaged or wrong (R-33). There is no restore command:
 the steps are deliberately manual, and each one keeps a copy of what it replaces.
 
+A crash in the middle of a write can leave a `data/cottonwood.db-journal` (or `-wal` and
+`-shm`) file next to the database. SQLite applies that file to whatever database next opens
+under the live name, so it must never be left behind for the backup to pick up.
+
 1. If the live database still opens, take a fresh backup of it first:
    `uv run cottonwood backup`
-2. Set the current database aside so nothing is lost. Use the current UTC time in the name:
+2. Let SQLite finish or undo any write that was cut off, using the database's own journal.
+   Open the live database once (skip this if the file does not open at all):
+   `sqlite3 data/cottonwood.db 'SELECT count(*) FROM sqlite_master;'`
+3. Set the current database aside so nothing is lost, together with any `-journal`, `-wal` or
+   `-shm` file next to it, all under the same new name. Use the current UTC time in the name:
    `mv data/cottonwood.db data/cottonwood.db.before-restore-20261115T100000Z`
-3. Copy the chosen backup into place (backups are named `cottonwood-YYYYMMDDTHHMMSSZ.db`,
+   and then, for each of these files that exists:
+   `mv data/cottonwood.db-journal data/cottonwood.db.before-restore-20261115T100000Z-journal`
+   `mv data/cottonwood.db-wal data/cottonwood.db.before-restore-20261115T100000Z-wal`
+   `mv data/cottonwood.db-shm data/cottonwood.db.before-restore-20261115T100000Z-shm`
+4. Check that nothing is left under the live name. This must list no files (the shell reports
+   "no matches found" or "No such file or directory"); if it lists any, move them as in step 3:
+   `ls data/cottonwood.db-*`
+5. Copy the chosen backup into place (backups are named `cottonwood-YYYYMMDDTHHMMSSZ.db`,
    in UTC, with `-2`, `-3` … for more than one in the same second):
    `cp data/backups/cottonwood-20261114T090000Z.db data/cottonwood.db`
-4. Check that the restored file opens and is intact. This must print `ok`:
+6. Check that the restored file opens and is intact. This must print `ok`:
    `sqlite3 data/cottonwood.db 'PRAGMA integrity_check;'`
-5. Check that it contains the suppression table. This must print a number, not an error:
+7. Check that it contains the suppression table. This must print a number, not an error:
    `sqlite3 data/cottonwood.db 'SELECT count(*) FROM suppression;'`
-6. Bring the restored file up to the current schema (an older backup is upgraded; a current
+8. Bring the restored file up to the current schema (an older backup is upgraded; a current
    one reports `applied 0`):
    `uv run cottonwood migrate`
-7. Re-apply the suppression entries added after the backup was taken, as in the next section.
+9. Re-apply the suppression entries added after the backup was taken, as in the next section.
    Do not skip this: an opt-out recorded after the backup must still be honoured (R-24).
 
-If step 4 or 5 fails, put the set-aside file back (`mv` it to `data/cottonwood.db`) and try an
-older backup.
+If step 6 or 7 fails, put the set-aside file back (`mv` it to `data/cottonwood.db`, and any
+set-aside `-journal`, `-wal` or `-shm` file to the matching `data/cottonwood.db-` name) and try
+an older backup.
 
 ## Re-applying suppression after a restore
 

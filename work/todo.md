@@ -15,6 +15,20 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [x] `CCGE-011` — Core schema migration with append-only triggers → [CCGE-011.md](tasks/CCGE-011.md)
 - [x] `CCGE-012` — Config loader and backup command → [CCGE-012.md](tasks/CCGE-012.md)
 - [x] `CCGE-013` — Runbook: restore and deletion-request procedures → [CCGE-013.md](tasks/CCGE-013.md)
+- [ ] `CCGE-014` — Backup to an unwritable folder exits 1 instead of a traceback → [CCGE-014.md](tasks/CCGE-014.md)
+- [ ] `CCGE-015` — Non-UTF-8 config file raises ConfigError → [CCGE-015.md](tasks/CCGE-015.md)
+- [ ] `CCGE-016` — normalize_name keeps word boundaries at hyphens → [CCGE-016.md](tasks/CCGE-016.md)
+- [ ] `CCGE-017` — normalize_domain strips www. only when a dotted host remains → [CCGE-017.md](tasks/CCGE-017.md)
+- [ ] `CCGE-018` — display_local formats offsets with seconds correctly → [CCGE-018.md](tasks/CCGE-018.md)
+- [ ] `CCGE-019` — paths.backup_dir expands ~ and trims spaces → [CCGE-019.md](tasks/CCGE-019.md)
+- [ ] `CCGE-020` — One DatabaseMissingError shared by db and backup → [CCGE-020.md](tasks/CCGE-020.md)
+- [ ] `CCGE-021` — db.connect raises a general DatabaseError, not MigrationError → [CCGE-021.md](tasks/CCGE-021.md)
+- [ ] `CCGE-022` — Email whitespace error message names the real problem → [CCGE-022.md](tasks/CCGE-022.md)
+- [ ] `CCGE-023` — Test load_config fallback and empty-value branches → [CCGE-023.md](tasks/CCGE-023.md)
+- [ ] `CCGE-024` — Test the default config/pilot.yaml path → [CCGE-024.md](tasks/CCGE-024.md)
+- [ ] `CCGE-025` — Deletion-section order check fails when the backup step is missing → [CCGE-025.md](tasks/CCGE-025.md)
+- [ ] `CCGE-026` — Test the international phone length bounds → [CCGE-026.md](tasks/CCGE-026.md)
+- [ ] `CCGE-027` — Test email whitespace rejection and domain userinfo stripping → [CCGE-027.md](tasks/CCGE-027.md)
 
 ## Done
 
