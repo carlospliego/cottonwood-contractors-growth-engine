@@ -1,0 +1,8 @@
+# sir policy overrides for this repo. Merged on top of the plugin's default policy.
+# Overrides can only TIGHTEN the defaults unless a human sets allow_loosen: true.
+# Reference: docs/policy-reference.md in the sir plugin.
+version: 1
+mode: warn            # warn: log ask-class actions, still block destructive/protected. enforce: ask/deny as classified.
+allow_loosen: false
+protected_paths: []   # e.g. - { path: "src/billing/**", class: shared-write, reason: "payments code" }
+rules: []             # e.g. - { id: no-docker-push, match: "Bash(docker push*)", class: outward }

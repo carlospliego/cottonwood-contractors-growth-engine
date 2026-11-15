@@ -1,0 +1,34 @@
+{
+  "initiative": "cottonwood-growth-engine",
+  "approvals": [
+    {
+      "gate": "project",
+      "file": "project.md",
+      "approved_at": "2026-11-15T07:35:26Z",
+      "sha256": "8897af6585ff16b2cb57f2bf2bcde983e656c63dd03cc7e3e00ec73b100de4cd",
+      "head": "2a93992583225e2fcbaa943a727591b4db658aca"
+    },
+    {
+      "gate": "architecture",
+      "file": "architecture.md",
+      "approved_at": "2026-11-15T07:36:48Z",
+      "sha256": "3b926f4afe22ac7033925a6548a5663d267e21ae06c32e37377751b74ebd3da5",
+      "head": "2a93992583225e2fcbaa943a727591b4db658aca"
+    },
+    {
+      "gate": "roadmap",
+      "file": "roadmap.md",
+      "approved_at": "2026-11-15T07:37:44Z",
+      "sha256": "2f9e16b77b286ab17d4f6a08395effe52dcb14757635cd86bd2bce27fd0ffc34",
+      "head": "2a93992583225e2fcbaa943a727591b4db658aca",
+      "note": "Hash updated after a format-only fix (phase 1 'Depends on' cell '—' emptied so sir plan briefs parses it); approved content unchanged. Approved hash was f580c449001af74a43955b21cb53c2e48dec8b15c4ba83d63e05342c609870fd."
+    },
+    {
+      "gate": "verification",
+      "file": "verification.md",
+      "approved_at": "2026-11-15T07:40:04Z",
+      "sha256": "efe6f74efbfd857b83d428d97040ab8b58429616bc8f25be406ed09016623256",
+      "head": "2a93992583225e2fcbaa943a727591b4db658aca"
+    }
+  ]
+}

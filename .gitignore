@@ -1,0 +1,4 @@
+# sir machine state (traces, logs, locks, receipts)
+.sir/runs/
+# task worktrees created by /sir:do
+.claude/worktrees/
