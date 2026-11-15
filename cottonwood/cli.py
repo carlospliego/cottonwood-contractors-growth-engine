@@ -12,7 +12,19 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, backup, config, db, events, inbound, report, review, timeutil
+from cottonwood import (
+    __version__,
+    backup,
+    config,
+    db,
+    events,
+    inbound,
+    prospects,
+    report,
+    review,
+    timeutil,
+    validate,
+)
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -630,6 +642,54 @@ def _run_log_cost(args: argparse.Namespace) -> int:
     return _run_entry(args, events.COST_KIND, "amount")
 
 
+def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the prospects-import command's arguments."""
+    parser.add_argument(
+        "file", type=Path, help="research records: a .json array or a .csv with a header row"
+    )
+    parser.add_argument(
+        "--actor",
+        default=inbound.DEFAULT_ACTOR,
+        help=f"who imports it (default: {inbound.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_prospects_import(args: argparse.Namespace) -> int:
+    """Validate and import research records; refuse each invalid record by name (R-5, R-6)."""
+    path: Path = args.file
+    try:
+        raw_records = validate.load_records(path)
+    except validate.FileError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    today = events.denver_today()
+    records = [validate.validate_record(raw, today) for raw in raw_records]
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        result = prospects.import_records(conn, path.name, records, args.actor)
+    except sqlite3.Error as exc:
+        print(f"error: could not import into the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    for outcome in result.outcomes:
+        stream = sys.stderr if outcome.rejection is not None else sys.stdout
+        print(outcome.line(), file=stream)
+    print(result.summary())
+    return EXIT_REFUSED if result.rejected else EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -679,6 +739,12 @@ COMMANDS: list[Command] = [
         "Print or write the Markdown weekly report for a period of America/Denver dates.",
         _add_report_arguments,
         _run_report,
+    ),
+    Command(
+        "prospects-import",
+        "Import researched direct candidates and relationship prospects from JSON or CSV.",
+        _add_prospects_import_arguments,
+        _run_prospects_import,
     ),
 ]
 

@@ -60,7 +60,7 @@ def test_backup_copies_schema_and_rows(tmp_path: Path, capsys: pytest.CaptureFix
     written = _written_path(capsys.readouterr().out)
     assert written.parent == dest
     assert BACKUP_NAME.fullmatch(written.name)
-    assert _version_and_suppression(written) == (3, ["jane@example.com"])
+    assert _version_and_suppression(written) == (4, ["jane@example.com"])
 
 
 def test_backup_to_missing_folder_exits_1_and_creates_nothing(
@@ -110,7 +110,7 @@ def test_without_to_the_folder_comes_from_cottonwood_config(
     assert code == EXIT_OK
     written = _written_path(capsys.readouterr().out)
     assert written.parent == dest
-    assert _version_and_suppression(written) == (3, ["jane@example.com"])
+    assert _version_and_suppression(written) == (4, ["jane@example.com"])
 
 
 def test_config_flag_beats_env_var(
@@ -173,7 +173,7 @@ def test_two_backups_in_the_same_second_get_distinct_names(tmp_path: Path) -> No
     assert third.name == "cottonwood-20261115T100000Z-3.db"
     assert sorted(p.name for p in dest.iterdir()) == sorted([first.name, second.name, third.name])
     for path in (first, second, third):
-        assert _version_and_suppression(path) == (3, ["jane@example.com"])
+        assert _version_and_suppression(path) == (4, ["jane@example.com"])
 
 
 def test_shipped_pilot_config_sets_backup_dir() -> None:
