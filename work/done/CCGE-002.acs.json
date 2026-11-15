@@ -1,0 +1,92 @@
+{
+  "task_id": "CCGE-002",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `UV_OFFLINE=1 UV_NO_SYNC=1 uv run cottonwood --help` in the worktree. The output lists the subcommand `migrate   Create or upgrade the SQLite database by applying pending migrations.` The subcommand is registered in cottonwood/cli.py around line 58.",
+          "file": "cottonwood/cli.py",
+          "line": 58,
+          "quote": "\"migrate\","
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `uv run cottonwood migrate --db <scratchpad>/ac2-fresh.db` on a path I had not created. It exited 0 and printed 'at version 1 (applied 1)'. I then opened the new file with sqlite3. `PRAGMA user_version` returned [(1,)] and `select * from sqlite_master` returned [], so there are no table rows at all. db/migrations/001_baseline.sql creates no tables. I did not read cottonwood/db.py or cli.py line by line, and I did not run tests/test_migrate.py.",
+          "file": "db/migrations/001_baseline.sql",
+          "line": 1,
+          "quote": "-- 001_baseline: the skeleton's starting version. Creates no tables."
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_second_migrate_applies_nothing in tests/test_migrate.py runs `main([\"migrate\",\"--db\",path])` twice on the same file. It asserts the second call returns EXIT_OK, that _version(path)==1 afterward, and that the output says 'at version 1 (applied 0)'. db.migrate skips any migration whose number is <= the current user_version (cottonwood/db.py), so a rerun applies nothing. I ran the suite and all 13 tests passed. I did not read EXIT_OK in cottonwood/cli.py. I assumed it is 0, which fits the AC's 'exits 0'.",
+          "file": "tests/test_migrate.py",
+          "line": 56,
+          "quote": "def test_second_migrate_applies_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_migrate.py::test_migrations_apply_in_numeric_order builds a tmp migrations dir with 002_add_row.sql and 001_create.sql. 002 depends on the table 001 creates, so it only passes if they run in numeric order. It asserts applied numbers == [1, 2] and user_version == 2. test_migration_at_or_below_current_version_is_not_applied sets user_version=1 and pre-creates the table, so re-running 001 would fail. It asserts only [2] is applied and the version ends at 2. db.migrate (cottonwood/db.py:102-105) skips any migration with number <= start, and _apply sets user_version in the same transaction. All 13 tests in tests/test_migrate.py passed.",
+          "file": "cottonwood/db.py",
+          "line": 103,
+          "quote": "if migration.number <= start:"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "db.migrate raises FolderMissingError before sqlite3.connect when the parent is not a dir (db.py:94-96), so no file is created. test_missing_folder_exits_1_names_it_and_creates_nothing asserts exit code == EXIT_REFUSED (1), the folder path in stderr, and that neither the db file nor the folder exists. The test passed when I ran it (1 passed). I did not read the cli.py handler that turns FolderMissingError into exit 1 and the stderr message; the passing test covers that path.",
+          "file": "tests/test_migrate.py",
+          "line": 151,
+          "quote": "code = main([\"migrate\", \"--db\", str(path)])\n\n    assert code == EXIT_REFUSED\n    assert str(folder) in capsys.readouterr().err\n    assert not path.exists()"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "default_db_path() returns $COTTONWOOD_DB when it is set and data/cottonwood.db otherwise (cottonwood/db.py:46-50). test_env_var_sets_the_database_path (tests/test_migrate.py:158) sets the env var, runs `migrate` without --db and checks that the env file is created. It also checks that no data/ directory appears. test_default_path_is_data_cottonwood_db (tests/test_migrate.py:174) deletes the env var, runs `migrate` and checks that data/cottonwood.db exists at user_version 1. All 13 tests pass. `git check-ignore -v data/cottonwood.db` matched .gitignore:19 `data/`.",
+          "file": "cottonwood/db.py",
+          "line": 48,
+          "quote": "\"\"\"Return the database path: $COTTONWOOD_DB when set, else data/cottonwood.db.\"\"\""
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "`UV_OFFLINE=1 UV_NO_SYNC=1 uv run pytest -v` exited 0 with 17 passed. 4 tests ran from tests/test_cli.py and 13 from tests/test_migrate.py.",
+          "file": "tests/test_migrate.py",
+          "line": 1,
+          "quote": "tests/test_migrate.py::test_migrate_creates_empty_versioned_file PASSED; ============================== 17 passed in 0.03s =============================="
+        },
+        {
+          "index": 8,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. `uv run ruff check` printed 'All checks passed!' (rc=0). `uv run ruff format --check` printed '27 files already formatted' (rc=0). `uv run mypy` printed 'Success: no issues found in 6 source files' (rc=0).",
+          "file": "cottonwood/db.py",
+          "line": 1,
+          "quote": "Success: no issues found in 6 source files"
+        }
+      ],
+      "returns_through": "2026-11-15T09:38:47.780Z"
+    }
+  ]
+}
