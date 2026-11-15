@@ -686,6 +686,8 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
     for outcome in result.outcomes:
         stream = sys.stderr if outcome.rejection is not None else sys.stdout
         print(outcome.line(), file=stream)
+        for line in outcome.difference_lines():
+            print(line)
     print(result.summary())
     return EXIT_REFUSED if result.rejected else EXIT_OK
 
