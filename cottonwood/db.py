@@ -8,7 +8,8 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "db" / "migrations"
+# Shipped inside the package so a regular (non-editable) wheel install finds them.
+MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 DEFAULT_DB_PATH = Path("data") / "cottonwood.db"
 DB_ENV_VAR = "COTTONWOOD_DB"
 
