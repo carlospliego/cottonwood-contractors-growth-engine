@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 _EMAIL_DOMAIN = re.compile(r"^[a-z0-9-]+(\.[a-z0-9-]+)+$")
-_PHONE_ALLOWED = re.compile(r"^\+?[\d\s().-]+$")
+_PHONE_ALLOWED = re.compile(r"^\+?[0-9\s().-]+$")
 _SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*://")
 _NAME_PUNCTUATION = re.compile(r"[^\w\s]")
 _WHITESPACE = re.compile(r"\s+")
