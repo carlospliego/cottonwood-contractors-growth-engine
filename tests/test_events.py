@@ -151,7 +151,7 @@ def test_validate_event_refuses_time_after_now() -> None:
     assert ok.occurred_at == "2026-11-16T16:30:01Z"
 
 
-@pytest.mark.parametrize("bad_type", ["bogus", "correction", "stage_change", "Call"])
+@pytest.mark.parametrize("bad_type", ["bogus", "stage_change", "Call"])
 def test_unknown_type_is_a_usage_error(db_path: Path, bad_type: str) -> None:
     assert _event(db_path, "1", bad_type, "--at", AT) == EXIT_USAGE
     assert _events(db_path) == []

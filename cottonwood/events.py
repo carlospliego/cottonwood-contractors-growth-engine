@@ -249,12 +249,197 @@ def _insert_activity(
     actor: str,
     occurred_at: str,
     recorded_at: str,
+    voids_activity_id: int | None = None,
 ) -> int:
     """Insert one activity row (no contact) and return its id."""
     return _rowid(
         conn.execute(
             "INSERT INTO activities (lead_id, contact_id, type, payload, actor, occurred_at,"
-            " recorded_at) VALUES (?, NULL, ?, ?, ?, ?, ?)",
-            (lead_id, activity_type, json.dumps(payload), actor, occurred_at, recorded_at),
+            " recorded_at, voids_activity_id) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
+            (
+                lead_id,
+                activity_type,
+                json.dumps(payload),
+                actor,
+                occurred_at,
+                recorded_at,
+                voids_activity_id,
+            ),
         )
     )
+
+
+# R-17: the one definition of a counted activity, over an activities row aliased ``a``. A
+# correction never counts, nor does what a correction voids, nor a stage change whose causing
+# event is void; activities on test leads (R-3) do not count, entries with no lead do.
+COUNTED_ACTIVITIES_SQL = (
+    "a.type <> 'correction'"
+    " AND NOT EXISTS (SELECT 1 FROM activities c"
+    " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
+    " AND NOT (a.type = 'stage_change' AND EXISTS (SELECT 1 FROM activities c"
+    " WHERE c.type = 'correction'"
+    " AND c.voids_activity_id = json_extract(a.payload, '$.event_activity_id')))"
+    " AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l"
+    " WHERE l.id = a.lead_id AND l.is_test = 0))"
+)
+
+# A stage change still in force: nothing voids it and nothing voids the event behind it.
+_EFFECTIVE_STAGE_CHANGE_SQL = (
+    "a.type = 'stage_change'"
+    " AND NOT EXISTS (SELECT 1 FROM activities c"
+    " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
+    " AND NOT EXISTS (SELECT 1 FROM activities c WHERE c.type = 'correction'"
+    " AND c.voids_activity_id = json_extract(a.payload, '$.event_activity_id'))"
+)
+
+
+def counted_activities(
+    conn: sqlite3.Connection, activity_type: str | None = None
+) -> list[sqlite3.Row]:
+    """Counted activities (COUNTED_ACTIVITIES_SQL), oldest first, optionally of one type."""
+    sql = f"SELECT a.* FROM activities a WHERE {COUNTED_ACTIVITIES_SQL}"
+    params: tuple[object, ...] = ()
+    if activity_type is not None:
+        sql += " AND a.type = ?"
+        params = (activity_type,)
+    return list(conn.execute(sql + " ORDER BY a.occurred_at, a.id", params))
+
+
+@dataclass(frozen=True)
+class RawCorrection:
+    """Operator input for a correction, before validation."""
+
+    lead_id: int
+    voids_id: int
+    at: str
+    note: str | None = None
+    actor: str = DEFAULT_ACTOR
+
+
+@dataclass(frozen=True)
+class Correction:
+    """A validated correction, ready to store."""
+
+    lead_id: int
+    voids_id: int
+    occurred_at: str
+    note: str | None
+    actor: str
+
+
+class LoggedCorrection(NamedTuple):
+    """What log_correction wrote: the correction, and the stage revert it caused (if any)."""
+
+    correction_id: int
+    stage_change_id: int | None
+    from_stage: str | None
+    to_stage: str | None
+
+
+def validate_correction(raw: RawCorrection, now: str) -> Correction:
+    """Check a correction's time, note and actor; the target is checked in log_correction."""
+    try:
+        occurred_at = timeutil.parse_received(raw.at)
+    except ValueError as exc:
+        raise EventError("at", str(exc)) from None
+    if occurred_at > now:
+        raise EventError("at", f"is later than now ({timeutil.display_local(now)})")
+    actor = _clean(raw.actor)
+    if actor is None:
+        raise EventError("actor", "must not be empty")
+    return Correction(
+        lead_id=raw.lead_id,
+        voids_id=raw.voids_id,
+        occurred_at=occurred_at,
+        note=_clean(raw.note),
+        actor=actor,
+    )
+
+
+def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCorrection:
+    """Void one R-15 event of the lead; revert the stage it set if that is still the latest."""
+    now = timeutil.utc_now()
+    lead_id = correction.lead_id
+    voids_id = correction.voids_id
+    try:
+        lead = conn.execute("SELECT stage FROM leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise LeadNotFoundError(lead_id)
+        target = conn.execute(
+            "SELECT id, lead_id, type, occurred_at FROM activities WHERE id = ?", (voids_id,)
+        ).fetchone()
+        if target is None:
+            raise EventError("voids", f"no activity {voids_id}")
+        if target["lead_id"] != lead_id:
+            raise EventError("voids", f"activity {voids_id} is not an activity of lead {lead_id}")
+        if target["type"] not in EVENT_TYPES:
+            raise EventError(
+                "voids", f"activity {voids_id} is a {target['type']}, not an event (R-15)"
+            )
+        voided_by = conn.execute(
+            "SELECT id FROM activities WHERE type = 'correction' AND voids_activity_id = ?",
+            (voids_id,),
+        ).fetchone()
+        if voided_by is not None:
+            raise EventError(
+                "voids", f"activity {voids_id} is already void (correction {voided_by['id']})"
+            )
+        if correction.occurred_at < str(target["occurred_at"]):
+            raise EventError(
+                "at", f"is earlier than activity {voids_id}, which a correction must follow"
+            )
+        caused = conn.execute(
+            f"SELECT a.id, a.payload FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+            " AND json_extract(a.payload, '$.event_activity_id') = ?",
+            (voids_id,),
+        ).fetchone()
+        if caused is not None:
+            # A revert (a stage change caused by a correction) only undoes a voided change, so
+            # the latest change still in force is the newest effective one caused by an event.
+            latest = conn.execute(
+                f"SELECT a.id FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+                " AND a.lead_id = ? AND NOT EXISTS (SELECT 1 FROM activities r"
+                " WHERE r.id = json_extract(a.payload, '$.event_activity_id')"
+                " AND r.type = 'correction')"
+                " ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+                (lead_id,),
+            ).fetchone()
+            if latest is not None and latest["id"] != caused["id"]:
+                raise EventError(
+                    "voids",
+                    f"lead {lead_id} has a later stage change (activity {latest['id']});"
+                    " void the event behind it first",
+                )
+        payload: dict[str, object] = {}
+        if correction.note is not None:
+            payload["note"] = correction.note
+        correction_id = _insert_activity(
+            conn,
+            lead_id,
+            "correction",
+            payload,
+            correction.actor,
+            correction.occurred_at,
+            now,
+            voids_activity_id=voids_id,
+        )
+        stage_change_id = None
+        from_stage = to_stage = None
+        if caused is not None:
+            from_stage = str(lead["stage"])
+            to_stage = str(json.loads(caused["payload"])["from"])
+            conn.execute("UPDATE leads SET stage = ? WHERE id = ?", (to_stage, lead_id))
+            stage_change_id = _insert_activity(
+                conn,
+                lead_id,
+                "stage_change",
+                {"from": from_stage, "to": to_stage, "event_activity_id": correction_id},
+                correction.actor,
+                correction.occurred_at,
+                now,
+            )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return LoggedCorrection(correction_id, stage_change_id, from_stage, to_stage)

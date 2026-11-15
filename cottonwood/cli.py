@@ -252,7 +252,10 @@ def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the log-event command's arguments (R-15)."""
     parser.add_argument("lead_id", type=int, metavar="LEAD_ID", help="the lead's id")
     parser.add_argument(
-        "type", choices=events.EVENT_TYPES, metavar="TYPE", help=", ".join(events.EVENT_TYPES)
+        "type",
+        choices=(*events.EVENT_TYPES, "correction"),
+        metavar="TYPE",
+        help=", ".join(events.EVENT_TYPES) + ", or correction (with --voids)",
     )
     parser.add_argument(
         "--at",
@@ -281,6 +284,13 @@ def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
         help=f"URL of an accessible active procurement; only with --stage {events.QUALIFIED_STAGE}",
     )
     parser.add_argument(
+        "--voids",
+        type=int,
+        default=None,
+        metavar="ACTIVITY_ID",
+        help="with correction: the event activity to void (R-17)",
+    )
+    parser.add_argument(
         "--actor",
         default=events.DEFAULT_ACTOR,
         help=f"who logs it (default: {events.DEFAULT_ACTOR})",
@@ -293,8 +303,61 @@ def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _run_correction(args: argparse.Namespace) -> int:
+    """Void an earlier event of the lead with an appended correction (R-17)."""
+    if args.voids is None:
+        print("error: voids: a correction needs --voids ACTIVITY_ID", file=sys.stderr)
+        return EXIT_REFUSED
+    for flag, value in (
+        ("stage", args.stage),
+        ("need", args.need),
+        ("procurement-url", args.procurement_url),
+    ):
+        if value is not None:
+            print(f"error: {flag}: not allowed with a correction", file=sys.stderr)
+            return EXIT_REFUSED
+    raw = events.RawCorrection(
+        lead_id=args.lead_id, voids_id=args.voids, at=args.at, note=args.note, actor=args.actor
+    )
+    try:
+        correction = events.validate_correction(raw, timeutil.utc_now())
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        logged = events.log_correction(conn, correction)
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not save the correction: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    line = (
+        f"logged correction activity {logged.correction_id} for lead {correction.lead_id}"
+        f" at {timeutil.display_local(correction.occurred_at)}; voids activity"
+        f" {correction.voids_id}"
+    )
+    if logged.stage_change_id is not None:
+        line += f"; stage {logged.from_stage} -> {logged.to_stage}"
+    print(line)
+    return EXIT_OK
+
+
 def _run_log_event(args: argparse.Namespace) -> int:
-    """Record an event on a lead as one activity."""
+    """Record an event on a lead as one activity, or a correction voiding one."""
+    if args.type == "correction":
+        return _run_correction(args)
+    if args.voids is not None:
+        print("error: voids: only allowed with type correction", file=sys.stderr)
+        return EXIT_REFUSED
     raw = events.RawEvent(
         lead_id=args.lead_id,
         type=args.type,
