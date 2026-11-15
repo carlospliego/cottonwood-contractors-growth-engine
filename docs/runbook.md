@@ -56,9 +56,10 @@ DETACH DATABASE before_restore;
 ```
 
 `INSERT OR IGNORE` skips an address that is already suppressed, so running it twice is safe.
-Never use `INSERT OR REPLACE`: the suppression table rejects changes to existing rows. If
-`missing` is not 0 (an entry was added before the backup but is not in it), drop the `WHERE`
-line and run the block again; copying every row is also safe for the same reason.
+Do not use `INSERT OR REPLACE` to change an entry: an existing suppression row is never
+replaced (the insert is silently skipped and the old row stays). If `missing` is not 0 (an
+entry was added before the backup but is not in it), drop the `WHERE` line and run the block
+again; copying every row is also safe for the same reason.
 
 Keep the set-aside file until you are sure the restore is good, then delete it. It holds
 contact data, so never copy it outside `data/`.

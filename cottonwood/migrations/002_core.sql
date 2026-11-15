@@ -101,6 +101,14 @@ BEGIN
     SELECT RAISE(ABORT, 'activities are append-only');
 END;
 
+-- REPLACE conflict resolution deletes the old row without firing DELETE triggers, so an
+-- insert that reuses an existing id is refused here, before the conflict is resolved.
+CREATE TRIGGER activities_no_replace BEFORE INSERT ON activities
+WHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM activities WHERE id = NEW.id)
+BEGIN
+    SELECT RAISE(ABORT, 'activities are append-only');
+END;
+
 CREATE TABLE agent_runs (
     id INTEGER PRIMARY KEY,
     skill TEXT NOT NULL,
@@ -133,4 +141,13 @@ END;
 CREATE TRIGGER suppression_no_delete BEFORE DELETE ON suppression
 BEGIN
     SELECT RAISE(ABORT, 'suppression entries are never deleted or changed');
+END;
+
+-- REPLACE would delete the existing entry without firing DELETE triggers. An insert for an
+-- address that is already suppressed is skipped instead (RAISE(IGNORE), not ABORT, so the
+-- runbook's INSERT OR IGNORE re-apply and deletion steps keep working): the old row stays.
+CREATE TRIGGER suppression_no_replace BEFORE INSERT ON suppression
+WHEN EXISTS (SELECT 1 FROM suppression WHERE email_norm = NEW.email_norm)
+BEGIN
+    SELECT RAISE(IGNORE);
 END;
