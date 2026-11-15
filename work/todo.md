@@ -49,6 +49,11 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-053` — Review tests pin the clock but never assert the Generated line, the empty-database message, or anything rea... → [CCGE-053.md](tasks/CCGE-053.md)
 - [ ] `CCGE-054` — The runbook's inbound commands and expected outputs are checked only as substrings, never run → [CCGE-054.md](tasks/CCGE-054.md)
 - [ ] `CCGE-055` — Review table cells pass inquirer-supplied Markdown links and raw HTML through to the founder's review → [CCGE-055.md](tasks/CCGE-055.md)
+- [x] `CCGE-056` — log-event command for the R-15 event types → [CCGE-056.md](tasks/CCGE-056.md)
+- [x] `CCGE-057` — Stage moves within R-14 and the R-16 qualification rule → [CCGE-057.md](tasks/CCGE-057.md)
+- [x] `CCGE-058` — Corrections void events and void activities drop out of counts → [CCGE-058.md](tasks/CCGE-058.md)
+- [x] `CCGE-059` — log-time and log-cost with corrections and totals → [CCGE-059.md](tasks/CCGE-059.md)
+- [ ] `CCGE-060` — Backdated stage changes and the latest-effective-stage rule disagree → [CCGE-060.md](tasks/CCGE-060.md)
 
 ## Done
 

@@ -161,7 +161,7 @@ def test_voiding_latest_stage_event_reverts_the_stage(
         "event_activity_id": fix_id,
     }
     assert revert["occurred_at"] == "2026-11-16T17:00:00Z"
-    assert revert["id"] in _counted_ids(db_path)
+    assert revert["id"] not in _counted_ids(db_path)
     assert "stage walkthrough -> contacted_or_replied" in capsys.readouterr().out
     # The earlier change is now the latest effective one, so it can be reverted in turn.
     call_id = _last_id(db_path, "call")

@@ -274,14 +274,17 @@ def _insert_activity(
 
 # R-17: the one definition of a counted activity, over an activities row aliased ``a``. A
 # correction never counts, nor does what a correction voids, nor a stage change whose causing
-# event is void; activities on test leads (R-3) do not count, entries with no lead do.
+# event is void, nor a revert (a stage change caused by a correction), so history reads as if
+# the voided move never happened; activities on test leads (R-3) do not count, entries with no
+# lead do.
 COUNTED_ACTIVITIES_SQL = (
     "a.type <> 'correction'"
     " AND NOT EXISTS (SELECT 1 FROM activities c"
     " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
     " AND NOT (a.type = 'stage_change' AND EXISTS (SELECT 1 FROM activities c"
     " WHERE c.type = 'correction'"
-    " AND c.voids_activity_id = json_extract(a.payload, '$.event_activity_id')))"
+    " AND (c.voids_activity_id = json_extract(a.payload, '$.event_activity_id')"
+    " OR c.id = json_extract(a.payload, '$.event_activity_id'))))"
     " AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l"
     " WHERE l.id = a.lead_id AND l.is_test = 0))"
 )
