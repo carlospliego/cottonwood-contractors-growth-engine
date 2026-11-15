@@ -6,3 +6,12 @@ paths:
   # Where `cottonwood backup` writes copies when no --to is given.
   # The folder must exist; data/ is git-ignored, so backups never reach git.
   backup_dir: data/backups
+
+# Settings `cottonwood report` reads. Both keys are optional; leave them unset until decided.
+# report:
+#   # Monthly model-cost cap in USD. The report shows month-to-date model cost against it;
+#   # it is a record, never enforced. Unset: the report says no cap is configured.
+#   model_cost_cap_usd: 100
+#   # The open question that blocks sending outreach. When set, the report says sending is
+#   # blocked and quotes this text. Unset or blank: nothing is blocked.
+#   sending_blocked_by: "Q3: which domain sends outreach"

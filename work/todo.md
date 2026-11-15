@@ -68,9 +68,18 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-076` — Assert the log-time and log-cost confirmation lines → [CCGE-076.md](tasks/CCGE-076.md)
 - [ ] `CCGE-077` — Assert --actor is stored on entries, voids and corrections → [CCGE-077.md](tasks/CCGE-077.md)
 - [ ] `CCGE-078` — Test combined and padded --need and --procurement-url payloads → [CCGE-078.md](tasks/CCGE-078.md)
+- [ ] `CCGE-083` — Report survives very large cap and cost values instead of an InvalidOperation traceback → [CCGE-083.md](tasks/CCGE-083.md)
+- [ ] `CCGE-084` — Report handles malformed stored payloads and timestamps without a traceback → [CCGE-084.md](tasks/CCGE-084.md)
+- [ ] `CCGE-085` — Make the events and review helpers the report uses public → [CCGE-085.md](tasks/CCGE-085.md)
+- [ ] `CCGE-086` — Test that non-finite agent_runs.cost_usd values are skipped → [CCGE-086.md](tasks/CCGE-086.md)
+- [ ] `CCGE-087` — Test the report command's --out write failure and database read failure branches → [CCGE-087.md](tasks/CCGE-087.md)
 
 ## Done
 
+- [x] `CCGE-082` — Model cost against the cap, other costs and blocked sending → [CCGE-082.md](done/CCGE-082.md)
+- [x] `CCGE-081` — Prospecting, outreach, replies, data quality and referrals → [CCGE-081.md](done/CCGE-081.md)
+- [x] `CCGE-080` — Conversations, outcomes, hours and the month-one KPI → [CCGE-080.md](done/CCGE-080.md)
+- [x] `CCGE-079` — report command: period, output and inbound handling metrics → [CCGE-079.md](done/CCGE-079.md)
 - [x] `CCGE-059` — log-time and log-cost with corrections and totals → [CCGE-059.md](done/CCGE-059.md)
 - [x] `CCGE-058` — Corrections void events and void activities drop out of counts → [CCGE-058.md](done/CCGE-058.md)
 - [x] `CCGE-057` — Stage moves within R-14 and the R-16 qualification rule → [CCGE-057.md](done/CCGE-057.md)
