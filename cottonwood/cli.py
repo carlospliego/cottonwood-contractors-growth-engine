@@ -266,6 +266,21 @@ def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
         help="what happened (required for note); never put contact details here",
     )
     parser.add_argument(
+        "--stage",
+        default=None,
+        help="move the lead to this R-14 stage (the move is recorded as a stage_change)",
+    )
+    parser.add_argument(
+        "--need",
+        default=None,
+        help=f"the prospect's confirmed need; only with --stage {events.QUALIFIED_STAGE}",
+    )
+    parser.add_argument(
+        "--procurement-url",
+        default=None,
+        help=f"URL of an accessible active procurement; only with --stage {events.QUALIFIED_STAGE}",
+    )
+    parser.add_argument(
         "--actor",
         default=events.DEFAULT_ACTOR,
         help=f"who logs it (default: {events.DEFAULT_ACTOR})",
@@ -281,7 +296,14 @@ def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
 def _run_log_event(args: argparse.Namespace) -> int:
     """Record an event on a lead as one activity."""
     raw = events.RawEvent(
-        lead_id=args.lead_id, type=args.type, at=args.at, note=args.note, actor=args.actor
+        lead_id=args.lead_id,
+        type=args.type,
+        at=args.at,
+        note=args.note,
+        actor=args.actor,
+        stage=args.stage,
+        need=args.need,
+        procurement_url=args.procurement_url,
     )
     try:
         event = events.validate_event(raw, timeutil.utc_now())
@@ -295,7 +317,7 @@ def _run_log_event(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
-        activity_id = events.log_event(conn, event)
+        logged = events.log_event(conn, event)
     except events.EventError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
@@ -304,10 +326,13 @@ def _run_log_event(args: argparse.Namespace) -> int:
         return EXIT_REFUSED
     finally:
         conn.close()
-    print(
-        f"logged {event.type} activity {activity_id} for lead {event.lead_id}"
+    line = (
+        f"logged {event.type} activity {logged.event_id} for lead {event.lead_id}"
         f" at {timeutil.display_local(event.occurred_at)}"
     )
+    if logged.stage_change_id is not None:
+        line += f"; stage {logged.from_stage} -> {event.stage}"
+    print(line)
     return EXIT_OK
 
 

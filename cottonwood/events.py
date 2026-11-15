@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
+from typing import NamedTuple
+from urllib.parse import urlparse
 
 from cottonwood import timeutil
 
@@ -24,6 +26,34 @@ EVENT_TYPES = (
     "note",
 )
 DEFAULT_ACTOR = "developer"
+
+# R-14: direct and inbound leads share one list; relationship prospects have their own.
+DIRECT_STAGES = (
+    "candidate",
+    "researched",
+    "contacted_or_replied",
+    "buyer_need_confirmed",
+    "walkthrough",
+    "proposal",
+    "won",
+    "lost",
+    "closed_no_fit",
+)
+RELATIONSHIP_STAGES = (
+    "identified",
+    "researched",
+    "introduced",
+    "responded",
+    "active_relationship",
+    "closed_no_fit",
+)
+STAGES_BY_LEAD_TYPE = {
+    "inbound_inquiry": DIRECT_STAGES,
+    "direct_candidate": DIRECT_STAGES,
+    "relationship_prospect": RELATIONSHIP_STAGES,
+}
+# R-16: the only way into this stage is an event stating the need or a procurement URL.
+QUALIFIED_STAGE = "buyer_need_confirmed"
 
 
 class EventError(ValueError):
@@ -54,6 +84,9 @@ class RawEvent:
     at: str
     note: str | None = None
     actor: str = DEFAULT_ACTOR
+    stage: str | None = None
+    need: str | None = None
+    procurement_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +98,17 @@ class Event:
     occurred_at: str
     note: str | None
     actor: str
+    stage: str | None = None
+    need: str | None = None
+    procurement_url: str | None = None
+
+
+class LoggedEvent(NamedTuple):
+    """What log_event wrote: the event, and the stage change it caused (if any)."""
+
+    event_id: int
+    stage_change_id: int | None
+    from_stage: str | None
 
 
 def _clean(value: str | None) -> str | None:
@@ -92,9 +136,27 @@ def validate_event(raw: RawEvent, now: str) -> Event:
     actor = _clean(raw.actor)
     if actor is None:
         raise EventError("actor", "must not be empty")
+    # The R-16 rule needs the lead's type (an out-of-list stage is refused first, with the
+    # type's allowed stages), so it is checked in log_event; here blank text only stays blank.
+    stage = _clean(raw.stage)
+    need = None if raw.need is None else raw.need.strip()
+    procurement_url = None if raw.procurement_url is None else raw.procurement_url.strip()
     return Event(
-        lead_id=raw.lead_id, type=raw.type, occurred_at=occurred_at, note=note, actor=actor
+        lead_id=raw.lead_id,
+        type=raw.type,
+        occurred_at=occurred_at,
+        note=note,
+        actor=actor,
+        stage=stage,
+        need=need,
+        procurement_url=procurement_url,
     )
+
+
+def _is_http_url(value: str) -> bool:
+    """True for an absolute http(s) URL with a host."""
+    parsed = urlparse(value)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
 
 
 def _rowid(cursor: sqlite3.Cursor) -> int:
@@ -104,32 +166,95 @@ def _rowid(cursor: sqlite3.Cursor) -> int:
     return cursor.lastrowid
 
 
-def log_event(conn: sqlite3.Connection, event: Event) -> int:
-    """Append one event activity for the lead in one transaction; return its id."""
+def _check_stage(lead_type: str, current: str, stage: str) -> None:
+    """Refuse a stage outside the lead type's R-14 list, or the lead's current stage."""
+    allowed = STAGES_BY_LEAD_TYPE.get(lead_type, ())
+    listing = ", ".join(allowed)
+    if stage not in allowed:
+        raise EventError(
+            "stage", f"{stage!r} is not a stage for {lead_type} leads; allowed: {listing}"
+        )
+    if stage == current:
+        raise EventError("stage", f"lead is already at {stage}; allowed: {listing}")
+
+
+def _check_qualification(event: Event) -> None:
+    """R-16: buyer_need_confirmed needs a stated need or an http(s) procurement URL.
+
+    --need and --procurement-url are refused with any other stage (or none). An empty value
+    counts as given but blank.
+    """
+    if event.stage == QUALIFIED_STAGE:
+        if not event.need and not event.procurement_url:
+            raise EventError(
+                "stage",
+                f"{QUALIFIED_STAGE} needs --need (the confirmed need) or --procurement-url",
+            )
+        if event.procurement_url and not _is_http_url(event.procurement_url):
+            raise EventError("procurement-url", "must be an absolute http or https URL")
+    elif event.need is not None or event.procurement_url is not None:
+        raise EventError(
+            "need" if event.need is not None else "procurement-url",
+            f"only allowed with --stage {QUALIFIED_STAGE}",
+        )
+
+
+def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
+    """Append the event and, with a stage, the move and its stage_change, in one transaction."""
     now = timeutil.utc_now()
     try:
-        lead = conn.execute("SELECT id FROM leads WHERE id = ?", (event.lead_id,)).fetchone()
+        lead = conn.execute(
+            "SELECT id, type, stage FROM leads WHERE id = ?", (event.lead_id,)
+        ).fetchone()
         if lead is None:
             raise LeadNotFoundError(event.lead_id)
+        from_stage = str(lead[2])
+        if event.stage is not None:
+            _check_stage(str(lead[1]), from_stage, event.stage)
+        _check_qualification(event)
         payload: dict[str, object] = {"event": event.type}
         if event.note is not None:
             payload["note"] = event.note
-        activity_id = _rowid(
-            conn.execute(
-                "INSERT INTO activities (lead_id, contact_id, type, payload, actor, occurred_at,"
-                " recorded_at) VALUES (?, NULL, ?, ?, ?, ?, ?)",
-                (
-                    event.lead_id,
-                    event.type,
-                    json.dumps(payload),
-                    event.actor,
-                    event.occurred_at,
-                    now,
-                ),
-            )
+        if event.need:
+            payload["need"] = event.need
+        if event.procurement_url:
+            payload["procurement_url"] = event.procurement_url
+        event_id = _insert_activity(
+            conn, event.lead_id, event.type, payload, event.actor, event.occurred_at, now
         )
+        stage_change_id = None
+        if event.stage is not None:
+            conn.execute("UPDATE leads SET stage = ? WHERE id = ?", (event.stage, event.lead_id))
+            stage_change_id = _insert_activity(
+                conn,
+                event.lead_id,
+                "stage_change",
+                {"from": from_stage, "to": event.stage, "event_activity_id": event_id},
+                event.actor,
+                event.occurred_at,
+                now,
+            )
         conn.commit()
     except BaseException:
         conn.rollback()
         raise
-    return activity_id
+    return LoggedEvent(event_id, stage_change_id, from_stage if stage_change_id else None)
+
+
+def _insert_activity(
+    conn: sqlite3.Connection,
+    lead_id: int | None,
+    activity_type: str,
+    payload: dict[str, object],
+    actor: str,
+    occurred_at: str,
+    recorded_at: str,
+) -> int:
+    """Insert one activity row (no contact) and return its id."""
+    return _rowid(
+        conn.execute(
+            "INSERT INTO activities (lead_id, contact_id, type, payload, actor, occurred_at,"
+            " recorded_at) VALUES (?, NULL, ?, ?, ?, ?, ?)",
+            (lead_id, activity_type, json.dumps(payload), actor, occurred_at, recorded_at),
+        )
+    )
