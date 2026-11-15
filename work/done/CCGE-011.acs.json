@@ -1,0 +1,92 @@
+{
+  "task_id": "CCGE-011",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_migrate_on_new_file_gives_version_2_and_exactly_the_core_tables runs `main([\"migrate\"...])` on a fresh file. It asserts db.user_version == 2 and that the non-sqlite_ tables equal sorted(KEY_COLUMNS). KEY_COLUMNS has exactly 7 keys (organizations, contacts, leads, evidence, activities, agent_runs, suppression), which match the seven required tables. 002_core.sql creates the same 7 tables. I ran tests/test_schema.py and tests/test_migrate.py, and all 65 passed.",
+          "file": "tests/test_schema.py",
+          "line": 154,
+          "quote": "def test_migrate_on_new_file_gives_version_2_and_exactly_the_core_tables("
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_schema.py defines KEY_COLUMNS for all 7 architecture tables (organizations, contacts, leads, evidence, activities, agent_runs, suppression). I compared each set against the architecture.md lines 61-67 table and they match, including activities = id, lead_id, contact_id, type, payload, actor, occurred_at, recorded_at, voids_activity_id. The parametrized test_table_has_key_columns runs PRAGMA table_info on a freshly migrated DB and asserts KEY_COLUMNS[table] is a subset of the real columns. It ran with 7 passed. A second test asserts the DB has exactly those 7 tables.",
+          "file": "tests/test_schema.py",
+          "line": 170,
+          "quote": "@pytest.mark.parametrize(\"table\", sorted(KEY_COLUMNS))\ndef test_table_has_key_columns(conn: sqlite3.Connection, table: str) -> None:\n    columns = {str(row[\"name\"]) for row in conn.execute(f\"PRAGMA table_info({table})\")}\n    assert KEY_COLUMNS[table] <= columns"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_schema.py has test_activity_update_is_rejected_and_row_unchanged and test_activity_delete_is_rejected_and_row_unchanged. Each inserts an activity and snapshots the row. Each then asserts pytest.raises(sqlite3.IntegrityError, match='append-only') on the UPDATE or DELETE, and checks that the row equals the snapshot afterwards. The BEFORE UPDATE and BEFORE DELETE triggers in 002_core.sql (lines 94-102) call RAISE(ABORT). The full file ran 52 passed.",
+          "file": "tests/test_schema.py",
+          "line": 176,
+          "quote": "with pytest.raises(sqlite3.IntegrityError, match=\"append-only\"):\n        conn.execute(\"UPDATE activities SET actor = 'someone' WHERE id = ?\", (activity_id,))\n    conn.rollback()\n\n    assert _activity(conn, activity_id) == before"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_suppression_delete_is_rejected_and_row_kept inserts a suppression row and commits. It then expects DELETE to raise sqlite3.IntegrityError, matching 'never deleted'. After a rollback it asserts the row is still present. The migration's suppression_no_delete trigger (002_core.sql:133-136) raises ABORT, which Python surfaces as IntegrityError. Running pytest -k suppression gave 3 passed.",
+          "file": "tests/test_schema.py",
+          "line": 220,
+          "quote": "def test_suppression_delete_is_rejected_and_row_kept(conn: sqlite3.Connection) -> None:\n    _insert_suppression(conn)\n\n    with pytest.raises(sqlite3.IntegrityError, match=\"never deleted\"):\n        conn.execute(\"DELETE FROM suppression WHERE email_norm = 'jane@example.com'\")\n    conn.rollback()\n\n    assert _suppression_rows(conn) == [(\"jane@example.com\", \"opt_out\", \"reply\", NOW)]"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_schema.py:240 parametrizes test_allowed_type_stage_pair_inserts over ALLOWED_PAIRS. That list is built from the R-14 stage lists: 9 direct stages for inbound_inquiry, the same 9 for direct_candidate, and 6 relationship stages for relationship_prospect, which is 24 pairs. Each pair is inserted and read back. Lines 250-266 add a parametrized rejection test that includes (relationship_prospect, walkthrough) and (direct_candidate, introduced). It expects sqlite3.IntegrityError matching CHECK and a lead count of 0 afterwards. The leads CHECK constraint in 002_core.sql:54-63 matches R-14. I ran tests/test_schema.py and all 52 tests passed.",
+          "file": "tests/test_schema.py",
+          "line": 250,
+          "quote": "@pytest.mark.parametrize(\n    (\"lead_type\", \"stage\"),\n    [\n        (\"relationship_prospect\", \"walkthrough\"),\n        (\"direct_candidate\", \"introduced\"),"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_schema.py builds a database at user_version 1 (_make_version_1), migrates it to version 2 applying 002_core.sql, then migrates again and gets 0 applied. test_migrate_command_on_version_1_reports_applied_then_0 does the same through the CLI and checks the output 'at version 2 (applied 1)' then 'at version 2 (applied 0)'. Both tests passed when I ran them (2 passed).",
+          "file": "tests/test_schema.py",
+          "line": 310,
+          "quote": "def test_version_1_database_upgrades_to_2_then_applies_nothing(tmp_path: Path) -> None:\n    path = tmp_path / \"v1.db\"\n    _make_version_1(path)\n\n    first = db.migrate(path)\n    second = db.migrate(path)\n\n    assert (first.from_version, first.to_version) == (1, 2)"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "db.connect() runs PRAGMA foreign_keys = ON (cottonwood/db.py:70). The conn fixture in tests/test_schema.py:123 builds its connection with db.connect(). test_connect_turns_foreign_keys_on asserts the pragma returns 1 (tests/test_schema.py:335-336). test_contact_with_missing_organization_is_rejected inserts a contact with organization_id 999 and expects sqlite3.IntegrityError matching FOREIGN KEY (tests/test_schema.py:339-341). I ran tests/test_schema.py and all 52 tests passed.",
+          "file": "tests/test_schema.py",
+          "line": 339,
+          "quote": "def test_contact_with_missing_organization_is_rejected(conn: sqlite3.Connection) -> None:\n    with pytest.raises(sqlite3.IntegrityError, match=\"FOREIGN KEY\"):\n        conn.execute(\"INSERT INTO contacts (organization_id, name) VALUES (999, 'Jane')\")"
+        },
+        {
+          "index": 8,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran from the work directory with UV_OFFLINE=1 UV_NO_SYNC=1. `uv run pytest` exited 0 (116 passed). `uv run ruff check .` exited 0 (All checks passed!). `uv run ruff format --check .` exited 0 (49 files already formatted). `uv run mypy .` exited 0 (no issues found in 16 source files).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-011/tests/test_schema.py",
+          "line": 1,
+          "quote": "116 passed in 0.15s"
+        }
+      ],
+      "returns_through": "2026-11-15T10:12:29.125Z"
+    }
+  ]
+}

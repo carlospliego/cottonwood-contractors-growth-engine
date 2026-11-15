@@ -11,10 +11,6 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-007` — Document that migration files must not contain transaction control → [CCGE-007.md](tasks/CCGE-007.md)
 - [ ] `CCGE-008` — Test the unreadable-migration and rollback branches of _apply → [CCGE-008.md](tasks/CCGE-008.md)
 - [ ] `CCGE-009` — Refuse a database newer than the known migrations → [CCGE-009.md](tasks/CCGE-009.md)
-- [x] `CCGE-010` — UTC time and contact normalization helpers → [CCGE-010.md](tasks/CCGE-010.md)
-- [x] `CCGE-011` — Core schema migration with append-only triggers → [CCGE-011.md](tasks/CCGE-011.md)
-- [x] `CCGE-012` — Config loader and backup command → [CCGE-012.md](tasks/CCGE-012.md)
-- [x] `CCGE-013` — Runbook: restore and deletion-request procedures → [CCGE-013.md](tasks/CCGE-013.md)
 - [ ] `CCGE-014` — Backup to an unwritable folder exits 1 instead of a traceback → [CCGE-014.md](tasks/CCGE-014.md)
 - [ ] `CCGE-015` — Non-UTF-8 config file raises ConfigError → [CCGE-015.md](tasks/CCGE-015.md)
 - [ ] `CCGE-016` — normalize_name keeps word boundaries at hyphens → [CCGE-016.md](tasks/CCGE-016.md)
@@ -32,5 +28,9 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Done
 
+- [x] `CCGE-013` — Runbook: restore and deletion-request procedures → [CCGE-013.md](done/CCGE-013.md)
+- [x] `CCGE-012` — Config loader and backup command → [CCGE-012.md](done/CCGE-012.md)
+- [x] `CCGE-011` — Core schema migration with append-only triggers → [CCGE-011.md](done/CCGE-011.md)
+- [x] `CCGE-010` — UTC time and contact normalization helpers → [CCGE-010.md](done/CCGE-010.md)
 - [x] `CCGE-002` — Migrations runner and migrate command → [CCGE-002.md](done/CCGE-002.md)
 - [x] `CCGE-001` — Python package, tooling and CLI skeleton → [CCGE-001.md](done/CCGE-001.md)

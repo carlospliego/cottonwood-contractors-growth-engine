@@ -1,0 +1,92 @@
+{
+  "task_id": "CCGE-012",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_backup_copies_schema_and_rows migrates a temp DB and inserts a suppression row. It runs main(['backup','--db',...,'--to',dest]) and asserts exit 0. It parses the printed path, then asserts the parent is dest and the name fully matches cottonwood-\\d{8}T\\d{6}Z(-\\d+)?\\.db. It opens the copy and asserts user_version 2 and the suppression email. The test file passed (13/13).",
+          "file": "tests/test_backup.py",
+          "line": 57,
+          "quote": "    code = main([\"backup\", \"--db\", str(source), \"--to\", str(dest)])"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_backup_to_missing_folder_exits_1_and_creates_nothing runs main(['backup','--db',src,'--to',missing]) with a nonexistent folder. It asserts code == EXIT_REFUSED, which is 1 (cottonwood/cli.py:17). It asserts the captured stderr contains 'backup folder does not exist: <missing path>'. It asserts the missing folder does not exist afterwards, and that the tmp_path listing is identical to the listing taken before the call, so nothing was created. The test passed when run (1 passed).",
+          "file": "tests/test_backup.py",
+          "line": 75,
+          "quote": "    assert code == EXIT_REFUSED\n    err = capsys.readouterr().err\n    assert f\"backup folder does not exist: {missing}\" in err\n    assert not missing.exists()\n    assert sorted(p.name for p in tmp_path.iterdir()) == before"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_backup_of_missing_database_exits_1_and_names_it runs main(['backup','--db',<nonexistent>,'--to',dest]) and asserts the return code equals EXIT_REFUSED, which is 1 (cottonwood/cli.py:17). It also asserts that stderr contains 'database does not exist: <path>', so the path is named. The test passed when I ran it (1 passed). The message text comes from cottonwood/backup.py:29.",
+          "file": "tests/test_backup.py",
+          "line": 82,
+          "quote": "def test_backup_of_missing_database_exits_1_and_names_it(\n    tmp_path: Path, capsys: pytest.CaptureFixture[str]\n) -> None:\n    dest = tmp_path / \"backups\"\n    dest.mkdir()\n    missing = tmp_path / \"absent.db\"\n\n    code = main([\"backup\", \"--db\", str(missing), \"--to\", str(dest)])\n\n    assert code == EXIT_REFUSED\n    assert f\"database does not exist: {missing}\" in capsys.readouterr().err"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_without_to_the_folder_comes_from_cottonwood_config writes a YAML with paths.backup_dir set to a temp dir, sets COTTONWOOD_CONFIG to that file (config.CONFIG_ENV_VAR == 'COTTONWOOD_CONFIG', config.py:12), runs `backup --db ...` with no --to, and asserts exit OK and that the backup file's parent is the configured dir. The whole file passed (13/13).",
+          "file": "tests/test_backup.py",
+          "line": 104,
+          "quote": "config_file.write_text(f\"paths:\\n  backup_dir: {dest}\\nother: ignored\\n\", encoding=\"utf-8\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "config/pilot.yaml exists in the work directory. It has a top-level paths mapping with backup_dir set to data/backups. I read the file directly and did not run any tests.",
+          "file": "config/pilot.yaml",
+          "line": 5,
+          "quote": "paths:\n  # Where `cottonwood backup` writes copies when no --to is given.\n  # The folder must exist; data/ is git-ignored, so backups never reach git.\n  backup_dir: data/backups"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Three parts hold. (1) .env.example is not ignored: `git check-ignore -v .env.example` exits 1 and prints no match. It is currently untracked, not ignored. I could not run `git add` or `git ls-files` here because the work is uncommitted and I am read-only. Since nothing ignores it, `sir task finish --commit` staging all changes will track it, so I judge 'tracked' assessable as 'trackable, and will be committed'. (2) `git check-ignore -v data/backups/x.db` succeeds and reports `.gitignore:19:data/`. For `.env`, I could not run the command because the hook blocks it. .gitignore line 25 is the bare pattern `.env`, with the comment 'Local secrets and overrides; the committed template is .env.example'. A slash-free pattern matches any file named exactly `.env`, and it does not match `.env.example`. So `git check-ignore .env` will succeed. Nothing in the file negates it, and `.env` was not run directly. (3) `grep -riEn 'smtp|sendgrid|mailgun|api_key|password' .env.example config/` returns no matches. .env.example holds only comments and two commented-out path variables (COTTONWOOD_DB and COTTONWOOD_CONFIG). config/pilot.yaml holds only `paths.backup_dir: data/backups`. There are no credential values.",
+          "file": ".gitignore",
+          "line": 25,
+          "quote": ".env"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_claim_name in cottonwood/backup.py creates files exclusively. On FileExistsError it increments the suffix, so the second name is cottonwood-<stamp>-2.db. tests/test_backup.py::test_two_backups_in_the_same_second_get_distinct_names freezes the clock and takes three backups. It asserts the names are ...Z.db, ...Z-2.db and ...Z-3.db, that the directory holds exactly those three files, and that each is a valid copy. I ran the test with -k same_second and it passed (1 passed).",
+          "file": "tests/test_backup.py",
+          "line": 171,
+          "quote": "assert first.name == \"cottonwood-20261115T100000Z.db\"\n    assert second.name == \"cottonwood-20261115T100000Z-2.db\""
+        },
+        {
+          "index": 8,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each in the work directory with UV_OFFLINE=1 UV_NO_SYNC=1. `uv run pytest` exited 0 (129 passed). `uv run ruff check .` exited 0 (All checks passed!). `uv run ruff format --check .` exited 0 (52 files already formatted). `uv run mypy .` exited 0 (no issues found in 19 source files).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-012/tests/test_backup.py",
+          "line": 1,
+          "quote": "129 passed in 0.18s"
+        }
+      ],
+      "returns_through": "2026-11-15T10:18:53.316Z"
+    }
+  ]
+}
