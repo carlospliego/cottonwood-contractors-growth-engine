@@ -27,6 +27,7 @@ IMPORTED = "imported"
 IMPORT_REJECTED = "import_rejected"
 IMPORTED_STAGE = "researched"
 RULE_REFERRER = "referrer"
+_SQLITE_MAX_INT = 2**63 - 1
 ELIGIBILITY_UNKNOWN = "unknown"
 ELIGIBILITY_INELIGIBLE = "ineligible"
 _SAVEPOINT = "prospect_record"
@@ -148,6 +149,8 @@ def _referrer_rejection(conn: sqlite3.Connection, record: ProspectRecord) -> Rej
     """A Rejection when referred_by names no stored relationship-prospect lead (R-12)."""
     if record.referred_by is None:
         return None
+    if record.referred_by > _SQLITE_MAX_INT:  # cannot name a stored lead; SQLite cannot bind it
+        return Rejection(record.number, record.record_id, "referred_by", RULE_REFERRER)
     row = conn.execute("SELECT type FROM leads WHERE id = ?", (record.referred_by,)).fetchone()
     if row is not None and row[0] == RELATIONSHIP:
         return None
