@@ -20,3 +20,6 @@ data/
 out/
 *.db
 *.sqlite3
+
+# Local secrets and overrides; the committed template is .env.example
+.env

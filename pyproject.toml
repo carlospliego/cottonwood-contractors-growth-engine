@@ -5,6 +5,7 @@ description = "Cottonwood Contractors growth engine: a local CLI over one SQLite
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "pyyaml>=6.0",
     "tzdata>=2026.6",
 ]
 
@@ -16,6 +17,7 @@ dev = [
     "mypy>=1.13",
     "pytest>=8.3",
     "ruff>=0.8",
+    "types-pyyaml>=6.0",
 ]
 
 [build-system]
