@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, backup, config, db, inbound, review, timeutil
+from cottonwood import __version__, backup, config, db, events, inbound, review, timeutil
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -248,6 +248,69 @@ def _run_review(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-event command's arguments (R-15)."""
+    parser.add_argument("lead_id", type=int, metavar="LEAD_ID", help="the lead's id")
+    parser.add_argument(
+        "type", choices=events.EVENT_TYPES, metavar="TYPE", help=", ".join(events.EVENT_TYPES)
+    )
+    parser.add_argument(
+        "--at",
+        required=True,
+        metavar="WHEN",
+        help="when it happened: 'YYYY-MM-DD HH:MM' America/Denver, or UTC ending in Z",
+    )
+    parser.add_argument(
+        "--note",
+        default=None,
+        help="what happened (required for note); never put contact details here",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_log_event(args: argparse.Namespace) -> int:
+    """Record an event on a lead as one activity."""
+    raw = events.RawEvent(
+        lead_id=args.lead_id, type=args.type, at=args.at, note=args.note, actor=args.actor
+    )
+    try:
+        event = events.validate_event(raw, timeutil.utc_now())
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        activity_id = events.log_event(conn, event)
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not save the event: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(
+        f"logged {event.type} activity {activity_id} for lead {event.lead_id}"
+        f" at {timeutil.display_local(event.occurred_at)}"
+    )
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -273,6 +336,12 @@ COMMANDS: list[Command] = [
         "Print or write the Markdown review of inbound inquiries for the founder.",
         _add_review_arguments,
         _run_review,
+    ),
+    Command(
+        "log-event",
+        "Record an event on a lead (acknowledgement, call, walkthrough, ...).",
+        _add_log_event_arguments,
+        _run_log_event,
     ),
 ]
 
