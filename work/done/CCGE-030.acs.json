@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-030",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I migrated a fresh database in $TMPDIR and logged inquiries with `log-inbound`. The first was lead 1, form, commercial, received 2026-03-10 09:05, with name, email and phone. The second was lead 2, phone, residential, received 2026-01-05 08:00, name only. A third with no contact field was correctly refused. `cottonwood review --db ...` printed '## Inbound inquiries' and one table row per inquiry, newest first (lead 1 in March, then lead 2 in January). Each row shows lead id, received time as 'YYYY-MM-DD HH:MM <offset>', channel, segment, stage ('candidate'), name, email and phone (+13035550101). Empty email and phone print '—' (lead 2). One caveat: the offset follows the real Denver offset, so the March (DST) lead shows -06:00 and the January lead shows -07:00. I read the AC's '-07:00' as the offset pattern, not a literal value, so I counted this as correct. If a literal '-07:00' on every row was intended, that would not hold. The table also has extra columns (Company, Location, Scope, Budget, Label), which the AC does not forbid.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-030/cottonwood/review.py",
+          "line": 109,
+          "quote": "\"## Inbound inquiries\","
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran migrate, then log-inbound for Alice (no --test), Bob (--test) and 'TEST Tester' (no --test), then `cottonwood review`. The row for Bob (lead 2, --test) has 'TEST' in the Label column. The rows for Alice and 'TEST Tester' have an empty Label cell. The label comes only from the leads.is_test flag (review.py:143), not from any text the user supplies. Caveat: a non-test lead named 'TEST Tester' still shows the word TEST in its Name cell, so a plain text search for TEST would match that row. The Label column stays correct, and the label itself is not confused by the name. The same applies to any free-text cell, such as company or scope. I read the AC as being about the label.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-030/cottonwood/review.py",
+          "line": 143,
+          "quote": "                TEST_LABEL if row[\"is_test\"] else \"\","
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `cottonwood review` against two fresh databases. On an empty migrated database it printed 'Inquiries: 0 (form 0, phone 0; commercial 0, residential 0, unknown 0). Test inquiries excluded: 0.' With two test inquiries (form and phone) and one non-test commercial form inquiry, it printed 'Inquiries: 1 (form 1, phone 0; commercial 1, residential 0, unknown 0). Test inquiries excluded: 2.' Both lines match the AC text exactly. The test phone inquiry was logged with segment residential. The format comes from _count_line in cottonwood/review.py.",
+          "file": "cottonwood/review.py",
+          "line": 103,
+          "quote": "f\"Inquiries: {counts.total} ({channels}; {segments}).\"\n        f\" Test inquiries excluded: {counts.tests_excluded}.\""
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In a fresh temp folder with a migrated db (migrate exit 0, version 3), `review` without --out exited 0. `review --out out/review.md` created the missing out/ folder, printed 'review written: out/review.md' and exited 0. diff of the plain stdout against out/review.md was empty (SAME), and both runs fell in the same minute (Generated: 2026-11-15 04:12). `review --db nope.db --out out2/r.md` printed 'error: database does not exist: nope.db (run `cottonwood migrate` first)' and exited 1. No out2 folder or file was created.",
+          "file": "cottonwood/cli.py",
+          "line": 242,
+          "quote": "out_path.parent.mkdir(parents=True, exist_ok=True)"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I migrated a fresh DB in $TMPDIR and logged a form inquiry with log-inbound. I then cleared the contact as the runbook describes: name, email, email_norm and phone_e164 set to NULL and deleted_at='2026-11-15T10:00:00Z'. The contacts row was (1, NULL x6, 'unknown', deleted_at). `cottonwood review` listed lead 1 with '—' in the Name, Email and Phone columns and exited 0 (EXIT 0). The inbound_rows query uses LEFT JOIN on contacts with no deleted_at filter, and _cell maps None to '—'.",
+          "file": "cottonwood/review.py",
+          "line": 47,
+          "quote": "\" LEFT JOIN contacts ON contacts.id = leads.contact_id\""
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. pytest: 197 passed, exit 0. ruff check: All checks passed!. mypy: Success, no issues found in 31 source files. ruff format --check: 86 files already formatted. I did not capture the exit codes of the last three commands directly, because they were piped through tail. Each one printed its success message.",
+          "file": "tests/test_review.py",
+          "line": 1,
+          "quote": "============================= 197 passed in 0.47s =============================="
+        }
+      ],
+      "returns_through": "2026-11-15T11:13:08.873Z"
+    }
+  ]
+}

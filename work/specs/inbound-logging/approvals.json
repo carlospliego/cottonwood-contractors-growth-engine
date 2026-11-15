@@ -1,0 +1,20 @@
+{
+  "feature": "inbound-logging",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-15T10:50:28.675Z",
+      "sha256": "e4acaed6cf567ef728ec6a71b6af07156096e113df86296de761fdf064e24ecd",
+      "head": "f560496eaf547b2f0f35bb6c384182b328d19ef9"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-15T10:51:10.894Z",
+      "sha256": "c382ccffc611fae473fe04731d40bad90cd6af6bf2494574badf40e73e049cb9",
+      "head": "f560496eaf547b2f0f35bb6c384182b328d19ef9",
+      "spec_sha256": "e4acaed6cf567ef728ec6a71b6af07156096e113df86296de761fdf064e24ecd"
+    }
+  }
+}

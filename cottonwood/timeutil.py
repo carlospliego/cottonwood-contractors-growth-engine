@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 DENVER = ZoneInfo("America/Denver")
 
 _UTC_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]00:00)$")
+_LOCAL_MINUTE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 
 
 def to_utc_iso(moment: datetime) -> str:
@@ -28,6 +29,28 @@ def parse_utc(value: str) -> datetime:
     if not _UTC_ISO.match(value):
         raise ValueError(f"not a UTC ISO-8601 timestamp: {value!r}")
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def parse_received(value: str) -> str:
+    """Turn operator input into a stored UTC string.
+
+    Accepts America/Denver local time as ``YYYY-MM-DD HH:MM`` or a UTC ISO-8601 timestamp
+    ending in Z or +00:00. A local time repeated at the end of daylight saving time takes its
+    first occurrence (fold=0); give the UTC form to pick the other one.
+    """
+    text = value.strip()
+    if _LOCAL_MINUTE.match(text):
+        try:
+            naive = datetime.strptime(text, "%Y-%m-%d %H:%M")
+        except ValueError:
+            raise ValueError(f"not a valid local date and time: {value!r}") from None
+        return to_utc_iso(naive.replace(tzinfo=DENVER, fold=0))
+    try:
+        return to_utc_iso(parse_utc(text))
+    except ValueError:
+        raise ValueError(
+            f"expected 'YYYY-MM-DD HH:MM' (America/Denver) or a UTC time ending in Z: {value!r}"
+        ) from None
 
 
 def to_local(value: str) -> datetime:

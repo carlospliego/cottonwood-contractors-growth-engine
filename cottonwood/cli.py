@@ -6,12 +6,13 @@ Exit codes: 0 = done, 1 = refused (a gate or validation failure), 2 = usage erro
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, backup, config, db
+from cottonwood import __version__, backup, config, db, inbound, review, timeutil
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -92,6 +93,161 @@ def _run_backup(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_log_inbound_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-inbound command's arguments: only what the inquirer supplied (R-1)."""
+    parser.add_argument("--channel", required=True, choices=inbound.CHANNELS)
+    parser.add_argument(
+        "--received",
+        required=True,
+        metavar="WHEN",
+        help="when it arrived: 'YYYY-MM-DD HH:MM' America/Denver, or UTC ending in Z",
+    )
+    parser.add_argument(
+        "--segment",
+        required=True,
+        choices=inbound.SEGMENTS,
+        help="as the inquirer stated it; unknown if they did not say",
+    )
+    parser.add_argument("--name", default=None)
+    parser.add_argument("--email", default=None)
+    parser.add_argument("--phone", default=None)
+    parser.add_argument("--company", default=None, help="organization name, if given")
+    parser.add_argument("--location", default=None, help="property location, if given")
+    parser.add_argument("--scope", default=None, help="project scope, only if stated")
+    parser.add_argument("--budget", default=None, help="stated budget as a decimal number")
+    parser.add_argument(
+        "--test", action="store_true", help="label a test submission (excluded from counts)"
+    )
+    parser.add_argument(
+        "--confirm-duplicate",
+        action="store_true",
+        help="save even if it matches a same-day inquiry (otherwise asks, or refuses)",
+    )
+    parser.add_argument(
+        "--actor",
+        default=inbound.DEFAULT_ACTOR,
+        help=f"who logs it (default: {inbound.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _duplicate_confirmed(
+    args: argparse.Namespace, inquiry: inbound.Inquiry, duplicates: Sequence[int]
+) -> bool:
+    """Warn about same-day matches (R-2); True only on --confirm-duplicate or a typed yes."""
+    ids = ", ".join(str(lead_id) for lead_id in duplicates)
+    day = timeutil.local_date(inquiry.received_at).isoformat()
+    print(f"warning: possible duplicate of lead(s) {ids} received {day}", file=sys.stderr)
+    if args.confirm_duplicate:
+        return True
+    # A prompt would hang a script, so without a terminal the answer is no.
+    if not sys.stdin.isatty():
+        return False
+    try:
+        answer = input("Save anyway? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("y", "yes")
+
+
+def _run_log_inbound(args: argparse.Namespace) -> int:
+    """Record a website-form or phone inquiry as an inbound_inquiry lead."""
+    raw = inbound.RawInquiry(
+        channel=args.channel,
+        received=args.received,
+        segment=args.segment,
+        name=args.name,
+        email=args.email,
+        phone=args.phone,
+        company=args.company,
+        location=args.location,
+        scope=args.scope,
+        budget=args.budget,
+        is_test=args.test,
+        actor=args.actor,
+    )
+    try:
+        inquiry = inbound.validate(raw)
+    except inbound.InquiryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        duplicates = inbound.find_same_day_duplicates(
+            conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at
+        )
+        if duplicates and not _duplicate_confirmed(args, inquiry, duplicates):
+            print("refused: duplicate not confirmed (use --confirm-duplicate)", file=sys.stderr)
+            return EXIT_REFUSED
+        lead_id = inbound.log_inquiry(conn, inquiry, duplicate_of=duplicates)
+    except sqlite3.Error as exc:
+        print(f"error: could not save the inquiry: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    label = " TEST" if inquiry.is_test else ""
+    print(
+        f"logged inquiry lead {lead_id} ({inquiry.channel}, {inquiry.segment},"
+        f" received {timeutil.display_local(inquiry.received_at)}){label}"
+    )
+    return EXIT_OK
+
+
+def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the review command's arguments."""
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write the Markdown to this file (e.g. out/review.md; out/ is git-ignored)",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_review(args: argparse.Namespace) -> int:
+    """Print the review, or write it to --out for sending to the founder (R-31)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        text = review.render_review(conn, timeutil.utc_now())
+    except sqlite3.Error as exc:
+        print(f"error: could not read the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    if args.out is None:
+        sys.stdout.write(text)
+        return EXIT_OK
+    out_path: Path = args.out
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        print(f"error: could not write {out_path}: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    print(f"review written: {out_path}")
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -105,6 +261,18 @@ COMMANDS: list[Command] = [
         "Copy the database into the backup folder under a timestamped name.",
         _add_backup_arguments,
         _run_backup,
+    ),
+    Command(
+        "log-inbound",
+        "Record a website-form or phone inquiry as an inbound lead.",
+        _add_log_inbound_arguments,
+        _run_log_inbound,
+    ),
+    Command(
+        "review",
+        "Print or write the Markdown review of inbound inquiries for the founder.",
+        _add_review_arguments,
+        _run_review,
     ),
 ]
 

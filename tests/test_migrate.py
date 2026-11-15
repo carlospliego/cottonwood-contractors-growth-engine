@@ -56,14 +56,18 @@ def test_migrate_creates_the_core_schema(
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
 
     assert path.is_file()
-    assert _version(path) == 2
+    assert _version(path) == 3
     assert _tables(path) == CORE_TABLES
-    assert "at version 2 (applied 2)" in capsys.readouterr().out
+    assert "at version 3 (applied 3)" in capsys.readouterr().out
 
 
-def test_package_ships_baseline_then_core_migration() -> None:
+def test_package_ships_baseline_core_then_inbound_migration() -> None:
     migrations = db.discover_migrations()
-    assert [m.path.name for m in migrations] == ["001_baseline.sql", "002_core.sql"]
+    assert [m.path.name for m in migrations] == [
+        "001_baseline.sql",
+        "002_core.sql",
+        "003_inbound.sql",
+    ]
 
 
 def test_second_migrate_applies_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -73,8 +77,8 @@ def test_second_migrate_applies_nothing(tmp_path: Path, capsys: pytest.CaptureFi
 
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
 
-    assert _version(path) == 2
-    assert "at version 2 (applied 0)" in capsys.readouterr().out
+    assert _version(path) == 3
+    assert "at version 3 (applied 0)" in capsys.readouterr().out
 
 
 def test_migrations_apply_in_numeric_order(tmp_path: Path) -> None:
@@ -177,7 +181,7 @@ def test_env_var_sets_the_database_path(
     assert main(["migrate"]) == EXIT_OK
 
     assert path.is_file()
-    assert _version(path) == 2
+    assert _version(path) == 3
     assert not (tmp_path / "data").exists()
     assert str(path) in capsys.readouterr().out
 
@@ -192,7 +196,7 @@ def test_default_path_is_data_cottonwood_db(
     assert main(["migrate"]) == EXIT_OK
 
     assert (tmp_path / "data" / "cottonwood.db").is_file()
-    assert _version(tmp_path / "data" / "cottonwood.db") == 2
+    assert _version(tmp_path / "data" / "cottonwood.db") == 3
 
 
 def test_db_flag_overrides_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

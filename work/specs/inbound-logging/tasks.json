@@ -1,0 +1,129 @@
+{
+  "feature": "inbound-logging",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "log-inbound command with project_scope migration",
+      "goal": "Record a relayed form or phone inquiry as an inbound_inquiry lead holding only the supplied fields (R-1, R-3 label storage).",
+      "story_refs": [
+        "US-1"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-1.3",
+        "AC-1.4",
+        "AC-1.5",
+        "AC-1.6",
+        "AC-1.7"
+      ],
+      "plan": "1. Add cottonwood/migrations/003_inbound.sql: ALTER TABLE leads ADD COLUMN project_scope TEXT.\n2. Add timeutil.parse_received(value): 'YYYY-MM-DD HH:MM' as America/Denver local (fold=0) or a UTC ISO string ending in Z/+00:00; returns stored UTC via to_utc_iso; ValueError otherwise.\n3. Add cottonwood/inbound.py: Inquiry dataclass, validate() (at least one of name/email/phone; normalize_email/normalize_phone; budget as finite Decimal >= 0 stored as str), log_inquiry(conn, inquiry, duplicate_of=()) inserting organization (reuse by name_norm), contact, lead (type inbound_inquiry, stage candidate, value_basis buyer-stated when budget given) and one inquiry_logged activity with payload {channel, segment, is_test, duplicate_of} in one transaction.\n4. Register log-inbound in cli.COMMANDS with --channel/--received/--segment required, optional --name --email --phone --company --location --scope --budget --test --actor --db; validation errors print 'error: <field>: ...' and exit 1.\n5. Update the newest-version assertions (2 -> 3) in tests/test_migrate.py, tests/test_schema.py and tests/test_runbook_restore.py; add tests/test_inbound.py.",
+      "acceptance_criteria": [
+        "After `cottonwood migrate` on a fresh file, PRAGMA user_version is 3 and PRAGMA table_info(leads) lists a nullable project_scope column (tests/test_inbound.py).",
+        "`cottonwood log-inbound --channel form --received \"2026-11-16 09:30\" --segment commercial --name \"Pat Lee\" --email Pat@Example.com` exits 0 and creates one leads row with type inbound_inquiry, stage candidate, channel form, segment commercial, received_at 2026-11-16T16:30:00Z, is_test 0 and NULL project_scope, value_amount, value_basis and property_location; its contact has name 'Pat Lee', email 'Pat@Example.com', email_norm 'pat@example.com' and NULL phone_e164.",
+        "With --phone \"(801) 555-0134\" --scope \"lobby refresh\" --budget 25000 --location \"Murray, UT\" --company \"Acme Holdings\" the lead stores project_scope 'lobby refresh', value_amount '25000', value_basis 'buyer-stated', property_location 'Murray, UT' and an organization named 'Acme Holdings'; the contact has phone_e164 '+18015550134'; a second inquiry with --company \"ACME holdings\" reuses the same organization id.",
+        "Each logged inquiry appends exactly one inquiry_logged activity for its lead whose JSON payload has channel, segment and is_test keys and does not contain the name, email, phone, scope or budget values.",
+        "--received 2026-11-16T16:30:00Z stores 2026-11-16T16:30:00Z; omitting --received, --channel or --segment, or passing a channel or segment outside the allowed values, exits non-zero and leaves leads empty.",
+        "An invalid email, an invalid phone, a budget of 'abc' or '-5', an unparseable --received, or no --name/--email/--phone each exit 1 with a stderr message naming the field, and leave leads, contacts, organizations and activities empty.",
+        "--test stores is_test 1 and the printed success message contains TEST; without --test the message does not contain TEST.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run mypy .` and `uv run ruff format --check .` all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [
+        "tests/test_migrate.py",
+        "tests/test_schema.py",
+        "tests/test_runbook_restore.py"
+      ],
+      "complexity": "M",
+      "imported_as": "CCGE-028"
+    },
+    {
+      "id": "T-02",
+      "title": "Same-day duplicate check for log-inbound",
+      "goal": "Warn on an inquiry matching an existing inquiry's normalized email or E.164 phone on the same America/Denver date, and save it only on explicit confirmation (R-2).",
+      "story_refs": [
+        "US-2"
+      ],
+      "covers": [
+        "AC-2.1",
+        "AC-2.2",
+        "AC-2.3",
+        "AC-2.4"
+      ],
+      "plan": "1. Add inbound.find_same_day_duplicates(conn, email_norm, phone_e164, received_at) -> list[int]: inbound_inquiry leads joined to contacts on (email_norm = ? OR phone_e164 = ?), filtered in Python to timeutil.local_date(received_at) equal to the new inquiry's local date, ordered by lead id.\n2. In the log-inbound handler, after validation and before any write: on matches print 'warning: possible duplicate of lead(s) <ids> received <local date>' to stderr; if --confirm-duplicate, save with duplicate_of=ids; elif sys.stdin.isatty(), prompt 'Save anyway? [y/N] ' via input() and save only on y/yes (case-insensitive, trimmed); else print 'refused: duplicate not confirmed (use --confirm-duplicate)' and exit 1.\n3. Add tests/test_inbound_duplicates.py covering email and phone matches, normalization, the cross-midnight local-date case, flag, prompt yes/no and non-TTY refusal.",
+      "acceptance_criteria": [
+        "With an existing inbound inquiry for pat@example.com received 2026-11-16 09:30 local, logging another with --email 'PAT@example.com ' received 2026-11-16 15:00 local on non-interactive stdin prints a warning containing the existing lead id, exits 1 and adds no leads, contacts, organizations or activities rows.",
+        "A match on phone alone ('801.555.0134' vs an existing '(801) 555-0134', same local date) also warns and refuses without confirmation.",
+        "The same duplicate with --confirm-duplicate exits 0, creates the lead, and its inquiry_logged payload has duplicate_of equal to the list of matching lead ids.",
+        "With sys.stdin.isatty() true, answering 'y' or 'YES' to the prompt saves the inquiry (exit 0); answering 'n' or an empty line exits 1 and writes nothing.",
+        "An existing inquiry received 2026-11-16 23:30 local and a new one received 2026-11-17 00:30 local with the same email (same UTC date) produce no warning and save with exit 0; a non-matching email and phone on the same day also save with no warning.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run mypy .` and `uv run ruff format --check .` all pass."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-029"
+    },
+    {
+      "id": "T-03",
+      "title": "review command: inbound inquiries with tests labeled and excluded",
+      "goal": "Print or write a Markdown review of inbound inquiries in which test inquiries are labeled TEST and excluded from counts (R-3, R-31 for review).",
+      "story_refs": [
+        "US-3"
+      ],
+      "covers": [
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-3.4",
+        "AC-3.5"
+      ],
+      "plan": "1. Add cottonwood/review.py: COUNTED_LEADS_FILTER = 'is_test = 0' (documented for report reuse); inbound_rows(conn) joining leads (type inbound_inquiry) to contacts and organizations, newest received_at first then id; inbound_counts(conn) -> totals by channel (form, phone) and segment (commercial, residential, unknown) over non-test rows plus the excluded test count; render_review(conn, generated_at) -> Markdown with '# Review', '## Inbound inquiries', the count line 'Inquiries: N (form a, phone b; commercial c, residential d, unknown e). Test inquiries excluded: M.' and a table with Lead, Received (display_local), Channel, Segment, Stage, Name, Email, Phone, Company, Location, Scope, Budget, Label; NULL prints as '—', '|' is escaped, Label is TEST for tests.\n2. Register review in cli.COMMANDS with --out PATH and --db; --out creates parent folders, writes UTF-8, prints 'review written: <path>'; a missing database exits 1 with the error.\n3. Add tests/test_review.py.",
+      "acceptance_criteria": [
+        "`cottonwood review` on a database with logged inquiries prints Markdown containing '## Inbound inquiries' and one table row per inbound inquiry, newest received first, showing the lead id, received time as 'YYYY-MM-DD HH:MM -07:00' in America/Denver, channel, segment, stage and the supplied name, email and phone; empty fields print as '—'.",
+        "Rows for inquiries logged with --test contain the label TEST and rows for other inquiries do not.",
+        "With one test form inquiry, one test phone inquiry and one non-test form commercial inquiry, the count line reads 'Inquiries: 1 (form 1, phone 0; commercial 1, residential 0, unknown 0). Test inquiries excluded: 2.'; on an empty migrated database it reads 'Inquiries: 0 (form 0, phone 0; commercial 0, residential 0, unknown 0). Test inquiries excluded: 0.'",
+        "`cottonwood review --out out/review.md` run in a temporary folder creates the missing out folder, writes the same Markdown the command prints without --out, prints the path and exits 0; with a --db path that does not exist it exits 1 with an error message and writes no file.",
+        "A lead whose contact has deleted_at set and name, email and phone NULL is still listed, with '—' in those columns, and review exits 0.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run mypy .` and `uv run ruff format --check .` all pass."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-030"
+    },
+    {
+      "id": "T-04",
+      "title": "Runbook: inbound verification checklist and relay sections",
+      "goal": "Document the R-4 inbound verification checklist and the relay procedure in docs/runbook.md.",
+      "story_refs": [
+        "US-4"
+      ],
+      "covers": [
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3"
+      ],
+      "plan": "1. Remove the line 'Later features add the inbound checklist and relay sections to this file.' from docs/runbook.md.\n2. Add '## Inbound verification checklist' with a table: Item | checked_at | result | owner, one row per R-4 item (commercial test submission, residential test submission, spam/blocked-submission path, notification spam-folder check, Formspark account owner/plan/limits/submission retention, auto-forward to the developer, mobile form and phone-link check, missed-call handling and owner, same-working-day response capacity, GA4 vs privacy-page reconciliation), fields left blank to fill in, plus how to log the test submissions with --test and confirm they show as TEST in review.\n3. Add '## Relay' describing auto-forwarding (or CC) of Formspark notifications and outreach-mailbox replies to the developer, the founder's daily note for calls and in-person events, same-working-day logging and same-day opt-outs, with example log-inbound commands for a form and a phone inquiry and the duplicate warning.\n4. Add tests/test_runbook_inbound.py asserting the headings, each checklist item and its three fields, and the relay statements.",
+      "acceptance_criteria": [
+        "docs/runbook.md has a '## Inbound verification checklist' section whose table has columns checked_at, result and owner and one row for each of: commercial test submission, residential test submission, spam/blocked-submission path, notification spam-folder check, Formspark account owner, plan, limits and submission retention, auto-forward to the developer, mobile form and phone-link check, missed-call handling and owner, same-working-day response capacity, GA4 vs privacy-page reconciliation.",
+        "docs/runbook.md has a '## Relay' section stating that Formspark notifications and outreach-mailbox replies are auto-forwarded (or CC'd) to the developer, that the founder's daily note covers calls and in-person events, that everything is logged the same working day and opt-outs the same day, and containing a `cottonwood log-inbound --channel form` and a `cottonwood log-inbound --channel phone` example, with `--test` shown for checklist submissions.",
+        "docs/runbook.md no longer contains 'Later features add the inbound checklist and relay sections'; the Restore from backup, Re-applying suppression after a restore and Deletion requests sections are byte-for-byte unchanged and tests/test_runbook_restore.py, tests/test_runbook_missing_check.py and tests/test_runbook_restore_hot_journal.py pass.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run mypy .` and `uv run ruff format --check .` all pass."
+      ],
+      "depends_on": [
+        "T-01",
+        "T-02",
+        "T-03"
+      ],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-031"
+    }
+  ]
+}

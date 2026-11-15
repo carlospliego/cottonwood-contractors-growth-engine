@@ -1,0 +1,92 @@
+{
+  "task_id": "CCGE-028",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `cottonwood migrate --db $TMPDIR/p.db` on a fresh file. It reported version 3 (applied 3). sqlite3 then showed PRAGMA user_version = 3 and PRAGMA table_info(leads) listing `16|project_scope|TEXT|0||0`, so the column is nullable (notnull=0). tests/test_inbound.py::test_migrate_adds_nullable_project_scope asserts the same two facts and passed. The migration file is cottonwood/migrations/003_inbound.sql.",
+          "file": "cottonwood/migrations/003_inbound.sql",
+          "line": 4,
+          "quote": "ALTER TABLE leads ADD COLUMN project_scope TEXT;"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `cottonwood migrate` on a fresh DB, then the AC's log-inbound command. It exited 0 and printed 'logged inquiry lead 1 (form, commercial, received 2026-11-16 09:30 -07:00)'. The DB has exactly one leads row: type inbound_inquiry, stage candidate, channel form, segment commercial, received_at 2026-11-16T16:30:00Z, is_test 0, and NULL project_scope, value_amount, value_basis and property_location. Its contact row (id 1) has name 'Pat Lee', email 'Pat@Example.com', email_norm 'pat@example.com' and phone_e164 NULL. The contacts table also holds only this one row.",
+          "file": "/private/tmp/claude-501/x.db",
+          "line": 1,
+          "quote": "leads [{'id': 1, 'type': 'inbound_inquiry', 'contact_id': 1, 'stage': 'candidate', 'segment': 'commercial', 'channel': 'form', 'property_location': None, 'value_amount': None, 'value_basis': None, 'is_test': 0, 'received_at': '2026-11-16T16:30:00Z', 'project_scope': None}] contacts [{'id': 1, 'name': 'Pat Lee', 'email': 'Pat@Example.com', 'email_norm': 'pat@example.com', 'phone_e164': None}]"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran migrate, then log-inbound against a fresh database in $TMPDIR. The first inquiry used --phone \"(801) 555-0134\" --scope \"lobby refresh\" --budget 25000 --location \"Murray, UT\" --company \"Acme Holdings\" (plus the required --channel form, --received and --segment commercial). Lead 1 stores project_scope 'lobby refresh', value_amount 25000, value_basis 'buyer-stated', property_location 'Murray, UT' and organization_id 1. Organization 1 is named 'Acme Holdings'. Contact 1 has phone_e164 '+18015550134'. A second inquiry with --company \"ACME holdings\" (I added --name Bob, because the command requires at least one of name, email or phone) created lead 2, which reuses organization_id 1. The organizations table still holds one row. Caveats: sqlite3 shows value_amount as 25000, and I did not check its stored type (text or number), so 'value_amount 25000' is read as the value only. The channel value is 'form', not 'website-form'.",
+          "file": "cottonwood/cli.py",
+          "line": 113,
+          "quote": "parser.add_argument(\"--phone\", default=None)"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the real CLI against a fresh DB in $TMPDIR. I logged two inquiries. The first had every field: name, email, phone, company, location, scope, budget 12345.50 and --test. The second was a phone inquiry with only a name. The activities table then had exactly one inquiry_logged row per lead, with lead_id 1 and 2. The payloads were {\"channel\":\"form\",\"segment\":\"commercial\",\"is_test\":true,\"duplicate_of\":[]} and {\"channel\":\"phone\",\"segment\":\"unknown\",\"is_test\":false,\"duplicate_of\":[]}. Neither payload contains the name, email, phone, scope or budget values. The payload is built from only channel, segment, is_test and duplicate_of (cottonwood/inbound.py, log_inquiry). The insert sits in the same transaction as the lead insert, with no second activity insert. tests/test_inbound.py passed (25 passed), including test_one_inquiry_logged_activity_without_personal_data.",
+          "file": "cottonwood/inbound.py",
+          "line": 190,
+          "quote": "payload = {\n            \"channel\": inquiry.channel,\n            \"segment\": inquiry.segment,\n            \"is_test\": inquiry.is_test,\n            \"duplicate_of\": list(duplicate_of),\n        }"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran against a fresh migrated DB in $TMPDIR. Five invalid invocations each exited 2 (argparse): missing --received, missing --channel, missing --segment, --channel email, --segment industrial. leads count was 0 afterwards. Then `log-inbound --name Bob --channel form --segment residential --received 2026-11-16T16:30:00Z` exited 0 and stored received_at = 2026-11-16T16:30:00Z (count 1). Without a contact field the command exits 1 and writes nothing, which is a separate rule and does not affect this AC. cli.py:98-109 has required=True and choices on the three flags.",
+          "file": "cottonwood/cli.py",
+          "line": 98,
+          "quote": "parser.add_argument(\"--channel\", required=True, choices=inbound.CHANNELS)"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I migrated a fresh DB in $TMPDIR, then ran `python -m cottonwood log-inbound` with each bad input. Every run exited 1 with a stderr message naming the field. Invalid email: 'error: email: email must contain exactly one @'. Invalid phone: 'error: phone: US numbers must have 10 digits'. Budget abc: 'error: budget: not a decimal number'. Budget -5: 'error: budget: must not be negative'. Unparseable --received: 'error: received: expected YYYY-MM-DD HH:MM ...'. No name/email/phone: 'error: name/email/phone: supply at least one of --name, --email, --phone'. Afterwards leads, contacts, organizations and activities each had count 0. cli.py validates the inquiry (lines 150-155) before it opens the DB, so a refusal returns EXIT_REFUSED before anything is written.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-028/cottonwood/cli.py",
+          "line": 150,
+          "quote": "    try:\n        inquiry = inbound.validate(raw)\n    except inbound.InquiryError as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return EXIT_REFUSED"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I migrated a fresh DB under $TMPDIR and ran `cottonwood log-inbound --channel form --received '2026-03-01 10:00' --segment unknown --email ...` twice. Without --test it printed 'logged inquiry lead 1 (form, unknown, received 2026-03-01 10:00 -07:00)', with no TEST. With --test it printed '... -07:00) TEST'. Both runs exited 0. `select id,is_test from leads` returned 1|0 and 2|1. cottonwood/cli.py:168 adds ' TEST' only when inquiry.is_test is true, and inbound.py:196 stores 1 or 0. I did not run the test suite.",
+          "file": "cottonwood/cli.py",
+          "line": 168,
+          "quote": "label = \" TEST\" if inquiry.is_test else \"\""
+        },
+        {
+          "index": 8,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In the worktree with UV_OFFLINE=1 UV_NO_SYNC=1: `uv run pytest` exited 0 with 175 passed. `uv run ruff check .` printed 'All checks passed!'. `uv run mypy .` printed 'Success: no issues found in 28 source files'. `uv run ruff format --check .` printed '83 files already formatted'. My first attempt quoted each command as a single string, which failed to spawn. That was my invocation error, so I re-ran the three tool commands unquoted and they passed.",
+          "file": "tests/test_timeutil.py",
+          "line": 1,
+          "quote": "============================= 175 passed in 0.28s =============================="
+        }
+      ],
+      "returns_through": "2026-11-15T11:00:25.383Z"
+    }
+  ]
+}
