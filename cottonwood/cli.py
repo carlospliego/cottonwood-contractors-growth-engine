@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, backup, config, db, inbound, timeutil
+from cottonwood import __version__, backup, config, db, inbound, review, timeutil
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -203,6 +203,51 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the review command's arguments."""
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write the Markdown to this file (e.g. out/review.md; out/ is git-ignored)",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_review(args: argparse.Namespace) -> int:
+    """Print the review, or write it to --out for sending to the founder (R-31)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        text = review.render_review(conn, timeutil.utc_now())
+    except sqlite3.Error as exc:
+        print(f"error: could not read the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    if args.out is None:
+        sys.stdout.write(text)
+        return EXIT_OK
+    out_path: Path = args.out
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        print(f"error: could not write {out_path}: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    print(f"review written: {out_path}")
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -222,6 +267,12 @@ COMMANDS: list[Command] = [
         "Record a website-form or phone inquiry as an inbound lead.",
         _add_log_inbound_arguments,
         _run_log_inbound,
+    ),
+    Command(
+        "review",
+        "Print or write the Markdown review of inbound inquiries for the founder.",
+        _add_review_arguments,
+        _run_review,
     ),
 ]
 
