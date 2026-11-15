@@ -1,10 +1,13 @@
-"""Lead events: validate and record what happened on a lead (R-15)."""
+"""Lead events, corrections, and founder time and cost entries (R-15, R-17, R-30)."""
 
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
+from datetime import date, datetime, time
+from decimal import Decimal
 from typing import NamedTuple
 from urllib.parse import urlparse
 
@@ -443,3 +446,282 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
         conn.rollback()
         raise
     return LoggedCorrection(correction_id, stage_change_id, from_stage, to_stage)
+
+
+# R-30: founder (or developer) hours and spend, entered per Denver calendar day.
+PEOPLE = ("founder", "developer")
+DEFAULT_PERSON = "founder"
+TIME_KIND = "time_logged"
+COST_KIND = "cost_logged"
+MAX_HOURS = Decimal(24)
+_PLAIN_DECIMAL = re.compile(r"^\d+(?:\.\d+)?$")
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+@dataclass(frozen=True)
+class RawTime:
+    """Operator input for one time entry, before validation."""
+
+    hours: str
+    date: str
+    category: str
+    person: str = DEFAULT_PERSON
+    estimated: bool = False
+    note: str | None = None
+    actor: str = DEFAULT_ACTOR
+
+
+@dataclass(frozen=True)
+class TimeEntry:
+    """A validated time entry, ready to store."""
+
+    hours: Decimal
+    date: date
+    category: str
+    person: str
+    estimated: bool
+    note: str | None
+    actor: str
+
+
+@dataclass(frozen=True)
+class RawCost:
+    """Operator input for one cost entry, before validation."""
+
+    amount_usd: str
+    date: str
+    category: str
+    estimated: bool = False
+    note: str | None = None
+    actor: str = DEFAULT_ACTOR
+
+
+@dataclass(frozen=True)
+class CostEntry:
+    """A validated cost entry, ready to store."""
+
+    amount_usd: Decimal
+    date: date
+    category: str
+    estimated: bool
+    note: str | None
+    actor: str
+
+
+def denver_today() -> date:
+    """Today's calendar date in America/Denver."""
+    return timeutil.local_date(timeutil.utc_now())
+
+
+def _parse_amount(field: str, value: str) -> Decimal:
+    """A plain positive decimal with at most 2 places (no sign, no exponent)."""
+    text = value.strip()
+    if not _PLAIN_DECIMAL.match(text):
+        raise EventError(field, f"must be a plain decimal number like 1.5, got {value!r}")
+    amount = Decimal(text)
+    if amount <= 0:
+        raise EventError(field, f"must be greater than 0, got {value!r}")
+    exponent = amount.as_tuple().exponent
+    if isinstance(exponent, int) and exponent < -2:
+        raise EventError(field, f"at most 2 decimal places, got {value!r}")
+    return amount
+
+
+def _parse_entry_date(value: str, today: date) -> date:
+    """A YYYY-MM-DD date that is not after ``today`` (America/Denver)."""
+    text = value.strip()
+    if not _ISO_DATE.match(text):
+        raise EventError("date", f"expected YYYY-MM-DD, got {value!r}")
+    try:
+        day = date.fromisoformat(text)
+    except ValueError:
+        raise EventError("date", f"not a valid date: {value!r}") from None
+    if day > today:
+        raise EventError("date", f"is after today in America/Denver ({today.isoformat()})")
+    return day
+
+
+def _entry_fields(category: str, note: str | None, actor: str) -> tuple[str, str | None, str]:
+    """Shared checks: lowercase non-blank category, blank note dropped, non-blank actor."""
+    cleaned = category.strip().lower()
+    if not cleaned:
+        raise EventError("category", "must not be empty")
+    who = _clean(actor)
+    if who is None:
+        raise EventError("actor", "must not be empty")
+    return cleaned, _clean(note), who
+
+
+def validate_time(raw: RawTime, today: date) -> TimeEntry:
+    """Check a time entry: hours in (0, 24], 2 places; date not after ``today``."""
+    hours = _parse_amount("hours", raw.hours)
+    if hours > MAX_HOURS:
+        raise EventError("hours", f"at most {MAX_HOURS} in one day, got {raw.hours!r}")
+    day = _parse_entry_date(raw.date, today)
+    if raw.person not in PEOPLE:
+        raise EventError("person", f"must be one of {', '.join(PEOPLE)}")
+    category, note, actor = _entry_fields(raw.category, raw.note, raw.actor)
+    return TimeEntry(hours, day, category, raw.person, raw.estimated, note, actor)
+
+
+def validate_cost(raw: RawCost, today: date) -> CostEntry:
+    """Check a cost entry: amount > 0 with 2 places; date not after ``today``."""
+    amount = _parse_amount("amount", raw.amount_usd)
+    day = _parse_entry_date(raw.date, today)
+    category, note, actor = _entry_fields(raw.category, raw.note, raw.actor)
+    return CostEntry(amount, day, category, raw.estimated, note, actor)
+
+
+def _day_start(day: date) -> str:
+    """The start of a Denver calendar day, as a stored UTC string."""
+    return timeutil.to_utc_iso(datetime.combine(day, time(0), tzinfo=timeutil.DENVER))
+
+
+def _insert_entry(
+    conn: sqlite3.Connection, kind: str, payload: dict[str, object], day: date, actor: str
+) -> int:
+    """Append one time or cost entry (no lead) in its own transaction."""
+    try:
+        entry_id = _insert_activity(
+            conn, None, kind, payload, actor, _day_start(day), timeutil.utc_now()
+        )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return entry_id
+
+
+def log_time(conn: sqlite3.Connection, entry: TimeEntry) -> int:
+    """Append a time_logged activity and return its id."""
+    payload: dict[str, object] = {
+        "date": entry.date.isoformat(),
+        "hours": str(entry.hours),
+        "category": entry.category,
+        "person": entry.person,
+        "estimated": entry.estimated,
+    }
+    if entry.note is not None:
+        payload["note"] = entry.note
+    return _insert_entry(conn, TIME_KIND, payload, entry.date, entry.actor)
+
+
+def log_cost(conn: sqlite3.Connection, entry: CostEntry) -> int:
+    """Append a cost_logged activity and return its id."""
+    payload: dict[str, object] = {
+        "date": entry.date.isoformat(),
+        "amount_usd": str(entry.amount_usd),
+        "category": entry.category,
+        "estimated": entry.estimated,
+    }
+    if entry.note is not None:
+        payload["note"] = entry.note
+    return _insert_entry(conn, COST_KIND, payload, entry.date, entry.actor)
+
+
+def void_entry(
+    conn: sqlite3.Connection,
+    voids_id: int,
+    kind: str,
+    actor: str,
+    now: str,
+    note: str | None = None,
+) -> int:
+    """Void one time or cost entry with an appended correction (no lead); return its id."""
+    if kind not in (TIME_KIND, COST_KIND):
+        raise EventError("voids", f"kind must be {TIME_KIND} or {COST_KIND}")
+    who = _clean(actor)
+    if who is None:
+        raise EventError("actor", "must not be empty")
+    try:
+        target = conn.execute(
+            "SELECT id, type FROM activities WHERE id = ?", (voids_id,)
+        ).fetchone()
+        if target is None:
+            raise EventError("voids", f"no activity {voids_id}")
+        if target["type"] != kind:
+            raise EventError("voids", f"activity {voids_id} is a {target['type']}, not {kind}")
+        voided_by = conn.execute(
+            "SELECT id FROM activities WHERE type = 'correction' AND voids_activity_id = ?",
+            (voids_id,),
+        ).fetchone()
+        if voided_by is not None:
+            raise EventError(
+                "voids", f"activity {voids_id} is already void (correction {voided_by['id']})"
+            )
+        payload: dict[str, object] = {}
+        cleaned = _clean(note)
+        if cleaned is not None:
+            payload["note"] = cleaned
+        correction_id = _insert_activity(
+            conn, None, "correction", payload, who, now, now, voids_activity_id=voids_id
+        )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return correction_id
+
+
+@dataclass(frozen=True)
+class TimeTotals:
+    """Counted hours over a date range: all, by person, and observed vs estimated."""
+
+    total: Decimal
+    by_person: dict[str, Decimal]
+    observed: Decimal
+    estimated: Decimal
+
+
+@dataclass(frozen=True)
+class CostTotals:
+    """Counted spend over a date range: all, by category, and observed vs estimated."""
+
+    total: Decimal
+    by_category: dict[str, Decimal]
+    observed: Decimal
+    estimated: Decimal
+
+
+def _entries_in_range(
+    conn: sqlite3.Connection, kind: str, start: date, end: date
+) -> list[dict[str, object]]:
+    """Payloads of counted ``kind`` entries whose date is in [start, end] (inclusive)."""
+    rows = conn.execute(
+        f"SELECT a.payload FROM activities a WHERE {COUNTED_ACTIVITIES_SQL} AND a.type = ?"
+        " AND json_extract(a.payload, '$.date') BETWEEN ? AND ? ORDER BY a.id",
+        (kind, start.isoformat(), end.isoformat()),
+    )
+    return [json.loads(row[0]) for row in rows]
+
+
+def time_totals(conn: sqlite3.Connection, start: date, end: date) -> TimeTotals:
+    """Exact sums of counted hours dated in the inclusive Denver range [start, end]."""
+    total = observed = estimated = Decimal(0)
+    by_person: dict[str, Decimal] = {}
+    for payload in _entries_in_range(conn, TIME_KIND, start, end):
+        hours = Decimal(str(payload["hours"]))
+        total += hours
+        person = str(payload["person"])
+        by_person[person] = by_person.get(person, Decimal(0)) + hours
+        if payload["estimated"] is True:
+            estimated += hours
+        else:
+            observed += hours
+    return TimeTotals(total, by_person, observed, estimated)
+
+
+def cost_totals(conn: sqlite3.Connection, start: date, end: date) -> CostTotals:
+    """Exact sums of counted spend dated in the inclusive Denver range [start, end]."""
+    total = observed = estimated = Decimal(0)
+    by_category: dict[str, Decimal] = {}
+    for payload in _entries_in_range(conn, COST_KIND, start, end):
+        amount = Decimal(str(payload["amount_usd"]))
+        total += amount
+        category = str(payload["category"])
+        by_category[category] = by_category.get(category, Decimal(0)) + amount
+        if payload["estimated"] is True:
+            estimated += amount
+        else:
+            observed += amount
+    return CostTotals(total, by_category, observed, estimated)
