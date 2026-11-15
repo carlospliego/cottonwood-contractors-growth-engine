@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-029",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran this against a fresh migrated DB with stdin from /dev/null. The first log-inbound for pat@example.com at 2026-11-16 09:30 gave lead 1 and exit 0. Row counts were leads=1, contacts=1, organizations=0, activities=1. The second call used --email 'PAT@example.com ' at 2026-11-16 15:00. It printed 'warning: possible duplicate of lead(s) 1 received 2026-11-16' and 'refused: duplicate not confirmed (use --confirm-duplicate)', then exited 1. The counts were unchanged afterwards, and the only lead id was still 1. The code agrees: cottonwood/cli.py _duplicate_confirmed returns False when stdin is not a tty, and _run_log_inbound returns EXIT_REFUSED before log_inquiry is called.",
+          "file": "cottonwood/cli.py",
+          "line": 148,
+          "quote": "print(f\"warning: possible duplicate of lead(s) {ids} received {day}\", file=sys.stderr)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the real CLI against a migrated database in $TMPDIR, with stdin from /dev/null. I logged a lead with --phone '(801) 555-0134', received 2026-11-10 09:00. That succeeded as lead 5 (rc=0). I then logged --phone '801.555.0134' with no email, received 2026-11-10 15:00, the same Denver date. It printed 'warning: possible duplicate of lead(s) 5 received 2026-11-10' and 'refused: duplicate not confirmed (use --confirm-duplicate)', exited 1, and saved nothing (leads count stayed 5). Rerunning with --confirm-duplicate printed the same warning and then saved lead 6 (rc=0). The check is find_same_day_duplicates in cottonwood/inbound.py. It matches on email_norm OR phone_e164 and compares local dates. cottonwood/cli.py refuses when the duplicate list is non-empty and _duplicate_confirmed returns False. That function returns False without a terminal. I did not run the repo's test file tests/test_inbound_duplicates.py. One oddity: the database file had been used before my run, so the first lead got id 5 rather than 1. I did not look into why. It does not affect the result.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-029/cottonwood/cli.py",
+          "line": 186,
+          "quote": "        duplicates = inbound.find_same_day_duplicates(\n            conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at\n        )\n        if duplicates and not _duplicate_confirmed(args, inquiry, duplicates):"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran this against a migrated scratch DB in $TMPDIR. Lead 2 (email A@x.com, phone 303-555-0101, 2026-03-10 09:00) was logged with rc=0. A second inquiry with the same email and no --confirm-duplicate was refused with rc=1 and no lead was created. The same inquiry with --confirm-duplicate exited 0 and created lead 3, whose inquiry_logged payload has duplicate_of [2]. A third inquiry (phone channel, same normalized email and phone, --confirm-duplicate) exited 0 and created lead 4 with duplicate_of [2, 3]. That is the full list of matching ids, so the multi-match case works. The DB also held unrelated earlier rows (leads 1, 5 and 6, from an earlier command in this session that may have partly run), which don't affect this result. The code path is cli.py `find_same_day_duplicates` followed by `log_inquiry(..., duplicate_of=duplicates)`, and inbound.py writes the ids into the payload.",
+          "file": "cottonwood/inbound.py",
+          "line": 232,
+          "quote": "\"duplicate_of\": list(duplicate_of),"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In _duplicate_confirmed, when stdin is a tty it calls input('Save anyway? [y/N] ') and returns answer.strip().lower() in ('y','yes'). So 'y' and 'YES' return True and the inquiry is saved. 'n' and '' return False, and _run_log_inbound then returns EXIT_REFUSED (1) before inbound.log_inquiry is called, so nothing is written. tests/test_inbound_duplicates.py monkeypatches sys.stdin.isatty to True and builtins.input. test_tty_yes_saves (lines 101-116) covers 'y', 'YES' and ' yes ', asserts EXIT_OK and that the lead count is 2. test_tty_other_answers_refuse (lines 119-127) covers 'n', '' and 'maybe', asserts EXIT_REFUSED and that the table counts are unchanged. I ran the test file: 14 passed. I did not get a real pseudo-terminal run: the sandbox refused my pty script as too complex, so this rests on the code and the monkeypatched tests.",
+          "file": "cottonwood/cli.py",
+          "line": 149,
+          "quote": "    if not sys.stdin.isatty():\n        return False\n    try:\n        answer = input(\"Save anyway? [y/N] \")\n    except (EOFError, KeyboardInterrupt):\n        return False\n    return answer.strip().lower() in (\"y\", \"yes\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the commands against a fresh migrated DB in $TMPDIR with stdin from /dev/null. All four saves exited 0 and printed no warning on stderr. (1) a@example.com received 2026-11-16 23:30 local saved as lead 1. (2) The same email at 2026-11-17 00:30 local saved as lead 2 with rc=0 and no warning. The two inquiries share a UTC date but fall on different Denver dates, and find_same_day_duplicates compares timeutil.local_date values. (3) b@example.com with phone 303-555-0142 on 2026-11-17 saved as lead 3 with rc=0. (4) c@example.com with phone 303-555-0199 on 2026-11-17 saved as lead 4 with rc=0, so a non-matching email and phone on the same day also save cleanly.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-029/cottonwood/inbound.py",
+          "line": 178,
+          "quote": "    day = timeutil.local_date(received_at)"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. All four exited 0. pytest: 189 passed. ruff check: All checks passed. mypy: no issues found in 29 source files. ruff format --check: 84 files already formatted.",
+          "file": "tests/test_timeutil.py",
+          "line": 1,
+          "quote": "189 passed in 0.42s"
+        }
+      ],
+      "returns_through": "2026-11-15T11:07:18.369Z"
+    }
+  ]
+}

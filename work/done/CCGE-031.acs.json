@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-031",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The worktree docs/runbook.md has '## Inbound verification checklist' at line 130. Its table header at line 137 is '| Item | checked_at | result | owner |'. It has 10 rows, one for each AC item: commercial test, residential test, spam/blocked path, notification spam-folder check, Formspark account owner/plan/limits/retention, auto-forward to developer, mobile form and phone-link, missed-call handling and owner, same-working-day response capacity, GA4 vs privacy-page reconciliation. I counted 10 items in the AC, so none are missing or duplicated. I did not run the tests/test_runbook_inbound.py file.",
+          "file": "docs/runbook.md",
+          "line": 137,
+          "quote": "| Item | checked_at | result | owner |"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "docs/runbook.md has '## Relay' at line 160. It says Formspark notifications and outreach-mailbox replies are auto-forwarded (or CC'd) to the developer (165-166). It says the founder's daily note covers calls and in-person events (167). It says everything is logged the same working day and opt-outs the same day (168). It has a `log-inbound --channel form` example (173) and a `--channel phone` example (177). `--test` appears only in prose, not in an example command: 'Add `--test` for the checklist's test submissions' (180). That reads as satisfying 'shown', but a strict reader could want it inside a command line. I ran migrate on a scratch DB, then both documented examples and the same form command with `--test` added. All three exited 0 and logged leads 1-3, and lead 3 was marked TEST.",
+          "file": "docs/runbook.md",
+          "line": 160,
+          "quote": "## Relay"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep for 'Later features' in docs/runbook.md returns nothing. `git diff 32c7b2b -- docs/runbook.md` has only two hunks. The first removes the 'Later features...' line and a blank line, ahead of '## Restore from backup'. The second appends the new '## Inbound verification checklist' and '## Relay' sections after the end of 'Deletion requests'. No hunk touches the Restore from backup, Re-applying suppression after a restore or Deletion requests sections, so they are byte-identical to the base. Running the three test files with UV_OFFLINE=1 UV_NO_SYNC=1 uv run pytest gave 10 passed (4 restore, 5 missing_check, 1 restore_hot_journal).",
+          "file": "docs/runbook.md",
+          "line": 8,
+          "quote": "## Restore from backup"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. uv run pytest exited 0 (212 passed). uv run ruff check . exited 0 (All checks passed!). uv run mypy . exited 0 (no issues found in 32 source files). uv run ruff format --check . exited 0 (87 files already formatted).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-031/tests/test_runbook_inbound.py",
+          "line": 1,
+          "quote": "212 passed in 0.39s"
+        }
+      ],
+      "returns_through": "2026-11-15T11:18:00.222Z"
+    }
+  ]
+}
