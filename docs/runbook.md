@@ -50,8 +50,10 @@ INSERT OR IGNORE INTO suppression (email_norm, reason, source, added_at)
     WHERE added_at > '2026-11-14T09:00:00Z';
 SELECT changes() AS reapplied;
 -- Must print 0: no set-aside entry may be missing from the restored database.
-SELECT count(*) AS missing FROM before_restore.suppression
-    WHERE email_norm NOT IN (SELECT email_norm FROM main.suppression);
+-- A set-aside row with a NULL or empty key also counts as missing.
+SELECT count(*) AS missing FROM before_restore.suppression AS b
+    WHERE b.email_norm IS NULL OR b.email_norm = ''
+        OR NOT EXISTS (SELECT 1 FROM main.suppression AS m WHERE m.email_norm = b.email_norm);
 DETACH DATABASE before_restore;
 ```
 
@@ -59,7 +61,10 @@ DETACH DATABASE before_restore;
 Do not use `INSERT OR REPLACE` to change an entry: an existing suppression row is never
 replaced (the insert is silently skipped and the old row stays). If `missing` is not 0 (an
 entry was added before the backup but is not in it), drop the `WHERE` line and run the block
-again; copying every row is also safe for the same reason.
+again; copying every row is also safe for the same reason. A row with a NULL or empty
+`email_norm` cannot be copied (the column requires an address): find it with
+`SELECT * FROM before_restore.suppression WHERE email_norm IS NULL OR email_norm = '';` and
+add the right address by hand.
 
 Keep the set-aside file until you are sure the restore is good, then delete it. It holds
 contact data, so never copy it outside `data/`.
