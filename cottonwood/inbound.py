@@ -1,4 +1,4 @@
-"""Inbound inquiries: validate what the inquirer supplied and record it as a lead (R-1, R-3)."""
+"""Inbound inquiries: validate what the inquirer supplied and record it as a lead (R-1 to R-3)."""
 
 from __future__ import annotations
 
@@ -157,6 +157,31 @@ def _rowid(cursor: sqlite3.Cursor) -> int:
     if cursor.lastrowid is None:
         raise sqlite3.DatabaseError("insert returned no row id")
     return cursor.lastrowid
+
+
+def find_same_day_duplicates(
+    conn: sqlite3.Connection, email_norm: str | None, phone_e164: str | None, received_at: str
+) -> list[int]:
+    """Ids of inbound inquiries sharing the email or phone on the same Denver date (R-2).
+
+    Test inquiries count too, so the labeled test submissions exercise the check.
+    """
+    if email_norm is None and phone_e164 is None:
+        return []
+    rows = conn.execute(
+        "SELECT leads.id, leads.received_at FROM leads"
+        " JOIN contacts ON contacts.id = leads.contact_id"
+        " WHERE leads.type = 'inbound_inquiry'"
+        " AND (contacts.email_norm = ? OR contacts.phone_e164 = ?)"
+        " ORDER BY leads.id",
+        (email_norm, phone_e164),
+    ).fetchall()
+    day = timeutil.local_date(received_at)
+    return [
+        int(row[0])
+        for row in rows
+        if row[1] is not None and timeutil.local_date(str(row[1])) == day
+    ]
 
 
 def log_inquiry(

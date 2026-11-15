@@ -119,6 +119,11 @@ def _add_log_inbound_arguments(parser: argparse.ArgumentParser) -> None:
         "--test", action="store_true", help="label a test submission (excluded from counts)"
     )
     parser.add_argument(
+        "--confirm-duplicate",
+        action="store_true",
+        help="save even if it matches a same-day inquiry (otherwise asks, or refuses)",
+    )
+    parser.add_argument(
         "--actor",
         default=inbound.DEFAULT_ACTOR,
         help=f"who logs it (default: {inbound.DEFAULT_ACTOR})",
@@ -129,6 +134,25 @@ def _add_log_inbound_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
     )
+
+
+def _duplicate_confirmed(
+    args: argparse.Namespace, inquiry: inbound.Inquiry, duplicates: Sequence[int]
+) -> bool:
+    """Warn about same-day matches (R-2); True only on --confirm-duplicate or a typed yes."""
+    ids = ", ".join(str(lead_id) for lead_id in duplicates)
+    day = timeutil.local_date(inquiry.received_at).isoformat()
+    print(f"warning: possible duplicate of lead(s) {ids} received {day}", file=sys.stderr)
+    if args.confirm_duplicate:
+        return True
+    # A prompt would hang a script, so without a terminal the answer is no.
+    if not sys.stdin.isatty():
+        return False
+    try:
+        answer = input("Save anyway? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("y", "yes")
 
 
 def _run_log_inbound(args: argparse.Namespace) -> int:
@@ -159,7 +183,13 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
-        lead_id = inbound.log_inquiry(conn, inquiry)
+        duplicates = inbound.find_same_day_duplicates(
+            conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at
+        )
+        if duplicates and not _duplicate_confirmed(args, inquiry, duplicates):
+            print("refused: duplicate not confirmed (use --confirm-duplicate)", file=sys.stderr)
+            return EXIT_REFUSED
+        lead_id = inbound.log_inquiry(conn, inquiry, duplicate_of=duplicates)
     except sqlite3.Error as exc:
         print(f"error: could not save the inquiry: {exc}", file=sys.stderr)
         return EXIT_REFUSED
