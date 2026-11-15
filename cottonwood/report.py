@@ -54,6 +54,40 @@ DEVELOPER = "developer"
 NOT_APPLICABLE = "n/a"
 _KPI_PLACES = Decimal("0.01")
 
+LABEL_RESEARCHED_DIRECT = "Researched direct candidates"
+LABEL_RESEARCHED_PARTNERS = "Researched partner firms"
+LABEL_HAND_REVIEW = "Hand review"
+LABEL_APPROVALS = "Approvals"
+LABEL_DRAFTS = "Prepared drafts"
+LABEL_SENDS = "Sends"
+LABEL_GATE_VIOLATIONS = "Gate violations"
+LABEL_REPLIES = "Replies"
+LABEL_OPT_OUTS = "Opt-outs"
+LABEL_DATA_QUALITY = "Data-quality failures"
+LABEL_REFERRED = "Referred leads"
+TOTAL = "total"
+
+# The two outreach motions (lead types) that research and hand review are counted by (R-11).
+DIRECT_MOTION = "direct_candidate"
+PARTNER_MOTION = "relationship_prospect"
+MOTIONS = (DIRECT_MOTION, PARTNER_MOTION)
+# Payload contract for activities later features write (build assumption 4).
+RESULT_KEY = "result"
+REPLY_TYPE_KEY = "reply_type"
+HAND_REVIEW_RESULTS = ("relevant", "irrelevant", "fabricated")
+FABRICATED = "fabricated"
+REPLY_TYPES = ("interested", "not_now", "not_relevant", "referral", "opt_out", "bounce", "other")
+OTHER_REPLY = "other"
+OPT_OUT_REPLY = "opt_out"
+# Outreach steps counted per activity type, in the order the report prints them.
+OUTREACH_LABELS = {
+    "approval": LABEL_APPROVALS,
+    "draft_prepared": LABEL_DRAFTS,
+    "sent": LABEL_SENDS,
+    "gate_violation": LABEL_GATE_VIOLATIONS,
+}
+REFERRAL_COLUMNS = ("Partner lead", "Name", "Referred leads")
+
 
 class ReportError(ValueError):
     """The report's period options are missing, conflicting or invalid."""
@@ -225,6 +259,117 @@ def kpi(qualified: int, partner: int, founder_hours: Decimal) -> Decimal | None:
     return (Decimal(qualified + partner) / founder_hours).quantize(_KPI_PLACES, ROUND_HALF_UP)
 
 
+def _payload(row: sqlite3.Row) -> dict[str, object]:
+    """An activity row's JSON payload as a dict (empty when it is not an object)."""
+    value = json.loads(str(row["payload"]))
+    return value if isinstance(value, dict) else {}
+
+
+def _lead_types(conn: sqlite3.Connection) -> dict[int, str]:
+    """Every lead's type by id."""
+    return {int(row["id"]): str(row["type"]) for row in conn.execute("SELECT id, type FROM leads")}
+
+
+@dataclass(frozen=True)
+class FunnelMetrics:
+    """Research, hand review, outreach steps, replies, opt-outs and data quality (R-28)."""
+
+    researched: dict[str, int]
+    hand_review: dict[str, dict[str, int]]
+    hand_review_totals: dict[str, int]
+    outreach: dict[str, int]
+    replies: dict[str, int]
+    opt_outs: int
+    data_quality_failures: int
+
+
+def _funnel(conn: sqlite3.Connection, period: Period) -> FunnelMetrics:
+    """Count the outreach funnel from counted activities in the period; every key starts at 0."""
+    types = _lead_types(conn)
+    researched_leads: dict[str, set[int]] = {motion: set() for motion in MOTIONS}
+    for row in _counted_in_period(conn, "imported", period):
+        lead_id = row["lead_id"]
+        if lead_id is not None and types.get(int(lead_id)) in researched_leads:
+            researched_leads[types[int(lead_id)]].add(int(lead_id))
+    hand_review = {motion: dict.fromkeys(HAND_REVIEW_RESULTS, 0) for motion in MOTIONS}
+    hand_review_totals = dict.fromkeys(MOTIONS, 0)
+    fabricated = 0
+    for row in _counted_in_period(conn, "hand_review", period):
+        result = _payload(row).get(RESULT_KEY)
+        if result == FABRICATED:
+            fabricated += 1
+        lead_id = row["lead_id"]
+        motion = types.get(int(lead_id)) if lead_id is not None else None
+        if motion not in hand_review_totals:
+            continue
+        hand_review_totals[motion] += 1
+        if isinstance(result, str) and result in hand_review[motion]:
+            hand_review[motion][result] += 1
+    replies = dict.fromkeys(REPLY_TYPES, 0)
+    for row in _counted_in_period(conn, "reply", period):
+        reply_type = _payload(row).get(REPLY_TYPE_KEY)
+        key = reply_type if isinstance(reply_type, str) and reply_type in replies else OTHER_REPLY
+        replies[key] += 1
+    suppressed = len(_counted_in_period(conn, "suppressed", period))
+    rejected = len(_counted_in_period(conn, "import_rejected", period))
+    return FunnelMetrics(
+        researched={motion: len(leads) for motion, leads in researched_leads.items()},
+        hand_review=hand_review,
+        hand_review_totals=hand_review_totals,
+        outreach={kind: len(_counted_in_period(conn, kind, period)) for kind in OUTREACH_LABELS},
+        replies=replies,
+        opt_outs=replies[OPT_OUT_REPLY] + suppressed,
+        data_quality_failures=rejected + fabricated,
+    )
+
+
+@dataclass(frozen=True)
+class Referral:
+    """One referring partner lead and how many referred leads arrived in the period."""
+
+    partner_id: int
+    name: str | None
+    count: int
+
+
+def _referrals(conn: sqlite3.Connection, period: Period) -> list[Referral]:
+    """Referred non-test leads with an imported or inquiry_logged activity in the period (R-12).
+
+    Each referred lead counts once, grouped by the partner lead it names in referred_by.
+    """
+    arrived = {
+        int(row["lead_id"])
+        for kind in ("imported", "inquiry_logged")
+        for row in _counted_in_period(conn, kind, period)
+        if row["lead_id"] is not None
+    }
+    counts: dict[int, int] = {}
+    for row in conn.execute(
+        "SELECT id, referred_by FROM leads"
+        f" WHERE referred_by IS NOT NULL AND {review.COUNTED_LEADS_FILTER}"
+    ):
+        if int(row["id"]) in arrived:
+            partner = int(row["referred_by"])
+            counts[partner] = counts.get(partner, 0) + 1
+    referrals = []
+    for partner_id in sorted(counts):
+        name_row = conn.execute(
+            "SELECT organizations.name AS org, contacts.name AS contact FROM leads"
+            " LEFT JOIN organizations ON organizations.id = leads.organization_id"
+            " LEFT JOIN contacts ON contacts.id = leads.contact_id"
+            " WHERE leads.id = ?",
+            (partner_id,),
+        ).fetchone()
+        name = None
+        if name_row is not None:
+            for candidate in (name_row["org"], name_row["contact"]):
+                if candidate is not None and str(candidate).strip():
+                    name = str(candidate).strip()
+                    break
+        referrals.append(Referral(partner_id, name, counts[partner_id]))
+    return referrals
+
+
 @dataclass(frozen=True)
 class Report:
     """Every metric the weekly report prints, computed for one period."""
@@ -238,6 +383,8 @@ class Report:
     outcomes: dict[str, int]
     hours: HoursMetrics
     kpi: Decimal | None
+    funnel: FunnelMetrics
+    referrals: list[Referral]
 
 
 def build_report(
@@ -258,6 +405,8 @@ def build_report(
         outcomes=outcomes,
         hours=hours,
         kpi=kpi(qualified, outcomes["partner_conversation"], hours.founder_total),
+        funnel=_funnel(conn, period),
+        referrals=_referrals(conn, period),
     )
 
 
@@ -305,4 +454,45 @@ def render_report(report: Report) -> str:
         _line(LABEL_FOUNDER_ESTIMATED, hours.founder_estimated),
         _line(LABEL_DEVELOPER_HOURS, hours.developer),
     ]
+    lines += _render_funnel(report.funnel)
+    lines += _render_referrals(report.referrals)
     return "\n".join(lines) + "\n"
+
+
+def _render_funnel(funnel: FunnelMetrics) -> list[str]:
+    """The prospecting/outreach, replies/opt-outs and data-quality sections."""
+    lines = [
+        "",
+        "## Prospecting and outreach",
+        "",
+        _line(LABEL_RESEARCHED_DIRECT, funnel.researched[DIRECT_MOTION]),
+        _line(LABEL_RESEARCHED_PARTNERS, funnel.researched[PARTNER_MOTION]),
+    ]
+    for motion in MOTIONS:
+        lines += [
+            _line(f"{LABEL_HAND_REVIEW} {motion} {result}", count)
+            for result, count in funnel.hand_review[motion].items()
+        ]
+        lines.append(
+            _line(f"{LABEL_HAND_REVIEW} {motion} {TOTAL}", funnel.hand_review_totals[motion])
+        )
+    lines += [_line(OUTREACH_LABELS[k], v) for k, v in funnel.outreach.items()]
+    lines += ["", "## Replies and opt-outs", ""]
+    lines += [_line(f"{LABEL_REPLIES} {k}", v) for k, v in funnel.replies.items()]
+    lines.append(_line(LABEL_OPT_OUTS, funnel.opt_outs))
+    lines += ["", "## Data quality", "", _line(LABEL_DATA_QUALITY, funnel.data_quality_failures)]
+    return lines
+
+
+def _render_referrals(referrals: list[Referral]) -> list[str]:
+    """The referrals section: one table row per referring partner, then the total."""
+    lines = ["", "## Referrals", ""]
+    if referrals:
+        lines.append("| " + " | ".join(REFERRAL_COLUMNS) + " |")
+        lines.append("|" + "---|" * len(REFERRAL_COLUMNS))
+        for referral in referrals:
+            cells = [str(referral.partner_id), review._cell(referral.name), str(referral.count)]
+            lines.append("| " + " | ".join(cells) + " |")
+        lines.append("")
+    lines.append(_line(LABEL_REFERRED, sum(r.count for r in referrals)))
+    return lines
