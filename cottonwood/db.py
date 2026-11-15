@@ -68,6 +68,13 @@ def discover_migrations(migrations_dir: Path = MIGRATIONS_DIR) -> list[Migration
                 f"two migrations share number {number:03d}: {found[number].path.name}, {path.name}"
             )
         found[number] = Migration(number, path)
+    # user_version is a high-water mark, so a gap would let a later-added lower number be skipped.
+    for expected, number in enumerate(sorted(found), start=1):
+        if number != expected:
+            raise MigrationError(
+                f"migration numbers must run 001..NNN without gaps: {expected:03d} is missing"
+                f" (found {found[number].path.name})"
+            )
     return [found[number] for number in sorted(found)]
 
 
