@@ -11,7 +11,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from cottonwood import config, events, inbound, review, timeutil
 
@@ -53,6 +53,19 @@ FOUNDER = "founder"
 DEVELOPER = "developer"
 NOT_APPLICABLE = "n/a"
 _KPI_PLACES = Decimal("0.01")
+_MONEY_PLACES = Decimal("0.01")
+
+LABEL_MODEL_COST = "Model cost"
+LABEL_MODEL_OBSERVED = "Model cost observed"
+LABEL_MODEL_ESTIMATED = "Model cost estimated"
+LABEL_MODEL_MTD = "Model cost month to date"
+LABEL_OTHER_COSTS = "Other costs"
+LABEL_OTHER_OBSERVED = "Other costs observed"
+LABEL_OTHER_ESTIMATED = "Other costs estimated"
+NO_CAP = "No model-cost cap configured (report.model_cost_cap_usd)."
+COST_COLUMNS = ("Category", "Amount (USD)")
+SENDING_BLOCKED_HEADING = "## Sending blocked"
+SENDING_BLOCKED_INTRO = "Sending is blocked until this open question is answered:"
 
 LABEL_RESEARCHED_DIRECT = "Researched direct candidates"
 LABEL_RESEARCHED_PARTNERS = "Researched partner firms"
@@ -371,6 +384,52 @@ def _referrals(conn: sqlite3.Connection, period: Period) -> list[Referral]:
 
 
 @dataclass(frozen=True)
+class ModelCostMetrics:
+    """Model cost of agent runs in the period, observed vs estimated, and month to date."""
+
+    total: Decimal
+    observed: Decimal
+    estimated: Decimal
+    month_to_date: Decimal
+    cap: Decimal | None
+
+
+def _run_costs(conn: sqlite3.Connection) -> list[tuple[date, Decimal, bool]]:
+    """(Denver start date, cost, estimated) for every agent run with a readable cost_usd.
+
+    A NULL or non-decimal cost_usd is skipped; cost_estimated 1 is estimated, 0 or NULL observed.
+    """
+    runs = []
+    for row in conn.execute("SELECT started_at, cost_usd, cost_estimated FROM agent_runs"):
+        if row["cost_usd"] is None:
+            continue
+        try:
+            cost = Decimal(str(row["cost_usd"]).strip())
+        except InvalidOperation:
+            continue
+        if not cost.is_finite():
+            continue
+        started = timeutil.local_date(str(row["started_at"]))
+        runs.append((started, cost, row["cost_estimated"] == 1))
+    return runs
+
+
+def _model_cost(conn: sqlite3.Connection, period: Period, cap: Decimal | None) -> ModelCostMetrics:
+    """Sum agent run costs started in the period, and in the end date's Denver month to date."""
+    observed = estimated = month_to_date = Decimal(0)
+    month_start = period.end.replace(day=1)
+    for started, cost, is_estimated in _run_costs(conn):
+        if period.contains(started):
+            if is_estimated:
+                estimated += cost
+            else:
+                observed += cost
+        if month_start <= started <= period.end:
+            month_to_date += cost
+    return ModelCostMetrics(observed + estimated, observed, estimated, month_to_date, cap)
+
+
+@dataclass(frozen=True)
 class Report:
     """Every metric the weekly report prints, computed for one period."""
 
@@ -385,13 +444,18 @@ class Report:
     kpi: Decimal | None
     funnel: FunnelMetrics
     referrals: list[Referral]
+    model_cost: ModelCostMetrics
+    other_costs: events.CostTotals
+    sending_blocked_by: str | None
 
 
 def build_report(
     conn: sqlite3.Connection, period: Period, cfg: config.Config | None, generated_at: str
 ) -> Report:
-    """Compute the report's metrics from the database (read only)."""
-    del cfg  # Report settings (cost cap, blocked sending) are read by later sections.
+    """Compute the report's metrics from the database (read only).
+
+    ``cfg`` supplies the model-cost cap and the blocked-sending question; None means neither.
+    """
     qualified = _qualified(conn, period)
     outcomes = {kind: len(_counted_in_period(conn, kind, period)) for kind in OUTCOME_LABELS}
     hours = _hours(conn, period)
@@ -407,6 +471,9 @@ def build_report(
         kpi=kpi(qualified, outcomes["partner_conversation"], hours.founder_total),
         funnel=_funnel(conn, period),
         referrals=_referrals(conn, period),
+        model_cost=_model_cost(conn, period, cfg.model_cost_cap_usd if cfg else None),
+        other_costs=events.cost_totals(conn, period.start, period.end),
+        sending_blocked_by=cfg.sending_blocked_by if cfg else None,
     )
 
 
@@ -456,7 +523,58 @@ def render_report(report: Report) -> str:
     ]
     lines += _render_funnel(report.funnel)
     lines += _render_referrals(report.referrals)
+    lines += _render_costs(report.model_cost, report.other_costs)
+    lines += _render_blocked(report.sending_blocked_by)
     return "\n".join(lines) + "\n"
+
+
+def money(value: Decimal) -> str:
+    """A USD amount to 2 places for display (sums stay exact), e.g. 1.75 or 100.00."""
+    return f"{value.quantize(_MONEY_PLACES, ROUND_HALF_UP):f}"
+
+
+def _mtd_value(model: ModelCostMetrics) -> str:
+    """Month-to-date model cost, against the cap when one is configured."""
+    if model.cap is None:
+        return money(model.month_to_date)
+    left = model.cap - model.month_to_date
+    status = f"{money(left)} remaining" if left >= 0 else f"{money(-left)} over cap"
+    return f"{money(model.month_to_date)} of {money(model.cap)} ({status})"
+
+
+def _render_costs(model: ModelCostMetrics, other: events.CostTotals) -> list[str]:
+    """The costs section: model cost (observed vs estimated, month to date) and other costs."""
+    lines = [
+        "",
+        "## Costs",
+        "",
+        _line(LABEL_MODEL_COST, money(model.total)),
+        _line(LABEL_MODEL_OBSERVED, money(model.observed)),
+        _line(LABEL_MODEL_ESTIMATED, money(model.estimated)),
+        _line(LABEL_MODEL_MTD, _mtd_value(model)),
+    ]
+    if model.cap is None:
+        lines.append(NO_CAP)
+    lines += [
+        _line(LABEL_OTHER_COSTS, money(other.total)),
+        _line(LABEL_OTHER_OBSERVED, money(other.observed)),
+        _line(LABEL_OTHER_ESTIMATED, money(other.estimated)),
+    ]
+    if other.by_category:
+        lines += ["", "| " + " | ".join(COST_COLUMNS) + " |", "|" + "---|" * len(COST_COLUMNS)]
+        for category in sorted(other.by_category):
+            amount = money(other.by_category[category])
+            lines.append(f"| {review._cell(category)} | {amount} |")
+    return lines
+
+
+def _render_blocked(question: str | None) -> list[str]:
+    """The blocked-sending section quoting the open question, or nothing when none is set."""
+    if question is None:
+        return []
+    lines = ["", SENDING_BLOCKED_HEADING, "", SENDING_BLOCKED_INTRO, ""]
+    lines += [f"> {line}".rstrip() for line in question.splitlines()]
+    return lines
 
 
 def _render_funnel(funnel: FunnelMetrics) -> list[str]:
