@@ -12,6 +12,8 @@ from pathlib import Path
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 DEFAULT_DB_PATH = Path("data") / "cottonwood.db"
 DB_ENV_VAR = "COTTONWOOD_DB"
+# Seconds a run waits for another run's write lock before giving up.
+BUSY_TIMEOUT_SECONDS = 30.0
 
 _MIGRATION_NAME = re.compile(r"^(\d{3})_[a-z0-9_]+\.sql$")
 
@@ -83,19 +85,28 @@ def _read_version(conn: sqlite3.Connection, db_path: Path) -> int:
         raise MigrationError(f"cannot read database {db_path}: {exc}") from exc
 
 
-def _apply(conn: sqlite3.Connection, migration: Migration) -> None:
-    """Run one migration and set user_version to its number, in one transaction."""
+def _apply(conn: sqlite3.Connection, migration: Migration) -> bool:
+    """Run one migration and set user_version to its number, in one transaction.
+
+    The write lock is taken first and user_version re-read under it, so a migration
+    another run applied meanwhile is skipped; returns False in that case.
+    """
     try:
         sql = migration.path.read_text(encoding="utf-8")
     except OSError as exc:
         raise MigrationError(f"cannot read migration {migration.path}: {exc}") from exc
-    script = f"BEGIN;\n{sql}\n;\nPRAGMA user_version = {migration.number};\nCOMMIT;\n"
+    script = f"{sql}\n;\nPRAGMA user_version = {migration.number};\nCOMMIT;\n"
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        if user_version(conn) >= migration.number:
+            conn.execute("ROLLBACK")
+            return False
         conn.executescript(script)
     except sqlite3.Error as exc:
         if conn.in_transaction:
             conn.execute("ROLLBACK")
         raise MigrationError(f"migration {migration.path.name} failed: {exc}") from exc
+    return True
 
 
 def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResult:
@@ -105,7 +116,8 @@ def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResu
         raise FolderMissingError(folder)
     migrations = discover_migrations(migrations_dir)
     try:
-        conn = sqlite3.connect(db_path, isolation_level=None)
+        # autocommit=True: executescript must not commit the BEGIN IMMEDIATE that _apply opens.
+        conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_SECONDS, autocommit=True)
     except sqlite3.Error as exc:
         raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
     try:
@@ -114,8 +126,8 @@ def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResu
         for migration in migrations:
             if migration.number <= start:
                 continue
-            _apply(conn, migration)
-            applied.append(migration)
+            if _apply(conn, migration):
+                applied.append(migration)
         return MigrateResult(start, _read_version(conn, db_path), tuple(applied))
     finally:
         conn.close()
