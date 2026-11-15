@@ -1,0 +1,25 @@
+# sir configuration. Edit freely; /sir:init re-runs only fill missing keys.
+# Schema: schemas/config.schema.json in the sir plugin.
+version: 1
+project:
+  name: cottonwood-contractors-growth-engine
+  prefix: CCGE
+  id_digits: 3
+  default_branch: main
+paths:
+  work: work
+checks:
+  test: null
+  lint: null
+  typecheck: null
+  build: null
+  format: null
+versioning:
+  scheme: none
+  files: []
+  changelog: null
+verify:
+  repair_cap: 3
+models:
+  implement: inherit
+  check: sonnet
