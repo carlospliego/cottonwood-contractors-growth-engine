@@ -73,6 +73,27 @@ _IS_REVERT_SQL = (
 )
 
 
+# R-17: the one definition of "void". An activity is void when a correction names it in
+# voids_activity_id. Every void check (the counted-activity rule, the effective stage change,
+# and the already-void refusals) is built from this predicate; change void semantics here only.
+def _voiding_sql(target: str) -> str:
+    """SQL true when the correction row aliased ``c`` voids the activity id ``target``."""
+    return f"c.type = 'correction' AND c.voids_activity_id = {target}"
+
+
+def _voided_sql(target: str) -> str:
+    """SQL true when some correction voids the activity whose id is the SQL ``target``."""
+    return f"EXISTS (SELECT 1 FROM activities c WHERE {_voiding_sql(target)})"
+
+
+def _voided_by(conn: sqlite3.Connection, activity_id: int) -> int | None:
+    """The id of the correction that voids ``activity_id``, or None when it is not void."""
+    row = conn.execute(
+        f"SELECT c.id FROM activities c WHERE {_voiding_sql('?')}", (activity_id,)
+    ).fetchone()
+    return None if row is None else int(row[0])
+
+
 class EventError(ValueError):
     """An event field failed validation or a refusal rule; ``field`` names it."""
 
@@ -291,13 +312,11 @@ def _insert_activity(
 # correction never counts, nor does what a correction voids, nor a stage change whose causing
 # event is void, nor a revert (a stage change caused by a correction), so history reads as if
 # the voided move never happened; activities on test leads (R-3) do not count, entries with no
-# lead do.
+# lead do. "Void" itself is defined once, by _voiding_sql.
 COUNTED_ACTIVITIES_SQL = (
     "a.type <> 'correction'"
-    " AND NOT EXISTS (SELECT 1 FROM activities c"
-    " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
-    " AND NOT (a.type = 'stage_change' AND (EXISTS (SELECT 1 FROM activities c"
-    f" WHERE c.type = 'correction' AND c.voids_activity_id = {_CAUSE_SQL})"
+    f" AND NOT {_voided_sql('a.id')}"
+    f" AND NOT (a.type = 'stage_change' AND ({_voided_sql(_CAUSE_SQL)}"
     f" OR {_IS_REVERT_SQL}))"
     " AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l"
     " WHERE l.id = a.lead_id AND l.is_test = 0))"
@@ -306,11 +325,7 @@ COUNTED_ACTIVITIES_SQL = (
 # A stage change still in force: nothing voids it and nothing voids the activity that caused
 # it (an event; a revert's cause is a correction, which is never voidable, so it stays).
 _EFFECTIVE_STAGE_CHANGE_SQL = (
-    "a.type = 'stage_change'"
-    " AND NOT EXISTS (SELECT 1 FROM activities c"
-    " WHERE c.type = 'correction' AND c.voids_activity_id = a.id)"
-    " AND NOT EXISTS (SELECT 1 FROM activities c WHERE c.type = 'correction'"
-    f" AND c.voids_activity_id = {_CAUSE_SQL})"
+    f"a.type = 'stage_change' AND NOT {_voided_sql('a.id')} AND NOT {_voided_sql(_CAUSE_SQL)}"
 )
 
 
@@ -409,13 +424,10 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
             raise EventError(
                 "voids", f"activity {voids_id} is a {target['type']}, not an event (R-15)"
             )
-        voided_by = conn.execute(
-            "SELECT id FROM activities WHERE type = 'correction' AND voids_activity_id = ?",
-            (voids_id,),
-        ).fetchone()
+        voided_by = _voided_by(conn, voids_id)
         if voided_by is not None:
             raise EventError(
-                "voids", f"activity {voids_id} is already void (correction {voided_by['id']})"
+                "voids", f"activity {voids_id} is already void (correction {voided_by})"
             )
         if correction.occurred_at < str(target["occurred_at"]):
             raise EventError(
@@ -671,13 +683,10 @@ def void_entry(
             raise EventError("voids", f"no activity {voids_id}")
         if target["type"] != kind:
             raise EventError("voids", f"activity {voids_id} is a {target['type']}, not {kind}")
-        voided_by = conn.execute(
-            "SELECT id FROM activities WHERE type = 'correction' AND voids_activity_id = ?",
-            (voids_id,),
-        ).fetchone()
+        voided_by = _voided_by(conn, voids_id)
         if voided_by is not None:
             raise EventError(
-                "voids", f"activity {voids_id} is already void (correction {voided_by['id']})"
+                "voids", f"activity {voids_id} is already void (correction {voided_by})"
             )
         payload: dict[str, object] = {}
         cleaned = _clean(note)
