@@ -1,0 +1,20 @@
+{
+  "feature": "scaffold",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-15T09:28:26.472Z",
+      "sha256": "fc148a159e21154d7210372ad80577f469d1c3c85f7690513910e008d0a5d366",
+      "head": "eb307cee414a05a72ad21cc48ebe8a458bddd6a1"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-15T09:28:51.409Z",
+      "sha256": "6cdd1b695c6bc0c2514e5bb5ecd7ecedcaf23cc367da6cd6b948b653d0e84e8d",
+      "head": "eb307cee414a05a72ad21cc48ebe8a458bddd6a1",
+      "spec_sha256": "fc148a159e21154d7210372ad80577f469d1c3c85f7690513910e008d0a5d366"
+    }
+  }
+}

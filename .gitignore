@@ -2,3 +2,21 @@
 .sir/runs/
 # task worktrees created by /sir:do
 .claude/worktrees/
+
+# Python and uv
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Contact data: databases, backups and generated files never go in git
+data/
+out/
+*.db
+*.sqlite3

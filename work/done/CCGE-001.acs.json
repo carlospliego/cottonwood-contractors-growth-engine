@@ -1,0 +1,92 @@
+{
+  "task_id": "CCGE-001",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `UV_OFFLINE=1 UV_NO_SYNC=1 uv run cottonwood --help` in the worktree. It exited 0 and printed a usage line `usage: cottonwood [-h] [--version] COMMAND ...` plus the description 'Cottonwood Contractors growth engine.' The output contains `cottonwood`. pyproject.toml defines the console script `cottonwood = \"cottonwood.cli:entry\"`.",
+          "file": "pyproject.toml",
+          "line": 9,
+          "quote": "[project.scripts]\ncottonwood = \"cottonwood.cli:entry\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `UV_OFFLINE=1 UV_NO_SYNC=1 uv run cottonwood` and it exited 2 with 'error: the following arguments are required: COMMAND'. Ran `... uv run cottonwood not-a-command` and it also exited 2 with 'invalid choice'. The subparsers are created with required=True, and main() returns argparse's SystemExit code, which is 2.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-001/cottonwood/cli.py",
+          "line": 43,
+          "quote": "subparsers = parser.add_subparsers(dest=\"command\", required=True, metavar=\"COMMAND\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "main() is annotated -> int and returns the handler's int or _exit_code(SystemExit) (cottonwood/cli.py:61-69). tests/test_cli.py asserts the return value: isinstance(code, int) and code == EXIT_OK for --help (lines 13-15), isinstance and == EXIT_USAGE for no subcommand (20-22), and a handler's return of 1 (line 44). uv run pytest passed 4 of 4.",
+          "file": "tests/test_cli.py",
+          "line": 13,
+          "quote": "    code = main([\"--help\"])\n    assert isinstance(code, int)\n    assert code == EXIT_OK"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `UV_OFFLINE=1 UV_NO_SYNC=1 uv run ruff check` in the worktree. It printed 'All checks passed!' and exited 0. The ruff config (rules E, F, I, B, UP) is in pyproject.toml, so the check ran against real rules and was not skipped.",
+          "file": "pyproject.toml",
+          "line": 33,
+          "quote": "[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `UV_OFFLINE=1 UV_NO_SYNC=1 uv run ruff format --check` in the worktree. Output was '25 files already formatted' and the exit code was 0. ruff is a declared dependency in pyproject.toml, with [tool.ruff] config at line 29.",
+          "file": "pyproject.toml",
+          "line": 29,
+          "quote": "[tool.ruff]"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "UV_OFFLINE=1 UV_NO_SYNC=1 uv run mypy exited 0 with 'Success: no issues found in 4 source files'. pyproject.toml [tool.mypy] has strict = true and files = [\"cottonwood\", \"tests\"].",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-001/pyproject.toml",
+          "line": 36,
+          "quote": "[tool.mypy]\nstrict = true\npython_version = \"3.12\"\nfiles = [\"cottonwood\", \"tests\"]"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "pyproject.toml has [tool.ruff] and [tool.ruff.lint] (lines 29-34), [tool.mypy] strict (36-39) and [tool.pytest.ini_options] (41-43). uv.lock exists in the worktree (75286 bytes). The git check-ignore command printed nothing, so uv.lock is not gitignored. It is untracked, so it still has to be committed.",
+          "file": "pyproject.toml",
+          "line": 36,
+          "quote": "[tool.mypy]\nstrict = true\npython_version = \"3.12\"\nfiles = [\"cottonwood\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]"
+        },
+        {
+          "index": 8,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `UV_OFFLINE=1 UV_NO_SYNC=1 uv run pytest` in the worktree. It exited 0 with 4 passed in 0.01s (tests/test_cli.py, 4 items collected, testpaths: tests).",
+          "file": "tests/test_cli.py",
+          "line": 12,
+          "quote": "def test_help_exits_zero_and_names_the_program(capsys: pytest.CaptureFixture[str]) -> None:"
+        }
+      ],
+      "returns_through": "2026-11-15T09:34:07.201Z"
+    }
+  ]
+}
