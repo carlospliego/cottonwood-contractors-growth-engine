@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, backup, config, db, events, inbound, review, timeutil
+from cottonwood import __version__, backup, config, db, events, inbound, report, review, timeutil
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -245,6 +245,82 @@ def _run_review(args: argparse.Namespace) -> int:
         print(f"error: could not write {out_path}: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     print(f"review written: {out_path}")
+    return EXIT_OK
+
+
+def _add_report_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the report command's arguments."""
+    parser.add_argument(
+        "--period",
+        choices=tuple(report.PERIODS),
+        default=None,
+        help="the last 7 or 30 America/Denver dates, ending today",
+    )
+    parser.add_argument(
+        "--from",
+        dest="from_",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="first America/Denver date of the period (with --to)",
+    )
+    parser.add_argument(
+        "--to",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="last America/Denver date of the period, inclusive (with --from)",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write the Markdown to this file (e.g. out/report.md; out/ is git-ignored)",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=f"config file (default: ${config.CONFIG_ENV_VAR}, else {config.DEFAULT_CONFIG_PATH})",
+    )
+
+
+def _run_report(args: argparse.Namespace) -> int:
+    """Print the weekly report, or write it to --out for sending to the founder (R-28)."""
+    try:
+        period = report.parse_period(args.period, args.from_, args.to, events.denver_today())
+        cfg = config.load_config(args.config)
+    except (report.ReportError, config.ConfigError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        text = report.render_report(report.build_report(conn, period, cfg, timeutil.utc_now()))
+    except sqlite3.Error as exc:
+        print(f"error: could not read the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    if args.out is None:
+        sys.stdout.write(text)
+        return EXIT_OK
+    out_path: Path = args.out
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        print(f"error: could not write {out_path}: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    print(f"report written: {out_path}")
     return EXIT_OK
 
 
@@ -597,6 +673,12 @@ COMMANDS: list[Command] = [
         "Record spend for a day, or void an entry.",
         _add_log_cost_arguments,
         _run_log_cost,
+    ),
+    Command(
+        "report",
+        "Print or write the Markdown weekly report for a period of America/Denver dates.",
+        _add_report_arguments,
+        _run_report,
     ),
 ]
 
