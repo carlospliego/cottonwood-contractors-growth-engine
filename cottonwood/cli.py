@@ -9,8 +9,9 @@ import argparse
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
-from cottonwood import __version__
+from cottonwood import __version__, db
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -29,8 +30,37 @@ class Command:
     handler: Handler
 
 
+def _add_migrate_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the migrate command's arguments."""
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_migrate(args: argparse.Namespace) -> int:
+    """Create or upgrade the database file to the newest migration."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        result = db.migrate(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    print(f"database {db_path} at version {result.to_version} (applied {len(result.applied)})")
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
-COMMANDS: list[Command] = []
+COMMANDS: list[Command] = [
+    Command(
+        "migrate",
+        "Create or upgrade the SQLite database by applying pending migrations.",
+        _add_migrate_arguments,
+        _run_migrate,
+    ),
+]
 
 
 def build_parser(commands: Sequence[Command] | None = None) -> argparse.ArgumentParser:
