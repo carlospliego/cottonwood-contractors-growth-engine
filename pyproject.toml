@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Cottonwood Contractors growth engine: a local CLI over one SQLite file."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "tzdata>=2026.6",
+]
 
 [project.scripts]
 cottonwood = "cottonwood.cli:entry"
