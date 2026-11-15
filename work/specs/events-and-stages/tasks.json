@@ -1,0 +1,133 @@
+{
+  "feature": "events-and-stages",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "log-event command for the R-15 event types",
+      "goal": "Record every R-15 event on a lead with its time, actor and optional note as one append-only activity (R-15), with log-inbound's failure conventions.",
+      "story_refs": [
+        "US-1",
+        "US-6"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-1.3",
+        "AC-1.4",
+        "AC-6.1"
+      ],
+      "plan": "1. Add cottonwood/events.py: EVENT_TYPES (the 12 R-15 types in spec order), EventError(field, message) like inbound.InquiryError, RawEvent (lead_id, type, at, note, actor) and frozen Event, validate_event(raw, now) using timeutil.parse_received for --at and refusing a time later than now (field 'at'), stripping blank note to None and requiring a note for type 'note'.\n2. Add log_event(conn, event) -> int: in one transaction, refuse a missing lead with EventError('lead', 'no lead <id>') (CLI prints 'error: no lead <id>'), insert one activity (lead_id, contact_id NULL, type, payload {event, note?}, actor, occurred_at, recorded_at=utc_now()); rollback on any exception.\n3. Register log-event in cli.COMMANDS: positional lead_id (int) and type (choices EVENT_TYPES), --at required, --note, --actor (default inbound.DEFAULT_ACTOR), --db; validate before connect; catch db.MigrationError, EventError and sqlite3.Error -> exit 1 'error: ...'; success prints 'logged <type> activity <id> for lead <lead> at <display_local>'.\n4. Add tests/test_events.py covering every type, the Z form, missing/unparseable/future --at, unknown type (exit 2), unknown lead, note rules, the output line, and a missing DB and an unmigrated empty file (exit 1, 'error:' on stderr, no traceback, no tables created).",
+      "acceptance_criteria": [
+        "For each of the 12 R-15 types (note with --note), `cottonwood log-event 1 TYPE --at \"2026-11-16 09:30\"` on a migrated database whose lead 1 is an inbound lead exits 0 and appends exactly one activity of that type for the lead with occurred_at 2026-11-16T16:30:00Z, actor 'developer' (or the --actor value) and a non-empty recorded_at; the lead's stage is unchanged.",
+        "`--at 2026-11-16T16:30:00Z` stores occurred_at 2026-11-16T16:30:00Z; a missing --at exits 2, an unparseable --at or a time later than now (e.g. 2999-01-01 00:00) exits 1, and a type outside the R-15 list exits 2; none of these writes an activity.",
+        "Lead id 999 with no row exits 1 with stderr containing 'error: no lead 999' and writes nothing; type note without --note or with whitespace-only --note exits 1 and writes nothing; --note on another type is stored as payload.note.",
+        "The success line printed on stdout contains the new activity id, the type, the lead id and the America/Denver time as shown by timeutil.display_local.",
+        "Against a missing database path and against an empty (unmigrated) file, log-event exits 1 with stderr starting 'error:' and containing no 'Traceback', and the empty file still has no tables afterwards.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-056"
+    },
+    {
+      "id": "T-02",
+      "title": "Stage moves within R-14 and the R-16 qualification rule",
+      "goal": "Let an event move the lead's stage only to an R-14 value for its type, record each move as a stage_change naming the event, and allow buyer_need_confirmed only with a stated need or procurement URL (R-14, R-15, R-16).",
+      "story_refs": [
+        "US-2",
+        "US-3",
+        "US-6"
+      ],
+      "covers": [
+        "AC-2.1",
+        "AC-2.2",
+        "AC-2.3",
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-6.2"
+      ],
+      "plan": "1. In events.py add DIRECT_STAGES and RELATIONSHIP_STAGES (R-14 order) and STAGES_BY_LEAD_TYPE for inbound_inquiry, direct_candidate and relationship_prospect.\n2. Extend RawEvent/Event with stage, need and procurement_url. validate_event: need/procurement_url only allowed with stage buyer_need_confirmed (else EventError); buyer_need_confirmed requires non-blank need or a procurement_url whose urlparse scheme is http/https with a netloc.\n3. log_event: inside the transaction read the lead's type and stage; refuse a stage not in STAGES_BY_LEAD_TYPE[type] or equal to the current stage with a message listing the allowed stages; insert the event (payload adds need/procurement_url when given), UPDATE leads.stage, insert stage_change with payload {from, to, event_activity_id} and the event's occurred_at; return (event_id, stage_change_id, from_stage); rollback on any exception.\n4. CLI: add --stage, --need, --procurement-url; success line appends 'stage <from> -> <to>'.\n5. Add tests/test_events_stages.py (every stage per lead type with direct and relationship leads inserted by SQL, payload, refusals with unchanged stage and activity count, rollback via a trigger that raises on stage_change insert) and tests/test_events_qualify.py.",
+      "acceptance_criteria": [
+        "For inbound lead 1 at stage candidate, `log-event 1 call --at \"2026-11-16 09:30\" --stage contacted_or_replied` exits 0, sets leads.stage to contacted_or_replied, and appends the call activity plus exactly one stage_change activity with the same occurred_at whose payload has from 'candidate', to 'contacted_or_replied' and event_activity_id equal to the call activity's id; stdout contains 'stage candidate -> contacted_or_replied'.",
+        "Every R-14 direct/inbound stage other than the current one is accepted for inbound_inquiry and direct_candidate leads, and every relationship stage other than the current one for relationship_prospect leads, in any order (buyer_need_confirmed given with --need).",
+        "A stage outside the lead type's list (introduced on an inbound lead, walkthrough on a relationship prospect, bogus) or equal to the current stage exits 1 with stderr listing that type's allowed stages, writes no activity and leaves leads.stage unchanged.",
+        "--stage buyer_need_confirmed with --need 'needs 4,000 sq ft office TI by March' exits 0 and stores payload.need with that text; with --procurement-url https://bids.example.gov/rfp/123 it exits 0 and stores payload.procurement_url.",
+        "--stage buyer_need_confirmed with neither --need nor --procurement-url, with whitespace-only --need, or with a procurement URL that is not absolute http(s) (e.g. 'bids.example.gov/rfp', 'ftp://x/y') exits 1, writes nothing and leaves the stage unchanged; --need or --procurement-url without --stage buyer_need_confirmed (no --stage, or --stage walkthrough) exits 1 and writes nothing.",
+        "When a temporary trigger makes the stage_change insert fail, log-event exits 1 with 'error:' on stderr and no traceback, and afterwards the lead has no new activities and its stage is unchanged.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-057"
+    },
+    {
+      "id": "T-03",
+      "title": "Corrections void events and void activities drop out of counts",
+      "goal": "Void a mistaken event with an appended correction, revert the stage it caused when that change is the latest, and define the one counted-activity rule the report reuses (R-17).",
+      "story_refs": [
+        "US-4"
+      ],
+      "covers": [
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3",
+        "AC-4.4",
+        "AC-4.5"
+      ],
+      "plan": "1. In events.py add COUNTED_ACTIVITIES_SQL (the plan's fragment over alias a) and counted_activities(conn, type=None) returning activity rows ordered by occurred_at, id.\n2. Add log_correction(conn, lead_id, voids_id, at, note, actor): in one transaction refuse a missing target, another lead's activity, a non-R-15 target, or an already-voided target; find the effective stage_change whose event_activity_id is the target; if one exists it must be the lead's latest effective stage change (occurred_at, id) or refuse naming the later one; insert the correction (voids_activity_id, payload {note?}); if reverting, UPDATE leads.stage to its from and insert stage_change {from: current, to: from, event_activity_id: correction id}; rollback on error.\n3. CLI: type 'correction' accepted by log-event with --voids (required for correction, refused for other types) and --at; --stage/--need/--procurement-url with correction exit 1; success line names the voided activity and any stage revert.\n4. Add tests/test_events_corrections.py.",
+      "acceptance_criteria": [
+        "With E an event activity id of lead 1, `log-event 1 correction --voids E --at \"2026-11-16 10:00\"` exits 0 and appends exactly one correction activity for the lead whose voids_activity_id is that id; the voided activity row is identical before and after.",
+        "events.counted_activities(conn) excludes the voided event, the correction, and any stage_change whose event_activity_id is the voided event, and still includes the lead's other non-void events.",
+        "Voiding the event behind the lead's latest effective stage change sets leads.stage back to that change's from stage and appends a stage_change whose event_activity_id is the correction's id; when a later effective stage change exists, the correction exits 1 with stderr naming the later stage change's activity id and writes nothing.",
+        "A correction exits 1 and writes nothing when --voids is missing, the activity does not exist, belongs to another lead, is a stage_change, correction or inquiry_logged activity, is already void, or when --stage is given; --voids on a non-correction type exits 1.",
+        "events.counted_activities(conn) returns no activity whose lead has is_test 1.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-02"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-058"
+    },
+    {
+      "id": "T-04",
+      "title": "log-time and log-cost with corrections and totals",
+      "goal": "Record founder (or developer) hours and spend with a date and category, let a wrong entry be voided, and give the report exact totals over an inclusive Denver date range (R-30, R-29 observed vs estimated).",
+      "story_refs": [
+        "US-5",
+        "US-6"
+      ],
+      "covers": [
+        "AC-5.1",
+        "AC-5.2",
+        "AC-5.3",
+        "AC-5.4",
+        "AC-5.5",
+        "AC-6.1"
+      ],
+      "plan": "1. In events.py add RawTime/TimeEntry and RawCost/CostEntry with validate_time(raw, today) and validate_cost(raw, today): Decimal parsing (finite, > 0, at most 2 decimal places, hours <= 24), date YYYY-MM-DD not after today's Denver date, category strip+lower non-blank, person in ('founder','developer') default founder, estimated bool, blank note -> None.\n2. log_time/log_cost insert time_logged/cost_logged with lead_id NULL, occurred_at = start of the Denver date in UTC, payload per plan; void_entry(conn, voids_id, kind, actor, now) appends a correction with lead_id NULL after checking type and not already void.\n3. time_totals(conn, start, end) and cost_totals(conn, start, end): counted entries (COUNTED_ACTIVITIES_SQL) whose payload date is within [start, end]; exact Decimal sums: time -> total, by person, observed vs estimated; cost -> total, by category, observed vs estimated; zero when empty.\n4. CLI log-time and log-cost: optional positional amount, --date, --category, --person (time only), --estimated, --note, --voids, --actor, --db; --voids is exclusive with amount/--date/--category and those are required without it (EventError -> exit 1); same connect/error handling as log-event.\n5. Add tests/test_time_cost.py.",
+      "acceptance_criteria": [
+        "`log-time 1.5 --date 2026-11-16 --category Outreach` exits 0 and appends one time_logged activity with lead_id NULL, occurred_at 2026-11-16T07:00:00Z and payload date '2026-11-16', hours '1.5', category 'outreach', person 'founder', estimated false; with --person developer --estimated the payload has person 'developer' and estimated true.",
+        "`log-cost 49.00 --date 2026-11-16 --category \"Formspark plan\"` exits 0 and appends one cost_logged activity with lead_id NULL and payload amount_usd '49.00', category 'formspark plan', estimated false; --estimated stores estimated true.",
+        "log-time with hours 'abc', '0', '-1', '24.5' or '1.234', log-cost with amount 'abc', '0', '-5' or '1.234', a blank category, a date not in YYYY-MM-DD form, or a date after today in America/Denver each exits 1 and writes no activity.",
+        "`log-time --voids N` on a time_logged entry N and `log-cost --voids M` on a cost_logged entry M each exit 0 and append one correction with lead_id NULL and that voids_activity_id; the wrong entry type, a missing id, an already-void entry, or --voids combined with an amount, --date or --category exits 1 and writes nothing.",
+        "events.time_totals and events.cost_totals over an inclusive Denver date range return exact Decimal sums of counted entries in range (time split by person and observed vs estimated; cost split by category and observed vs estimated), return 0 totals for a range with no entries, and leave out void entries and entries dated outside the range.",
+        "Against a missing database path and an empty (unmigrated) file, log-time and log-cost each exit 1 with stderr starting 'error:' and no 'Traceback', and the empty file still has no tables.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-03"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-059"
+    }
+  ]
+}

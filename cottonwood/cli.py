@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, backup, config, db, inbound, review, timeutil
+from cottonwood import __version__, backup, config, db, events, inbound, review, timeutil
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -248,6 +248,312 @@ def _run_review(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_log_event_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-event command's arguments (R-15)."""
+    parser.add_argument("lead_id", type=int, metavar="LEAD_ID", help="the lead's id")
+    parser.add_argument(
+        "type",
+        choices=(*events.EVENT_TYPES, "correction"),
+        metavar="TYPE",
+        help=", ".join(events.EVENT_TYPES) + ", or correction (with --voids)",
+    )
+    parser.add_argument(
+        "--at",
+        required=True,
+        metavar="WHEN",
+        help="when it happened: 'YYYY-MM-DD HH:MM' America/Denver, or UTC ending in Z",
+    )
+    parser.add_argument(
+        "--note",
+        default=None,
+        help="what happened (required for note); never put contact details here",
+    )
+    parser.add_argument(
+        "--stage",
+        default=None,
+        help="move the lead to this R-14 stage (the move is recorded as a stage_change)",
+    )
+    parser.add_argument(
+        "--need",
+        default=None,
+        help=f"the prospect's confirmed need; only with --stage {events.QUALIFIED_STAGE}",
+    )
+    parser.add_argument(
+        "--procurement-url",
+        default=None,
+        help=f"URL of an accessible active procurement; only with --stage {events.QUALIFIED_STAGE}",
+    )
+    parser.add_argument(
+        "--voids",
+        type=int,
+        default=None,
+        metavar="ACTIVITY_ID",
+        help="with correction: the event activity to void (R-17)",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_correction(args: argparse.Namespace) -> int:
+    """Void an earlier event of the lead with an appended correction (R-17)."""
+    if args.voids is None:
+        print("error: voids: a correction needs --voids ACTIVITY_ID", file=sys.stderr)
+        return EXIT_REFUSED
+    for flag, value in (
+        ("stage", args.stage),
+        ("need", args.need),
+        ("procurement-url", args.procurement_url),
+    ):
+        if value is not None:
+            print(f"error: {flag}: not allowed with a correction", file=sys.stderr)
+            return EXIT_REFUSED
+    raw = events.RawCorrection(
+        lead_id=args.lead_id, voids_id=args.voids, at=args.at, note=args.note, actor=args.actor
+    )
+    try:
+        correction = events.validate_correction(raw, timeutil.utc_now())
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        logged = events.log_correction(conn, correction)
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not save the correction: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    line = (
+        f"logged correction activity {logged.correction_id} for lead {correction.lead_id}"
+        f" at {timeutil.display_local(correction.occurred_at)}; voids activity"
+        f" {correction.voids_id}"
+    )
+    if logged.stage_change_id is not None:
+        line += f"; stage {logged.from_stage} -> {logged.to_stage}"
+    print(line)
+    return EXIT_OK
+
+
+def _run_log_event(args: argparse.Namespace) -> int:
+    """Record an event on a lead as one activity, or a correction voiding one."""
+    if args.type == "correction":
+        return _run_correction(args)
+    if args.voids is not None:
+        print("error: voids: only allowed with type correction", file=sys.stderr)
+        return EXIT_REFUSED
+    raw = events.RawEvent(
+        lead_id=args.lead_id,
+        type=args.type,
+        at=args.at,
+        note=args.note,
+        actor=args.actor,
+        stage=args.stage,
+        need=args.need,
+        procurement_url=args.procurement_url,
+    )
+    try:
+        event = events.validate_event(raw, timeutil.utc_now())
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        logged = events.log_event(conn, event)
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not save the event: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    line = (
+        f"logged {event.type} activity {logged.event_id} for lead {event.lead_id}"
+        f" at {timeutil.display_local(event.occurred_at)}"
+    )
+    if logged.stage_change_id is not None:
+        line += f"; stage {logged.from_stage} -> {event.stage}"
+    print(line)
+    return EXIT_OK
+
+
+def _add_entry_arguments(parser: argparse.ArgumentParser, *, amount: str, help_text: str) -> None:
+    """Arguments shared by log-time and log-cost (R-30)."""
+    parser.add_argument("amount", nargs="?", default=None, metavar=amount, help=help_text)
+    parser.add_argument("--date", default=None, help="the day it happened, YYYY-MM-DD (Denver)")
+    parser.add_argument("--category", default=None, help="what it was for (stored lowercase)")
+    parser.add_argument(
+        "--estimated",
+        action="store_true",
+        default=None,
+        help="an estimate rather than an observed figure (R-29)",
+    )
+    parser.add_argument(
+        "--note", default=None, help="optional detail; never put contact details here"
+    )
+    parser.add_argument(
+        "--voids",
+        type=int,
+        default=None,
+        metavar="ACTIVITY_ID",
+        help="void this earlier entry instead of logging a new one (R-17)",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _add_log_time_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-time command's arguments."""
+    _add_entry_arguments(parser, amount="HOURS", help_text="hours spent, e.g. 1.5 (at most 24)")
+    parser.add_argument(
+        "--person",
+        choices=events.PEOPLE,
+        default=None,
+        help=f"whose hours (default: {events.DEFAULT_PERSON})",
+    )
+
+
+def _add_log_cost_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-cost command's arguments."""
+    _add_entry_arguments(parser, amount="AMOUNT", help_text="US dollars spent, e.g. 49.00")
+
+
+def _void_entry_conflict(args: argparse.Namespace, amount_name: str) -> str | None:
+    """With --voids, name the first entry option also given; without it, the first missing."""
+    given = [
+        (amount_name, args.amount),
+        ("date", args.date),
+        ("category", args.category),
+    ]
+    if args.voids is not None:
+        extra = [*given, ("person", getattr(args, "person", None)), ("estimated", args.estimated)]
+        for name, value in extra:
+            if value is not None:
+                return f"voids: not allowed with {name}"
+        return None
+    for name, value in given:
+        if value is None:
+            return f"{name}: required unless --voids is given"
+    return None
+
+
+def _run_entry(args: argparse.Namespace, kind: str, amount_name: str) -> int:
+    """Validate, connect and write one time or cost entry, or void one."""
+    problem = _void_entry_conflict(args, amount_name)
+    if problem is not None:
+        print(f"error: {problem}", file=sys.stderr)
+        return EXIT_REFUSED
+    entry: events.TimeEntry | events.CostEntry | None = None
+    if args.voids is None:
+        today = events.denver_today()
+        try:
+            if kind == events.TIME_KIND:
+                entry = events.validate_time(
+                    events.RawTime(
+                        hours=args.amount,
+                        date=args.date,
+                        category=args.category,
+                        person=args.person or events.DEFAULT_PERSON,
+                        estimated=bool(args.estimated),
+                        note=args.note,
+                        actor=args.actor,
+                    ),
+                    today,
+                )
+            else:
+                entry = events.validate_cost(
+                    events.RawCost(
+                        amount_usd=args.amount,
+                        date=args.date,
+                        category=args.category,
+                        estimated=bool(args.estimated),
+                        note=args.note,
+                        actor=args.actor,
+                    ),
+                    today,
+                )
+        except events.EventError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        if isinstance(entry, events.TimeEntry):
+            activity_id = events.log_time(conn, entry)
+        elif isinstance(entry, events.CostEntry):
+            activity_id = events.log_cost(conn, entry)
+        else:
+            activity_id = events.void_entry(
+                conn, args.voids, kind, args.actor, timeutil.utc_now(), args.note
+            )
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not save the entry: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    if entry is None:
+        print(f"logged correction activity {activity_id}; voids {kind} activity {args.voids}")
+    elif isinstance(entry, events.TimeEntry):
+        print(
+            f"logged {kind} activity {activity_id}: {entry.hours} h {entry.category}"
+            f" ({entry.person}) on {entry.date.isoformat()}"
+        )
+    else:
+        print(
+            f"logged {kind} activity {activity_id}: ${entry.amount_usd} {entry.category}"
+            f" on {entry.date.isoformat()}"
+        )
+    return EXIT_OK
+
+
+def _run_log_time(args: argparse.Namespace) -> int:
+    """Record founder or developer hours for a day, or void an earlier entry (R-30)."""
+    return _run_entry(args, events.TIME_KIND, "hours")
+
+
+def _run_log_cost(args: argparse.Namespace) -> int:
+    """Record spend for a day, or void an earlier entry (R-30)."""
+    return _run_entry(args, events.COST_KIND, "amount")
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -273,6 +579,24 @@ COMMANDS: list[Command] = [
         "Print or write the Markdown review of inbound inquiries for the founder.",
         _add_review_arguments,
         _run_review,
+    ),
+    Command(
+        "log-event",
+        "Record an event on a lead (acknowledgement, call, walkthrough, ...).",
+        _add_log_event_arguments,
+        _run_log_event,
+    ),
+    Command(
+        "log-time",
+        "Record founder or developer hours for a day, or void an entry.",
+        _add_log_time_arguments,
+        _run_log_time,
+    ),
+    Command(
+        "log-cost",
+        "Record spend for a day, or void an entry.",
+        _add_log_cost_arguments,
+        _run_log_cost,
     ),
 ]
 

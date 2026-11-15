@@ -1,0 +1,159 @@
+{
+  "task_id": "CCGE-057",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I did not run the exact AC command through the CLI. The AC's own scenario is the test test_call_with_stage_moves_lead_and_records_stage_change in tests/test_events_stages.py, which has the same shape with the pinned clock. It sets up inbound lead 1 at candidate, runs log-event 1 call --at AT --stage contacted_or_replied, and asserts exit 0 and leads.stage == contacted_or_replied. It also asserts that the activities are exactly [call, stage_change], that both have the same occurred_at, and that the stage_change payload is {from: candidate, to: contacted_or_replied, event_activity_id: call id}. Its last assertion is that stdout contains 'stage candidate -> contacted_or_replied'. The full file passes (34 passed). In cottonwood/events.py, log_event inserts the event, updates leads.stage, and inserts one stage_change with the same occurred_at in one transaction. cottonwood/cli.py appends '; stage {from} -> {to}' to the output line.",
+          "file": "tests/test_events_stages.py",
+          "line": 116,
+          "quote": "assert _event(db_path, \"1\", \"call\", \"--at\", AT, \"--stage\", \"contacted_or_replied\") == EXIT_OK"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "events.py defines DIRECT_STAGES (9 values) and RELATIONSHIP_STAGES (6 values), both matching R-14 exactly. STAGES_BY_LEAD_TYPE maps inbound_inquiry and direct_candidate to DIRECT_STAGES and relationship_prospect to RELATIONSHIP_STAGES. _check_stage refuses only a stage outside the lead type's list or equal to the current stage, so there is no ordering constraint. The tests run each non-current stage through the CLI for the matching lead types: test_every_direct_stage_is_accepted for lead 1 and lead 2, and test_every_relationship_stage_is_accepted for lead 3. _move passes --need when the stage is buyer_need_confirmed. test_moves_in_any_order covers non-sequential moves (won -> researched -> closed_no_fit -> candidate -> buyer_need_confirmed). All 49 tests in test_events_stages.py and test_events_qualify.py passed.",
+          "file": "cottonwood/events.py",
+          "line": 180,
+          "quote": "def _check_stage(lead_type: str, current: str, stage: str) -> None:\n    \"\"\"Refuse a stage outside the lead type's R-14 list, or the lead's current stage.\"\"\"\n    allowed = STAGES_BY_LEAD_TYPE.get(lead_type, ())"
+        },
+        {
+          "index": 3,
+          "verdict": "FAIL",
+          "method": "verifier+refuter",
+          "refuter": "refuted",
+          "evidence": "refutation upheld: cottonwood/events.py:142-154: validate_event runs the R-16 checks before log_event reaches _check_stage at events.py:180. So `--stage buyer_need_confirmed` with no --need on a relationship_prospect lead (outside that type's list) is refused with 'buyer_need_confirmed needs --need ...'. A bogus stage given with --need is refused with 'only allowed with --stage buyer_need_confirmed'. Neither message lists the type's allowed stages, which AC3 requires. (refuter: I read the code and did not run a CLI probe. validate_event() runs before log_event()/_check_stage(), so it can reject an out-of-list stage with a message that does not list the allowed stages. Example: a relationship_prospect lead with `--stage buyer_need_confirmed` and no --need or --procurement-url. buyer_need_confirmed is only in DIRECT_STAGES, so it is outside that type's list. validate_event raises 'buyer_need_confirmed needs --need ...' and never reaches _check_stage. Likewise, a bogus or out-of-list stage given with --need or --procurement-url is rejected with 'only allowed with --stage buyer_need_confirmed'. In both cases stderr does not list the type's allowed stages, which the AC requires. The stage-list message exists only in _check_stage, reached only after validate_event passes. The 34 tests in tests/test_events_stages.py pass, but they do not cover these paths.)",
+          "file": "cottonwood/events.py",
+          "line": 180,
+          "quote": null
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran tests/test_events_qualify.py and all 15 tests passed. test_need_qualifies_and_is_stored calls the CLI with --stage buyer_need_confirmed --need 'needs 4,000 sq ft office TI by March'. It asserts exit 0, that the stage is buyer_need_confirmed, and that the event payload's need equals that text. test_procurement_url_qualifies_and_is_stored does the same with --procurement-url https://bids.example.gov/rfp/123 and asserts exit 0 and payload['procurement_url'] equals the URL. events.py:207-210 writes need and procurement_url into the activity payload. cli.py adds the --stage, --need and --procurement-url arguments and passes them to RawEvent. I did not run the CLI by hand outside the test suite.",
+          "file": "cottonwood/events.py",
+          "line": 207,
+          "quote": "if event.need is not None:\n            payload[\"need\"] = event.need\n        if event.procurement_url is not None:\n            payload[\"procurement_url\"] = event.procurement_url"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate_event in cottonwood/events.py refuses buyer_need_confirmed when need and procurement_url are both empty after _clean. That covers a missing or whitespace-only --need. It also refuses a procurement URL that is not absolute http(s) with a host, which covers 'bids.example.gov/rfp' and 'ftp://x/y'. It refuses --need or --procurement-url whenever the stage is not buyer_need_confirmed, which covers no --stage and --stage walkthrough. These checks run before any DB write. cli.py maps EventError to EXIT_REFUSED (1). tests/test_events_qualify.py parametrizes these cases. Each asserts exit 1, an 'error:' message on stderr, an unchanged activity count and the stage still 'candidate'. All 15 tests passed. I did not run the CLI by hand, and I did not read the whitespace-only --need parametrization. I read only part of the file, and the cited line 150 is the no-stage/walkthrough refusal branch.",
+          "file": "cottonwood/events.py",
+          "line": 150,
+          "quote": "elif raw.need is not None or raw.procurement_url is not None:"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_events_stages.py::test_failed_stage_change_insert_rolls_back creates a BEFORE INSERT trigger that aborts stage_change inserts. It then runs log-event with --stage researched. It asserts the exit code is EXIT_REFUSED (1 at cli.py:18), stderr starts with 'error:' and has no 'Traceback', the activity count is unchanged, and the lead's stage is still 'candidate'. cli.py:324-326 catches sqlite3.Error, prints 'error: could not save the event: ...' and returns EXIT_REFUSED. events.log_event rolls back on any exception (`except BaseException: conn.rollback()`). A second test checks the rollback on the same connection. All 34 tests in the file pass.",
+          "file": "cottonwood/cli.py",
+          "line": 324,
+          "quote": "except sqlite3.Error as exc:\n        print(f\"error: could not save the event: {exc}\", file=sys.stderr)\n        return EXIT_REFUSED"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest gave 310 passed, exit 0. uv run ruff check . gave 'All checks passed!'. uv run mypy . gave 'Success: no issues found in 39 source files'. uv run ruff format --check . gave '125 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-057/cottonwood/events.py",
+          "line": 1,
+          "quote": "310 passed in 0.80s"
+        }
+      ],
+      "returns_through": "2026-11-15T11:51:15.630Z"
+    },
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I did not run the exact AC command through the CLI. The AC's own scenario is the test test_call_with_stage_moves_lead_and_records_stage_change in tests/test_events_stages.py, which has the same shape with the pinned clock. It sets up inbound lead 1 at candidate, runs log-event 1 call --at AT --stage contacted_or_replied, and asserts exit 0 and leads.stage == contacted_or_replied. It also asserts that the activities are exactly [call, stage_change], that both have the same occurred_at, and that the stage_change payload is {from: candidate, to: contacted_or_replied, event_activity_id: call id}. Its last assertion is that stdout contains 'stage candidate -> contacted_or_replied'. The full file passes (34 passed). In cottonwood/events.py, log_event inserts the event, updates leads.stage, and inserts one stage_change with the same occurred_at in one transaction. cottonwood/cli.py appends '; stage {from} -> {to}' to the output line.",
+          "file": "tests/test_events_stages.py",
+          "line": 116,
+          "quote": "assert _event(db_path, \"1\", \"call\", \"--at\", AT, \"--stage\", \"contacted_or_replied\") == EXIT_OK"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "events.py defines DIRECT_STAGES (9 values) and RELATIONSHIP_STAGES (6 values), both matching R-14 exactly. STAGES_BY_LEAD_TYPE maps inbound_inquiry and direct_candidate to DIRECT_STAGES and relationship_prospect to RELATIONSHIP_STAGES. _check_stage refuses only a stage outside the lead type's list or equal to the current stage, so there is no ordering constraint. The tests run each non-current stage through the CLI for the matching lead types: test_every_direct_stage_is_accepted for lead 1 and lead 2, and test_every_relationship_stage_is_accepted for lead 3. _move passes --need when the stage is buyer_need_confirmed. test_moves_in_any_order covers non-sequential moves (won -> researched -> closed_no_fit -> candidate -> buyer_need_confirmed). All 49 tests in test_events_stages.py and test_events_qualify.py passed.",
+          "file": "cottonwood/events.py",
+          "line": 180,
+          "quote": "def _check_stage(lead_type: str, current: str, stage: str) -> None:\n    \"\"\"Refuse a stage outside the lead type's R-14 list, or the lead's current stage.\"\"\"\n    allowed = STAGES_BY_LEAD_TYPE.get(lead_type, ())"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "log_event calls _check_stage before any insert or update. _check_stage raises EventError for a stage outside STAGES_BY_LEAD_TYPE[type] or equal to the current stage. Both messages end with 'allowed: <that type's stages>'. The CLI prints 'error: ...' to stderr and returns EXIT_REFUSED (1). The EventError is raised before any activity insert or the UPDATE, and the except branch rolls back, so no activity is written and leads.stage is unchanged. The parametrized test test_disallowed_or_current_stage_is_refused (tests/test_events_stages.py:170-200) covers introduced and active_relationship on direct/inbound leads, walkthrough on a relationship prospect, bogus on both lead families, and the current stage on both. It asserts exit 1, stderr starting with 'error:' and listing every allowed stage, an unchanged activity count and an unchanged stage. All 54 tests in the two new test files pass. One gap: I did not confirm that lead 2 in the test fixture is the inbound lead. Both lead types share DIRECT_STAGES, so the logic is the same either way.",
+          "file": "cottonwood/events.py",
+          "line": 169,
+          "quote": "def _check_stage(lead_type: str, current: str, stage: str) -> None:"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "events.py:218-221 puts need and procurement_url into the event payload when they are set. The qualify tests passed (15/15). test_need_qualifies_and_is_stored runs --stage buyer_need_confirmed --need 'needs 4,000 sq ft office TI by March' and checks exit 0, stage buyer_need_confirmed and payload['need'] equal to the text. test_procurement_url_qualifies_and_is_stored runs --procurement-url and checks exit 0 and payload['procurement_url'] equal to the URL. I did not run the CLI by hand. I also did not read the URL constant, so I am assuming it is https://bids.example.gov/rfp/123 as in the AC. The second test case uses an http URL, and the first uses that constant.",
+          "file": "tests/test_events_qualify.py",
+          "line": 74,
+          "quote": "def test_need_qualifies_and_is_stored(db_path: Path) -> None:\n    assert _event(db_path, \"--stage\", \"buyer_need_confirmed\", \"--need\", NEED) == EXIT_OK\n    assert _stage(db_path) == \"buyer_need_confirmed\"\n    assert _event_payload(db_path)[\"need\"] == NEED"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The R-16 check in cottonwood/events.py `_check_qualification` refuses buyer_need_confirmed when there is no need and no URL. `validate_event` strips the need, so a whitespace-only need counts as empty. A URL that is not absolute http(s) with a host (such as 'bids.example.gov/rfp' or 'ftp://x/y') is refused. --need or --procurement-url without that stage (no --stage, or --stage walkthrough) is refused. The CLI turns EventError into exit 1 (EXIT_REFUSED = 1). tests/test_events_qualify.py parametrizes exactly these cases. They assert exit 1, an unchanged activity count and the stage still 'candidate', and the 'without that stage' cases do the same. All 54 tests in test_events_qualify.py and test_events_stages.py passed. I did not run the CLI by hand.",
+          "file": "cottonwood/events.py",
+          "line": 186,
+          "quote": "    if event.stage == QUALIFIED_STAGE:\n        if not event.need and not event.procurement_url:\n            raise EventError(\n                \"stage\",\n                f\"{QUALIFIED_STAGE} needs --need (the confirmed need) or --procurement-url\",\n            )\n        if event.procurement_url and not _is_http_url(event.procurement_url):\n            raise EventError(\"procurement-url\", \"must be an absolute http or https URL\")\n    elif event.need is not None or event.procurement_url is not None:"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_events_stages.py::test_failed_stage_change_insert_rolls_back creates a BEFORE INSERT trigger that aborts stage_change inserts. It then runs log-event with --stage researched. It asserts the exit code is EXIT_REFUSED (1 at cli.py:18), stderr starts with 'error:' and has no 'Traceback', the activity count is unchanged, and the lead's stage is still 'candidate'. cli.py:324-326 catches sqlite3.Error, prints 'error: could not save the event: ...' and returns EXIT_REFUSED. events.log_event rolls back on any exception (`except BaseException: conn.rollback()`). A second test checks the rollback on the same connection. All 34 tests in the file pass.",
+          "file": "cottonwood/cli.py",
+          "line": 324,
+          "quote": "except sqlite3.Error as exc:\n        print(f\"error: could not save the event: {exc}\", file=sys.stderr)\n        return EXIT_REFUSED"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest gave 310 passed, exit 0. uv run ruff check . gave 'All checks passed!'. uv run mypy . gave 'Success: no issues found in 39 source files'. uv run ruff format --check . gave '125 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-057/cottonwood/events.py",
+          "line": 1,
+          "quote": "310 passed in 0.80s"
+        }
+      ],
+      "returns_through": "2026-11-15T11:53:29.233Z"
+    }
+  ]
+}
