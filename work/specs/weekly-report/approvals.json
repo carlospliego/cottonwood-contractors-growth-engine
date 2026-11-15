@@ -1,0 +1,20 @@
+{
+  "feature": "weekly-report",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-15T16:35:51.289Z",
+      "sha256": "3608f488bdfc89d3f9ed3827d9d8b1f941cfc270e02d40d228805912fa2ad727",
+      "head": "bf5341795315a1ef746deadca0cf94e4fbefb9b6"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-15T16:37:57.690Z",
+      "sha256": "cc8ca0dce8a037fedc2ab1f2bc989a0bf7cb0964377d5598e456449999c3c53a",
+      "head": "bf5341795315a1ef746deadca0cf94e4fbefb9b6",
+      "spec_sha256": "3608f488bdfc89d3f9ed3827d9d8b1f941cfc270e02d40d228805912fa2ad727"
+    }
+  }
+}

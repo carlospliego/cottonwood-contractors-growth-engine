@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-081",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The report counts imported activities as distinct leads per motion. It uses events.counted_activities, which excludes test leads and voided activities. test_researched_counts_distinct_leads_by_motion sets up exactly the AC scenario: two direct leads (one with two imported activities), one partner lead, one test lead and one voided. It asserts 2 for researched direct candidates and 1 for researched partner firms. Hand review is initialised to 0 for every motion and result combination (direct_candidate and relationship_prospect, each with relevant, irrelevant and fabricated) and rendered as 'Hand review <motion> <result>' lines. test_hand_review_per_motion_and_result asserts that all 6 combinations print, including 0s. All 11 tests in tests/test_report_funnel.py pass. I did not run the report command against config/pilot.yaml.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-081/cottonwood/report.py",
+          "line": 480,
+          "quote": "hand_review = {motion: dict.fromkeys(HAND_REVIEW_RESULTS, 0) for motion in MOTIONS}"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "OUTREACH_LABELS counts the four activity types (approval, draft_prepared, sent, gate_violation) with _counted_in_period, which excludes voided activities. These names match architecture.md lines 73-74. test_outreach_steps_skip_voided adds one counted and one voided activity of each type, plus one out-of-period one, and asserts each of the four labels prints 1. test_empty_database_prints_every_funnel_line_as_zero asserts all outreach labels print 0 on an empty database. All 11 tests in tests/test_report_funnel.py passed.",
+          "file": "cottonwood/report.py",
+          "line": 83,
+          "quote": "OUTREACH_LABELS = {\n    \"approval\": LABEL_APPROVALS,\n    \"draft_prepared\": LABEL_DRAFTS,\n    \"sent\": LABEL_SENDS,\n    \"gate_violation\": LABEL_GATE_VIOLATIONS,\n}"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The code starts a count for each of the 7 reply types and sends a missing or unknown reply_type to 'other'. Opt-outs are computed as opt_out replies plus counted suppressed activities. test_replies_by_type_and_opt_outs adds one reply of each type plus one suppressed activity. It asserts 1 for each type line and 2 for Opt-outs. test_unknown_or_missing_reply_type_counts_as_other asserts that an unknown type adds to other. All 11 tests in tests/test_report_funnel.py pass.",
+          "file": "cottonwood/report.py",
+          "line": 308,
+          "quote": "replies = dict.fromkeys(REPLY_TYPES, 0)\n    for row in _counted_in_period(conn, \"reply\", period):\n        reply_type = _payload(row).get(REPLY_TYPE_KEY)\n        key = reply_type if isinstance(reply_type, str) and reply_type in replies else OTHER_REPLY"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "report._funnel counts counted import_rejected activities in the period (events.counted_activities, filtered by period) and adds counted hand_review activities in the period whose payload result is 'fabricated'. The fabricated count is taken before any motion filter, so it does not depend on the lead's motion. The 'Data quality' section prints the sum under 'Data-quality failures'. tests/test_report_funnel.py:263-271 sets up two in-period import_rejected, one out-of-period import_rejected (excluded), one counted fabricated hand_review and one voided fabricated hand_review (excluded), and asserts '3'. Line 201-203 asserts the same label is '0' on an empty database. All 11 tests in test_report_funnel.py pass.",
+          "file": "cottonwood/report.py",
+          "line": 322,
+          "quote": "data_quality_failures=rejected + fabricated,"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_referrals counts non-test leads with referred_by set that have an imported or inquiry_logged activity in the period, grouped by partner with the partner's name. test_referred_leads_per_partner covers two counted leads under partner 5 with name and count 2, one referred lead with activity only before the period, and one referred test lead. The last two are excluded and the total prints 2. test_no_referred_leads_prints_zero covers the zero case, with an empty table and the total printing 0. All 11 tests in tests/test_report_funnel.py passed.",
+          "file": "cottonwood/report.py",
+          "line": 336,
+          "quote": "\"\"\"Referred non-test leads with an imported or inquiry_logged activity in the period (R-12)."
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in cwd with UV_OFFLINE=1 UV_NO_SYNC=1. uv run pytest: 453 passed, exit 0. uv run ruff check .: All checks passed. uv run mypy .: no issues found in 49 source files. uv run ruff format --check .: 161 files already formatted.",
+          "file": "cottonwood/report.py",
+          "line": 1,
+          "quote": "uv run pytest: 453 passed"
+        }
+      ],
+      "returns_through": "2026-11-15T23:04:24.487Z"
+    }
+  ]
+}

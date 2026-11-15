@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-080",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_qualified counts distinct lead_ids from counted stage_change activities in the period whose payload 'to' is buyer_need_confirmed. The counted set excludes voided rows, correction reverts and test leads. Dates are filtered by period.contains. The tests cover each AC clause and all 18 tests in tests/test_report_conversations.py pass. Two counted moves on one lead give 1 (test_two_moves_on_one_lead_count_once, which first asserts two such moves exist). A voided move gives 0, and a revert into buyer_need_confirmed gives 0 (events.is_revert is asserted). A test lead's move gives 0, and moves dated before the period give 0. I did not run my own mutation probe, and I did not separately read events.counted_activities, which is where the voided, revert and test-lead exclusions live. The tests exercise it through the CLI.",
+          "file": "cottonwood/report.py",
+          "line": 175,
+          "quote": "    leads = {\n        int(row[\"lead_id\"])\n        for row in _counted_in_period(conn, \"stage_change\", period)\n        if row[\"lead_id\"] is not None\n        and json.loads(str(row[\"payload\"])).get(\"to\") == events.QUALIFIED_STAGE\n    }\n    return len(leads)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "build_report counts each of the five outcome kinds with _counted_in_period, which excludes voided rows. render_report prints them under 'Conversations and KPI'. test_outcome_counts_skip_voided creates one counted and one voided event of each kind plus an out-of-period won, and asserts each label prints '1'. test_empty_database_prints_zero_outcomes_and_hours asserts each prints '0' on an empty DB. All 18 tests in tests/test_report_conversations.py pass.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-080/cottonwood/report.py",
+          "line": 248,
+          "quote": "outcomes = {kind: len(_counted_in_period(conn, kind, period)) for kind in OUTCOME_LABELS}"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "report.py _hours() sums counted founder entries in the period, split by estimated flag, and takes developer hours separately. The report prints Founder hours, observed, estimated and Developer hours as separate lines. test_founder_and_developer_hours logs the AC scenario (2 observed, 1 estimated, developer 3, founder 5 dated after the period) and asserts total 3, observed 2, estimated 1, developer 3 on its own line. All 18 tests in tests/test_report_conversations.py pass.",
+          "file": "tests/test_report_conversations.py",
+          "line": 274,
+          "quote": "    assert _metric(text, report.LABEL_FOUNDER_HOURS) == \"3\"\n    assert _metric(text, report.LABEL_FOUNDER_OBSERVED) == \"2\"\n    assert _metric(text, report.LABEL_FOUNDER_ESTIMATED) == \"1\"\n    assert _metric(text, report.LABEL_DEVELOPER_HOURS) == \"3\""
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "kpi() returns None when founder hours are 0, which the report prints as 'n/a'. Otherwise it returns (qualified+partner)/founder_hours rounded to 2 places. test_kpi_two_decimals runs the full report command with 1 qualified, 1 partner and 3 founder hours and gets 0.67. test_kpi_na_with_no_founder_hours gets n/a. All 18 tests in tests/test_report_conversations.py passed. I did not run the report command by hand.",
+          "file": "cottonwood/report.py",
+          "line": 221,
+          "quote": "def kpi(qualified: int, partner: int, founder_hours: Decimal) -> Decimal | None:\n    \"\"\"(qualified + partner) / founder hours to 2 places; None when there are no founder hours.\"\"\"\n    if founder_hours == 0:\n        return None"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_qualified counts only distinct leads with a counted stage_change activity whose payload 'to' equals the qualified stage, so inquiry_logged, imported and note activities cannot add to the count. test_inquiry_import_and_note_never_qualify inserts all three activity types for one lead, asserts there are no stage_change rows, and asserts the reported qualified count is '0'. All 18 tests in tests/test_report_conversations.py pass. I did not run a mutant against the check.",
+          "file": "cottonwood/report.py",
+          "line": 175,
+          "quote": "def _qualified(conn: sqlite3.Connection, period: Period) -> int:\n    \"\"\"Distinct leads with a counted stage change into buyer_need_confirmed in the period (R-16)."
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in cwd with UV_OFFLINE=1 UV_NO_SYNC=1. uv run pytest: 442 passed, exit 0. uv run ruff check .: All checks passed. uv run mypy .: Success, no issues found in 48 source files. uv run ruff format --check .: 160 files already formatted.",
+          "file": "cottonwood/report.py",
+          "line": 1,
+          "quote": "442 passed in 1.68s"
+        }
+      ],
+      "returns_through": "2026-11-15T22:59:06.992Z"
+    }
+  ]
+}

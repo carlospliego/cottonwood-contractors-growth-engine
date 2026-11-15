@@ -1,0 +1,28 @@
+# CCGE-079 — report command: period, output and inbound handling metrics
+
+## Goal
+Give the developer `cottonwood report` for --period 7d|30d or inclusive --from/--to Denver dates, to stdout or a file, with inbound inquiries by channel and segment, the same-working-day acknowledgement target, and missed/returned calls (R-28, R-31, R-3).
+
+## Inputs
+Spec: `work/specs/weekly-report/spec.md` (AC-1.1, AC-1.2, AC-1.3, AC-1.4, AC-2.1, AC-2.2, AC-2.3),Plan: `work/specs/weekly-report/plan.md`
+
+## Constraints
+Config is loaded (--config, else $COTTONWOOD_CONFIG, else config/pilot.yaml) after the period is parsed and before the database is opened; ConfigError exits 1 with 'error:'; tests pass --config or set COTTONWOOD_CONFIG (build assumption 5).,Inquiries with NULL received_at are left out of the inbound counts and the acknowledgement target (build assumption 5).,Labels are module constants printed as '- Label: N' lines: 'Inquiries', 'Channel KEY', 'Segment KEY', 'Acknowledged within target', 'Acknowledged outside target', 'Not acknowledged', 'Missed calls', 'Returned calls' (build assumption 5).,An inquiry with a channel or segment outside the known keys counts in the total but not the breakdown, as review does; CCGE-046 fixes both (build assumption 5).,argparse --from uses dest 'from_'; dates are checked with ^\d{4}-\d{2}-\d{2}$ before date.fromisoformat.
+
+## Plan
+Add cottonwood/report.py: ReportError(ValueError); frozen Period(start, end) with contains(day); parse_period(period, from_, to, today) enforcing exactly one form, YYYY-MM-DD via date.fromisoformat after a regex, from <= to; 7d = [today-6, today], 30d = [today-29, today].,_counted_in_period(conn, activity_type, period) -> list[sqlite3.Row]: rows of activities a WHERE events.COUNTED_ACTIVITIES_SQL AND a.type = ? ordered by occurred_at, id, kept when timeutil.local_date(occurred_at) is in the period.,Inbound: non-test inbound_inquiry leads (review.COUNTED_LEADS_FILTER) with local_date(received_at) in the period, counted by every inbound.CHANNELS and inbound.SEGMENTS key starting at 0, plus total.,Acknowledgement: working_day(d) = Mon-Fri; deadline = r if working else next working day; earliest counted acknowledgement (any time) per lead by (occurred_at, id) decides within / outside / not acknowledged.,Calls: counts of counted missed_call and call_returned in the period.,Frozen Report dataclass, build_report(conn, period, cfg, generated_at) and render_report(report) -> Markdown: '# Weekly report', 'Generated: ' + timeutil.display_local, 'Period: START to END (America/Denver)', '## Inbound' with '- Label: value' lines and every key, ending in one newline.,cli: register report with --period choices 7d/30d, --from, --to, --out, --db, --config; parse the period (today = events.denver_today()) before connecting; config.load_config(args.config) with ConfigError -> exit 1; db.MigrationError / sqlite3.Error -> exit 1 'error:'; stdout or --out (mkdir parents, 'report written: PATH').,Tests tests/test_report_period.py and tests/test_report_inbound.py (utc_now pinned 2026-12-01T00:00:00Z, Denver today 2026-11-30).
+
+## Acceptance Criteria
+- [x] With timeutil.utc_now pinned to 2026-12-01T00:00:00Z, `cottonwood report --period 7d` prints a line 'Period: 2026-11-24 to 2026-11-30 (America/Denver)' and `--period 30d` prints 'Period: 2026-11-01 to 2026-11-30 (America/Denver)'; both exit 0.
+- [x] `report --from 2026-11-01 --to 2026-11-15` on a database with a counted missed_call event at 2026-11-16T06:59:59Z and another at 2026-11-16T07:00:00Z reports missed calls 1, and adding a third missed_call at 2026-11-01T06:00:00Z makes it 2 while one at 2026-11-01T05:59:59Z does not.
+- [x] Each of: --period 7d with --from 2026-11-01 --to 2026-11-15; --from without --to; --to without --from; no period flags; --from 2026-1-5 --to 2026-11-15; --from 2026-02-30 --to 2026-03-01; --from 2026-11-15 --to 2026-11-01 exits 1 with stderr starting 'error:', and with --out given the file is not created.
+- [x] Without --out the report goes to stdout, starts with '# Weekly report' and the command exits 0; with --out pointing into two missing directories the directories and file are created, the file text equals the stdout text, stdout contains 'report written: ' and the command exits 0; a missing database path and an empty unmigrated file each exit 1 with stderr starting 'error:' and no 'Traceback'.
+- [x] Inbound inquiries received in the period are counted by channel (form, phone) and segment (commercial, residential, unknown) with a total: a test inquiry and an inquiry received before the period's start date are not counted, and with no inquiries every channel, every segment and the total print 0.
+- [x] For non-test inquiries received in the period: received Friday 2026-11-27 and acknowledged the same Denver date counts within target; received 2026-11-27 and acknowledged 2026-11-28 counts outside target; received Saturday 2026-11-28 and acknowledged Monday 2026-11-30 counts within target; received 2026-11-21 (Saturday) and acknowledged Tuesday 2026-11-24 counts outside target; one whose only acknowledgement is voided counts not acknowledged; with two acknowledgements the earliest decides; the within, outside and not-acknowledged counts all print, 0 included.
+- [x] Missed calls and returned calls are the counts of counted missed_call and call_returned events in the period: a voided event and an event on a test lead are not counted, and both lines print 0 on an empty database.
+- [x] uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass.
+
+All criteria verified 2026-11-15.
+
+## Depends on
+_None._

@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-082",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran tests/test_report_costs.py (25 passed). The seed has 1.25 observed and 0.50 estimated in the period, 2.00 before the period in the same month, 9.00 in the previous month, plus extra rows for after the period and a NULL cost. The report prints model cost 1.75, observed 1.25, estimated 0.50, and month-to-date '3.75 of 100.00 (96.25 remaining)' with cap 100. With no cap it prints month-to-date 3.75 and 'No model-cost cap configured (report.model_cost_cap_usd).'. In cottonwood/report.py, _model_cost sums in-period costs by cost_estimated and sums month-to-date from the first of the end date's Denver month through the end date. _mtd_value renders spend against the cap, and _render_costs appends NO_CAP when the cap is None.",
+          "file": "cottonwood/report.py",
+          "line": 420,
+          "quote": "        if month_start <= started <= period.end:\n            month_to_date += cost"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The report's costs section prints other costs from events.cost_totals, which sums only counted cost_logged entries dated in the period. tests/test_report_costs.py::test_other_costs_total_split_and_categories creates the AC scenario: 49.00 observed (Formspark plan), 10.00 estimated (domain), a 25.00 entry that is then voided, and a 99.00 entry dated 2026-11-25, outside the period. It asserts total 59.00, observed 49.00, estimated 10.00, and category rows '| domain | 10.00 |' and '| formspark plan | 49.00 |'. All 25 tests in the file pass. The category name is lowercased in the output, which is how the entry is stored.",
+          "file": "tests/test_report_costs.py",
+          "line": 165,
+          "quote": "assert _metric(text, report.LABEL_OTHER_COSTS) == \"59.00\""
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "config.py _blocked_by returns the stripped string, or None when the key is absent, None, or whitespace-only. report.py _render_blocked emits the '## Sending blocked' heading plus the question as a blockquote only when the question is non-None, and nothing otherwise. tests/test_report_costs.py covers the configured case with 'Q3: which domain sends outreach' (line 180). It also covers three no-text cases (lines 188-195): key absent, whitespace-only value, and empty key. Each asserts 'Sending blocked' is not in the report. All 25 tests in tests/test_report_costs.py passed. I did not run the CLI by hand.",
+          "file": "cottonwood/report.py",
+          "line": 571,
+          "quote": "    if question is None:\n        return []\n    lines = [\"\", SENDING_BLOCKED_HEADING, \"\", SENDING_BLOCKED_INTRO, \"\"]\n    lines += [f\"> {line}\".rstrip() for line in question.splitlines()]"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `cottonwood report --period 7d --config` with three temp configs. cap 'abc' gave 'error: report.model_cost_cap_usd must be a non-negative number ... got 'abc'' with rc=1. cap -5 gave the same error naming the key, rc=1. sending_blocked_by [a, b] gave 'error: report.sending_blocked_by must be a string', rc=1. load_config(config/pilot.yaml) returns model_cost_cap_usd=None and sending_blocked_by=None; the report block there is commented out. Running the report against pilot.yaml got past config loading and stopped only because data/cottonwood.db does not exist.",
+          "file": "cottonwood/config.py",
+          "line": 101,
+          "quote": "raise ConfigError(f\"report.sending_blocked_by must be a string in {config_path}\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. pytest: 478 passed. ruff check: All checks passed. mypy: no issues found in 50 source files. ruff format --check: 162 files already formatted.",
+          "file": "tests/test_report_costs.py",
+          "line": 1,
+          "quote": "478 passed in 1.97s"
+        }
+      ],
+      "returns_through": "2026-11-15T23:10:47.618Z"
+    }
+  ]
+}

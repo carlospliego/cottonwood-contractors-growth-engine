@@ -1,0 +1,127 @@
+{
+  "feature": "weekly-report",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "report command: period, output and inbound handling metrics",
+      "goal": "Give the developer `cottonwood report` for --period 7d|30d or inclusive --from/--to Denver dates, to stdout or a file, with inbound inquiries by channel and segment, the same-working-day acknowledgement target, and missed/returned calls (R-28, R-31, R-3).",
+      "story_refs": [
+        "US-1",
+        "US-2"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-1.3",
+        "AC-1.4",
+        "AC-2.1",
+        "AC-2.2",
+        "AC-2.3"
+      ],
+      "plan": "1. Add cottonwood/report.py: ReportError(ValueError); frozen Period(start, end) with contains(day); parse_period(period, from_, to, today) enforcing exactly one form, YYYY-MM-DD via date.fromisoformat after a regex, from <= to; 7d = [today-6, today], 30d = [today-29, today].\n2. _counted_in_period(conn, activity_type, period) -> list[sqlite3.Row]: rows of activities a WHERE events.COUNTED_ACTIVITIES_SQL AND a.type = ? ordered by occurred_at, id, kept when timeutil.local_date(occurred_at) is in the period.\n3. Inbound: non-test inbound_inquiry leads (review.COUNTED_LEADS_FILTER) with local_date(received_at) in the period, counted by every inbound.CHANNELS and inbound.SEGMENTS key starting at 0, plus total.\n4. Acknowledgement: working_day(d) = Mon-Fri; deadline = r if working else next working day; earliest counted acknowledgement (any time) per lead by (occurred_at, id) decides within / outside / not acknowledged.\n5. Calls: counts of counted missed_call and call_returned in the period.\n6. Frozen Report dataclass, build_report(conn, period, cfg, generated_at) and render_report(report) -> Markdown: '# Weekly report', 'Generated: ' + timeutil.display_local, 'Period: START to END (America/Denver)', '## Inbound' with '- Label: value' lines and every key, ending in one newline.\n7. cli: register report with --period choices 7d/30d, --from, --to, --out, --db, --config; parse the period (today = events.denver_today()) before connecting; config.load_config(args.config) with ConfigError -> exit 1; db.MigrationError / sqlite3.Error -> exit 1 'error:'; stdout or --out (mkdir parents, 'report written: PATH').\n8. Tests tests/test_report_period.py and tests/test_report_inbound.py (utc_now pinned 2026-12-01T00:00:00Z, Denver today 2026-11-30).",
+      "acceptance_criteria": [
+        "With timeutil.utc_now pinned to 2026-12-01T00:00:00Z, `cottonwood report --period 7d` prints a line 'Period: 2026-11-24 to 2026-11-30 (America/Denver)' and `--period 30d` prints 'Period: 2026-11-01 to 2026-11-30 (America/Denver)'; both exit 0.",
+        "`report --from 2026-11-01 --to 2026-11-15` on a database with a counted missed_call event at 2026-11-16T06:59:59Z and another at 2026-11-16T07:00:00Z reports missed calls 1, and adding a third missed_call at 2026-11-01T06:00:00Z makes it 2 while one at 2026-11-01T05:59:59Z does not.",
+        "Each of: --period 7d with --from 2026-11-01 --to 2026-11-15; --from without --to; --to without --from; no period flags; --from 2026-1-5 --to 2026-11-15; --from 2026-02-30 --to 2026-03-01; --from 2026-11-15 --to 2026-11-01 exits 1 with stderr starting 'error:', and with --out given the file is not created.",
+        "Without --out the report goes to stdout, starts with '# Weekly report' and the command exits 0; with --out pointing into two missing directories the directories and file are created, the file text equals the stdout text, stdout contains 'report written: ' and the command exits 0; a missing database path and an empty unmigrated file each exit 1 with stderr starting 'error:' and no 'Traceback'.",
+        "Inbound inquiries received in the period are counted by channel (form, phone) and segment (commercial, residential, unknown) with a total: a test inquiry and an inquiry received before the period's start date are not counted, and with no inquiries every channel, every segment and the total print 0.",
+        "For non-test inquiries received in the period: received Friday 2026-11-27 and acknowledged the same Denver date counts within target; received 2026-11-27 and acknowledged 2026-11-28 counts outside target; received Saturday 2026-11-28 and acknowledged Monday 2026-11-30 counts within target; received 2026-11-21 (Saturday) and acknowledged Tuesday 2026-11-24 counts outside target; one whose only acknowledgement is voided counts not acknowledged; with two acknowledgements the earliest decides; the within, outside and not-acknowledged counts all print, 0 included.",
+        "Missed calls and returned calls are the counts of counted missed_call and call_returned events in the period: a voided event and an event on a test lead are not counted, and both lines print 0 on an empty database.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-079"
+    },
+    {
+      "id": "T-02",
+      "title": "Conversations, outcomes, hours and the month-one KPI",
+      "goal": "Show qualified direct conversations, partner conversations, remote screens, walkthroughs, proposals, wins, founder and developer hours, and the KPI (qualified + partner) / founder hours, counting qualification only from a counted stage change into buyer_need_confirmed (R-28, R-16, R-29).",
+      "story_refs": [
+        "US-3",
+        "US-5"
+      ],
+      "covers": [
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-3.4",
+        "AC-5.4"
+      ],
+      "plan": "1. In report.py: qualified = len({row.lead_id}) over _counted_in_period(conn, 'stage_change', period) whose payload 'to' equals events.QUALIFIED_STAGE.\n2. Outcome counts for partner_conversation, remote_screen, walkthrough, proposal, won via _counted_in_period.\n3. Hours: founder total/observed/estimated from counted time_logged entries in the period's dates with person founder (reuse events.time_totals for totals and by_person; compute the founder split from the same entries); developer = by_person developer or 0.\n4. KPI = Decimal(qualified + partner) / founder_total quantized to 0.01 ROUND_HALF_UP; 'n/a' when founder_total is 0.\n5. Render '## Conversations and KPI' and '## Hours' sections with '- Label: value' lines.\n6. Tests tests/test_report_conversations.py.",
+      "acceptance_criteria": [
+        "A non-test lead with two counted stage changes into buyer_need_confirmed in the period adds 1 to qualified direct conversations; a move into buyer_need_confirmed that a correction voided adds 0; a correction's stage revert adds 0; a test lead's move adds 0; a move dated before the period adds 0.",
+        "With one counted event each of partner_conversation, remote_screen, walkthrough, proposal and won in the period plus a voided one of each, the report shows 1 for each of the five; on an empty database each prints 0.",
+        "With founder entries of 2 observed hours and 1 estimated hour and a developer entry of 3 hours dated in the period, plus a founder entry dated after the period, the report shows founder hours total 3, observed 2, estimated 1, and developer hours 3 on a separate line.",
+        "With 1 qualified direct conversation, 1 partner conversation and 3 founder hours the KPI prints 0.67; with founder hours 0 it prints n/a.",
+        "A non-test lead whose only activities are inquiry_logged, imported and note activities in the period adds 0 to qualified direct conversations.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-080"
+    },
+    {
+      "id": "T-03",
+      "title": "Prospecting, outreach, replies, data quality and referrals",
+      "goal": "Show the whole outreach funnel and its failures from the activity types architecture.md names, printing 0 until later features write them: research, hand review per motion, approvals, drafts, sends, gate violations, replies by type, opt-outs, data-quality failures and referred leads per partner (R-28, R-11, R-12).",
+      "story_refs": [
+        "US-4"
+      ],
+      "covers": [
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3",
+        "AC-4.4",
+        "AC-4.5"
+      ],
+      "plan": "1. In report.py: researched = distinct lead ids of counted imported activities in the period, split by leads.type direct_candidate / relationship_prospect.\n2. Hand review: counted hand_review activities in the period by lead type (motion) and payload result in HAND_REVIEW_RESULTS = (relevant, irrelevant, fabricated); every cell starts at 0.\n3. Approvals, draft_prepared, sent, gate_violation counts.\n4. Replies by payload reply_type over REPLY_TYPES = (interested, not_now, not_relevant, referral, opt_out, bounce, other), unknown or missing -> other; opt-outs = opt_out replies + counted suppressed activities.\n5. Data-quality failures = counted import_rejected + fabricated hand reviews.\n6. Referrals: non-test leads with referred_by not null and a counted imported or inquiry_logged activity in the period, grouped by referred_by with the partner's lead id and organization or contact name ('—' when none), total line.\n7. Render '## Prospecting and outreach', '## Replies and opt-outs', '## Data quality', '## Referrals' sections (pipe tables via review._cell-style escaping).\n8. Tests tests/test_report_funnel.py inserting these activity rows by SQL.",
+      "acceptance_criteria": [
+        "With counted imported activities in the period on two direct_candidate leads (one with two imported activities) and one relationship_prospect lead, plus one on a test lead and one voided, researched direct candidates prints 2 and researched partner firms prints 1; counted hand_review activities with result relevant, irrelevant and fabricated are shown per motion (direct_candidate, relationship_prospect) and result, every combination printing a number, 0 included.",
+        "One counted approval, draft_prepared, sent and gate_violation activity each in the period, plus a voided one of each, print 1 for approvals, prepared drafts, sends and gate violations; an empty database prints 0 for all four.",
+        "Counted reply activities in the period with reply_type interested, not_now, not_relevant, referral, opt_out, bounce and other print 1 each, a reply with an unknown reply_type adds to other, and opt-outs print the opt_out replies plus counted suppressed activities in the period (1 + 1 = 2 for one of each).",
+        "Data-quality failures print the count of counted import_rejected activities in the period plus counted hand_review activities with result fabricated in the period (2 + 1 = 3 for two and one), and 0 on an empty database.",
+        "Two non-test leads with referred_by set to relationship-prospect lead 5 and an inquiry_logged or imported activity in the period are listed under lead 5 with its name and a count of 2, a referred lead whose only such activity is before the period and a referred test lead are not counted, and with no referred leads the total prints 0.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-02"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-081"
+    },
+    {
+      "id": "T-04",
+      "title": "Model cost against the cap, other costs and blocked sending",
+      "goal": "Show model cost observed apart from estimated with month-to-date spend against a configured cap, other costs by category, and the open question that blocks sending when one is configured (R-28, R-29, R-30).",
+      "story_refs": [
+        "US-5"
+      ],
+      "covers": [
+        "AC-5.1",
+        "AC-5.2",
+        "AC-5.3"
+      ],
+      "plan": "1. config.py: Config gains model_cost_cap_usd: Decimal | None = None and sending_blocked_by: str | None = None from an optional 'report' mapping; the cap accepts a non-negative int, float-free decimal string or int-like YAML number (str() then Decimal, finite, >= 0) else ConfigError naming report.model_cost_cap_usd; sending_blocked_by must be a string (blank -> None) else ConfigError.\n2. config/pilot.yaml: commented 'report:' block documenting both keys, left unset.\n3. report.py: model cost = Decimal(cost_usd) sum over agent_runs with non-null cost_usd and local_date(started_at) in the period, split by cost_estimated; MTD over the end date's Denver month 1st..end; render cap line 'Model cost month to date: X of CAP (REMAINING remaining)' or 'No model-cost cap configured (report.model_cost_cap_usd).'.\n4. Other costs from events.cost_totals(period.start, period.end): total, observed, estimated, by category table.\n5. '## Sending blocked' section quoting sending_blocked_by when set; otherwise no 'Sending blocked' text.\n6. Tests tests/test_report_costs.py and config tests.",
+      "acceptance_criteria": [
+        "With agent_runs rows started in the period costing 1.25 (cost_estimated 0) and 0.50 (cost_estimated 1), one started before the period but in the end date's Denver month costing 2.00, and one in the previous month costing 9.00, the report shows model cost 1.75 with observed 1.25 and estimated 0.50, and month-to-date 3.75; with config report.model_cost_cap_usd 100 it shows 3.75 against 100.00, and with no report.model_cost_cap_usd it states 'No model-cost cap configured'.",
+        "With counted cost_logged entries in the period of 49.00 observed (category formspark plan) and 10.00 estimated (category domain), plus a voided entry and one dated outside the period, the report shows other costs total 59.00, observed 49.00, estimated 10.00, and each category with its amount.",
+        "With config report.sending_blocked_by 'Q3: which domain sends outreach' the report contains a 'Sending blocked' section quoting that text; with the key absent or whitespace-only the report contains no 'Sending blocked' text.",
+        "A config whose report.model_cost_cap_usd is 'abc' or -5, or whose report.sending_blocked_by is a list, makes `cottonwood report --period 7d --config PATH` exit 1 with stderr starting 'error:' and naming the key; config/pilot.yaml still loads with both keys unset.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-03"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-082"
+    }
+  ]
+}
