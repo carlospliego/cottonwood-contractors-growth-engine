@@ -5,8 +5,6 @@ The live database is `data/cottonwood.db` (or `$COTTONWOOD_DB`), and backups go 
 `data/backups/` (`paths.backup_dir` in `config/pilot.yaml`). Everything under `data/` is
 git-ignored (R-34). The SQL below uses the `sqlite3` command-line shell; any SQLite client works.
 
-Later features add the inbound checklist and relay sections to this file.
-
 ## Restore from backup
 
 Use this when the live database is lost, damaged or wrong (R-33). There is no restore command:
@@ -128,3 +126,72 @@ When a person asks to have their data deleted (R-35):
 
 Backups taken before the request still hold the old fields until those backup files are
 deleted; nothing removes them automatically, so say so if the person asks.
+
+## Inbound verification checklist
+
+Work through this list in week 1, before Gate 0 is signed off (R-4). For each item fill in
+`checked_at` (America/Denver date and time), `result` (what you saw, pass or fail) and `owner`
+(who checked it, or who owns the open question). Leave nothing blank at sign-off; an item that
+cannot pass yet says so in `result`.
+
+| Item | checked_at | result | owner |
+|---|---|---|---|
+| Labeled commercial test submission through the live website form |  |  |  |
+| Labeled residential test submission through the live website form |  |  |  |
+| Spam/blocked-submission path (what Formspark does with a blocked or spam-flagged submission, and where it shows up) |  |  |  |
+| Notification spam-folder check (the Formspark notification is not landing in spam) |  |  |  |
+| Formspark account owner, plan, limits and submission retention |  |  |  |
+| Auto-forward to the developer of Formspark notifications and outreach-mailbox replies |  |  |  |
+| Mobile form and phone-link check (the form submits and the phone link dials on a phone) |  |  |  |
+| Missed-call handling and owner (who returns missed calls, and by when) |  |  |  |
+| Same-working-day response capacity (the founder can meet the site's same-day promise) |  |  |  |
+| GA4 vs privacy-page reconciliation (is GA4 deployed, and does the privacy page match) |  |  |  |
+
+Logging the two test submissions (mark them `--test` so they are labeled and never counted):
+
+    uv run cottonwood log-inbound --channel form --received "2026-11-16 09:30" --segment commercial --name "Checklist test (commercial)" --email developer-test@example.com --test
+    uv run cottonwood log-inbound --channel form --received "2026-11-16 09:40" --segment residential --name "Checklist test (residential)" --email developer-test@example.com --test --confirm-duplicate
+
+The second one uses the same address on the same day, so it needs `--confirm-duplicate` (see
+Relay below). Then run `uv run cottonwood review --out out/review.md` and check that both rows
+carry the `TEST` label and that the count line says `Test inquiries excluded: 2`. Log the labeled
+test phone inquiry the same way with `--channel phone --test`.
+
+## Relay
+
+The developer operates the tool, but the founder owns the inbox and the phone, so inquiries reach
+the developer by relay:
+
+- Formspark notifications and replies to the outreach mailbox are auto-forwarded (or CC'd) to
+  the developer.
+- The founder sends a daily note covering calls (answered and missed) and in-person events.
+- Everything relayed is logged the same working day it arrives, and opt-outs the same day.
+
+Logging a relayed form inquiry (only the fields the inquirer gave; leave scope and budget out
+unless they stated them, R-1):
+
+    uv run cottonwood log-inbound --channel form --received "2026-11-16 09:30" --segment commercial --name "Pat Lee" --email pat@example.com --company "Acme Holdings" --scope "lobby refresh"
+
+Logging a phone inquiry from the founder's daily note (`--segment unknown` if they did not say):
+
+    uv run cottonwood log-inbound --channel phone --received "2026-11-16 14:05" --segment unknown --phone "(801) 555-0134"
+
+`--received` is when the inquiry arrived, not when you log it: `YYYY-MM-DD HH:MM` in America/Denver
+time, or UTC ending in `Z`. Add `--test` for the checklist's test submissions.
+
+If the email or phone matches an inquiry already logged on the same America/Denver date, the
+command stops with a warning such as `warning: possible duplicate of lead(s) 12 received
+2026-11-16` (R-2). If it is the same person following up, do not log it again. If it really is
+a separate inquiry, re-run with `--confirm-duplicate` (or answer `y` at the prompt). Without
+either, it refuses with exit 1 and saves nothing.
+
+Opt-outs are suppressed the same day they arrive (R-24). Until the `suppress` command exists,
+add the entry directly; an address already suppressed is kept as it is:
+
+```sql
+INSERT OR IGNORE INTO suppression (email_norm, reason, source, added_at)
+    VALUES ('pat@example.com', 'opt_out', 'relay', '2026-11-16T21:05:00Z');
+```
+
+Send the founder the review after logging: `uv run cottonwood review --out out/review.md`. The
+file holds contact data; `out/` is git-ignored, so keep it there.
