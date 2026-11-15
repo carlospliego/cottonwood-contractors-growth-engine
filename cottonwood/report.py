@@ -6,10 +6,12 @@ voided rows and test leads (R-3) never count. The report reads the database and 
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from cottonwood import config, events, inbound, review, timeutil
 
@@ -27,6 +29,30 @@ LABEL_ACK_OUTSIDE = "Acknowledged outside target"
 LABEL_NOT_ACKNOWLEDGED = "Not acknowledged"
 LABEL_MISSED_CALLS = "Missed calls"
 LABEL_RETURNED_CALLS = "Returned calls"
+LABEL_QUALIFIED = "Qualified direct conversations"
+LABEL_PARTNER = "Partner conversations"
+LABEL_REMOTE_SCREENS = "Remote screens"
+LABEL_WALKTHROUGHS = "Walkthroughs"
+LABEL_PROPOSALS = "Proposals"
+LABEL_WON = "Won projects"
+LABEL_KPI = "KPI (qualified + partner) per founder hour"
+LABEL_FOUNDER_HOURS = "Founder hours"
+LABEL_FOUNDER_OBSERVED = "Founder hours observed"
+LABEL_FOUNDER_ESTIMATED = "Founder hours estimated"
+LABEL_DEVELOPER_HOURS = "Developer hours"
+
+# Outcome events counted per type (R-28), in the order the report prints them.
+OUTCOME_LABELS = {
+    "partner_conversation": LABEL_PARTNER,
+    "remote_screen": LABEL_REMOTE_SCREENS,
+    "walkthrough": LABEL_WALKTHROUGHS,
+    "proposal": LABEL_PROPOSALS,
+    "won": LABEL_WON,
+}
+FOUNDER = "founder"
+DEVELOPER = "developer"
+NOT_APPLICABLE = "n/a"
+_KPI_PLACES = Decimal("0.01")
 
 
 class ReportError(ValueError):
@@ -146,6 +172,59 @@ def _inbound(conn: sqlite3.Connection, period: Period) -> InboundMetrics:
     return InboundMetrics(total, by_channel, by_segment, within, outside, missing)
 
 
+def _qualified(conn: sqlite3.Connection, period: Period) -> int:
+    """Distinct leads with a counted stage change into buyer_need_confirmed in the period (R-16).
+
+    Nothing else qualifies a lead: inquiries, imports and notes never do, and voided moves and
+    correction reverts are already left out by COUNTED_ACTIVITIES_SQL.
+    """
+    leads = {
+        int(row["lead_id"])
+        for row in _counted_in_period(conn, "stage_change", period)
+        if row["lead_id"] is not None
+        and json.loads(str(row["payload"])).get("to") == events.QUALIFIED_STAGE
+    }
+    return len(leads)
+
+
+@dataclass(frozen=True)
+class HoursMetrics:
+    """Counted hours in the period: founder total split observed vs estimated, and developer."""
+
+    founder_total: Decimal
+    founder_observed: Decimal
+    founder_estimated: Decimal
+    developer: Decimal
+
+
+def _hours(conn: sqlite3.Connection, period: Period) -> HoursMetrics:
+    """Founder and developer hours from the counted time entries dated in the period."""
+    totals = events.time_totals(conn, period.start, period.end)
+    observed = estimated = Decimal(0)
+    # The same entries time_totals sums, so the founder split always adds up to its total.
+    for payload in events._entries_in_range(conn, events.TIME_KIND, period.start, period.end):
+        if payload["person"] != FOUNDER:
+            continue
+        hours = Decimal(str(payload["hours"]))
+        if payload["estimated"] is True:
+            estimated += hours
+        else:
+            observed += hours
+    return HoursMetrics(
+        founder_total=totals.by_person.get(FOUNDER, Decimal(0)),
+        founder_observed=observed,
+        founder_estimated=estimated,
+        developer=totals.by_person.get(DEVELOPER, Decimal(0)),
+    )
+
+
+def kpi(qualified: int, partner: int, founder_hours: Decimal) -> Decimal | None:
+    """(qualified + partner) / founder hours to 2 places; None when there are no founder hours."""
+    if founder_hours == 0:
+        return None
+    return (Decimal(qualified + partner) / founder_hours).quantize(_KPI_PLACES, ROUND_HALF_UP)
+
+
 @dataclass(frozen=True)
 class Report:
     """Every metric the weekly report prints, computed for one period."""
@@ -155,6 +234,10 @@ class Report:
     inbound: InboundMetrics
     missed_calls: int
     returned_calls: int
+    qualified: int
+    outcomes: dict[str, int]
+    hours: HoursMetrics
+    kpi: Decimal | None
 
 
 def build_report(
@@ -162,12 +245,19 @@ def build_report(
 ) -> Report:
     """Compute the report's metrics from the database (read only)."""
     del cfg  # Report settings (cost cap, blocked sending) are read by later sections.
+    qualified = _qualified(conn, period)
+    outcomes = {kind: len(_counted_in_period(conn, kind, period)) for kind in OUTCOME_LABELS}
+    hours = _hours(conn, period)
     return Report(
         generated_at=generated_at,
         period=period,
         inbound=_inbound(conn, period),
         missed_calls=len(_counted_in_period(conn, "missed_call", period)),
         returned_calls=len(_counted_in_period(conn, "call_returned", period)),
+        qualified=qualified,
+        outcomes=outcomes,
+        hours=hours,
+        kpi=kpi(qualified, outcomes["partner_conversation"], hours.founder_total),
     )
 
 
@@ -198,5 +288,21 @@ def render_report(report: Report) -> str:
         _line(LABEL_NOT_ACKNOWLEDGED, metrics.not_acknowledged),
         _line(LABEL_MISSED_CALLS, report.missed_calls),
         _line(LABEL_RETURNED_CALLS, report.returned_calls),
+        "",
+        "## Conversations and KPI",
+        "",
+        _line(LABEL_QUALIFIED, report.qualified),
+    ]
+    lines += [_line(OUTCOME_LABELS[k], v) for k, v in report.outcomes.items()]
+    lines.append(_line(LABEL_KPI, NOT_APPLICABLE if report.kpi is None else report.kpi))
+    hours = report.hours
+    lines += [
+        "",
+        "## Hours",
+        "",
+        _line(LABEL_FOUNDER_HOURS, hours.founder_total),
+        _line(LABEL_FOUNDER_OBSERVED, hours.founder_observed),
+        _line(LABEL_FOUNDER_ESTIMATED, hours.founder_estimated),
+        _line(LABEL_DEVELOPER_HOURS, hours.developer),
     ]
     return "\n".join(lines) + "\n"
