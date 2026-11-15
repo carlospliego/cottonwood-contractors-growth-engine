@@ -278,6 +278,19 @@ def _payload(row: sqlite3.Row) -> dict[str, object]:
     return value if isinstance(value, dict) else {}
 
 
+def _imported_in_period(conn: sqlite3.Connection, period: Period) -> list[sqlite3.Row]:
+    """Counted imported activities in the period that first brought a lead in.
+
+    A matched re-import that only added evidence records created=false; it is not a new
+    research or referral arrival, so it is left out.
+    """
+    return [
+        row
+        for row in _counted_in_period(conn, "imported", period)
+        if _payload(row).get("created") is not False
+    ]
+
+
 def _lead_types(conn: sqlite3.Connection) -> dict[int, str]:
     """Every lead's type by id."""
     return {int(row["id"]): str(row["type"]) for row in conn.execute("SELECT id, type FROM leads")}
@@ -300,7 +313,7 @@ def _funnel(conn: sqlite3.Connection, period: Period) -> FunnelMetrics:
     """Count the outreach funnel from counted activities in the period; every key starts at 0."""
     types = _lead_types(conn)
     researched_leads: dict[str, set[int]] = {motion: set() for motion in MOTIONS}
-    for row in _counted_in_period(conn, "imported", period):
+    for row in _imported_in_period(conn, period):
         lead_id = row["lead_id"]
         if lead_id is not None and types.get(int(lead_id)) in researched_leads:
             researched_leads[types[int(lead_id)]].add(int(lead_id))
@@ -350,12 +363,8 @@ def _referrals(conn: sqlite3.Connection, period: Period) -> list[Referral]:
 
     Each referred lead counts once, grouped by the partner lead it names in referred_by.
     """
-    arrived = {
-        int(row["lead_id"])
-        for kind in ("imported", "inquiry_logged")
-        for row in _counted_in_period(conn, kind, period)
-        if row["lead_id"] is not None
-    }
+    rows = _imported_in_period(conn, period) + _counted_in_period(conn, "inquiry_logged", period)
+    arrived = {int(row["lead_id"]) for row in rows if row["lead_id"] is not None}
     counts: dict[int, int] = {}
     for row in conn.execute(
         "SELECT id, referred_by FROM leads"
