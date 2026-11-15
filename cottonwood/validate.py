@@ -167,6 +167,7 @@ class ProspectRecord:
     referred_by: int | None
     is_test: bool
     evidence: tuple[ProspectEvidence, ...]
+    is_test_given: bool = False  # the record said is_test, so a stored value can differ
 
     def label(self) -> str:
         """``record N`` with the record_id in parentheses when the record has one."""
@@ -457,6 +458,7 @@ def _record(number: int, record_id: str | None, data: Mapping[str, Any]) -> Pros
         value_basis=None if value is None else value["basis"],
         referred_by=data.get("referred_by"),
         is_test=bool(data.get("is_test", False)),
+        is_test_given="is_test" in data,
         evidence=tuple(_evidence(item) for item in data["evidence"]),
     )
 

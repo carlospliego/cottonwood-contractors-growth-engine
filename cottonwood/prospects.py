@@ -383,6 +383,8 @@ def _differences(
         ("referred_by", lead["referred_by"], record.referred_by),
         ("is_test", bool(lead["is_test"]), record.is_test),
     ]
+    if not record.is_test_given:
+        pairs = [pair for pair in pairs if pair[0] != "is_test"]
     return tuple(
         Difference(field, _shown(stored), _shown(incoming))
         for field, stored, incoming in pairs

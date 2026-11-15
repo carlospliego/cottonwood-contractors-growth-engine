@@ -87,6 +87,7 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-099` — Test every compared field in re-import difference reporting → [CCGE-099.md](tasks/CCGE-099.md)
 - [ ] `CCGE-100` — Test evidence dedupe key parts and CSV re-import → [CCGE-100.md](tasks/CCGE-100.md)
 - [ ] `CCGE-101` — record_id is unbounded and unfiltered, yet stored in append-only activities and echoed to the terminal → [CCGE-101.md](tasks/CCGE-101.md)
+- [ ] `CCGE-102` — Per-record SAVEPOINT rollback and the prospects-import sqlite3.Error exit path are untested → [CCGE-102.md](tasks/CCGE-102.md)
 
 ## Done
 
