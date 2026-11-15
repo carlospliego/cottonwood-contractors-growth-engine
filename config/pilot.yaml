@@ -1,0 +1,8 @@
+# Cottonwood growth engine pilot settings.
+# Relative paths resolve against the folder you run `cottonwood` from.
+# Override this file's location with $COTTONWOOD_CONFIG or `--config PATH`.
+
+paths:
+  # Where `cottonwood backup` writes copies when no --to is given.
+  # The folder must exist; data/ is git-ignored, so backups never reach git.
+  backup_dir: data/backups

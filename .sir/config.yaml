@@ -9,11 +9,11 @@ project:
 paths:
   work: work
 checks:
-  test: null
-  lint: null
-  typecheck: null
+  test: uv run pytest
+  lint: uv run ruff check .
+  typecheck: uv run mypy .
   build: null
-  format: null
+  format: uv run ruff format --check .
 versioning:
   scheme: none
   files: []

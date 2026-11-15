@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-013",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "docs/runbook.md has a `## Restore from backup` heading at line 10. Its numbered steps run in the required order. Step 2 (line 17) sets the current database aside with mv. Step 3 (line 19) copies the backup into place with cp. Step 4 (line 22) runs PRAGMA integrity_check. Step 5 (line 24) queries the suppression table with SELECT count(*) FROM suppression. Step 6 (line 26) runs `uv run cottonwood migrate`. Step 1 is an extra optional fresh backup, and step 7 re-applies suppression entries after the migrate. Neither breaks the required order. tests/test_runbook_restore.py passed (4/4).",
+          "file": "docs/runbook.md",
+          "line": 17,
+          "quote": "2. Set the current database aside so nothing is lost. Use the current UTC time in the name:\n   `mv data/cottonwood.db data/cottonwood.db.before-restore-20261115T100000Z`\n3. Copy the chosen backup into place"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "docs/runbook.md:35 has the exact heading '## Re-applying suppression after a restore'. The section's SQL block ATTACHes the set-aside DB and runs INSERT OR IGNORE INTO suppression ... SELECT ... FROM before_restore.suppression WHERE added_at > cutoff. That copies rows added after the backup into the restored DB. The columns match the schema in cottonwood/migrations/002_core.sql:121-126 (email_norm, reason, source, added_at). The block also has a missing-rows check, and the prose warns against INSERT OR REPLACE because of the update/delete triggers. tests/test_runbook_restore.py passed (4/4).",
+          "file": "docs/runbook.md",
+          "line": 35,
+          "quote": "## Re-applying suppression after a restore"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "docs/runbook.md has a '## Deletion requests' heading at line 66. Step 1 says to take a backup first. Step 4 clears the contact's personal fields (name, email, email_norm, phone_e164, role, source_url) and sets deleted_at. Step 7 says to keep the suppression entry and that it is never deleted. The schema in 002_core.sql lines 120-135 agrees: suppression has no-update and no-delete triggers, and deleted_at exists on contacts. I did not run the tests; the AC is about document content.",
+          "file": "docs/runbook.md",
+          "line": 66,
+          "quote": "## Deletion requests"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_documented_restore_recovers_backup_and_newer_suppression builds a scratch DB in tmp_path, adds an early suppression row, backs up, then adds a late row after the backup. It sets the live DB aside, copies the backup into place, and asserts PRAGMA integrity_check == 'ok' and that the suppression table exists (count == 1). It then runs the migrate step and the runbook's own re-apply SQL, and asserts the restored DB contains both early@example.com and late@example.com. It re-checks integrity_check afterwards. All 4 tests in the file pass (pytest: 4 passed). An unrelated 'mypy .' spawn error appeared in the output but did not affect the result.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-013/tests/test_runbook_restore.py",
+          "line": 120,
+          "quote": "assert _emails(conn) == [\"early@example.com\", \"late@example.com\"]"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each from the work directory with UV_OFFLINE=1 UV_NO_SYNC=1. pytest exited 0 (133 passed). ruff check exited 0 (All checks passed!). ruff format --check exited 0 (54 files already formatted). mypy exited 0 (Success: no issues found in 20 source files). My first loop attempt failed to spawn ruff and mypy because of a quoting bug in my shell loop. I re-ran those three separately and they passed. I did not read the sir check logs.",
+          "file": "tests/test_runbook_restore.py",
+          "line": 1,
+          "quote": "133 passed in 0.16s"
+        }
+      ],
+      "returns_through": "2026-11-15T10:23:51.293Z"
+    }
+  ]
+}

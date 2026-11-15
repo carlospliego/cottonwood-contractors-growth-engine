@@ -30,6 +30,14 @@ class FolderMissingError(MigrationError):
         self.folder = folder
 
 
+class DatabaseMissingError(MigrationError):
+    """The database file does not exist (run `cottonwood migrate` first)."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"database does not exist: {path} (run `cottonwood migrate` first)")
+        self.path = path
+
+
 @dataclass(frozen=True)
 class Migration:
     """One migration file: its number and path."""
@@ -45,6 +53,26 @@ class MigrateResult:
     from_version: int
     to_version: int
     applied: tuple[Migration, ...]
+
+
+def connect(db_path: Path) -> sqlite3.Connection:
+    """Open an existing database with foreign keys on, a busy timeout and sqlite3.Row rows.
+
+    Unlike sqlite3.connect, a missing file is an error rather than a new empty database.
+    """
+    if not db_path.is_file():
+        raise DatabaseMissingError(db_path)
+    try:
+        conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_SECONDS)
+    except sqlite3.Error as exc:
+        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+    except sqlite3.Error as exc:
+        conn.close()
+        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def default_db_path() -> Path:

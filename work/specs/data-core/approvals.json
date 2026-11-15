@@ -1,0 +1,20 @@
+{
+  "feature": "data-core",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-15T10:00:41.491Z",
+      "sha256": "09e7a6e9d6b49dffefe318239c8ceba90afac10d4b669969f1da516be421aa50",
+      "head": "f8e1e78ead7c69847ce892c69d6a2f0a2265fe31"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-15T10:01:25.363Z",
+      "sha256": "ca6b5c42c665de68ed543dca4a46ba97e926ef548d4df7b100f1a10d8d66c952",
+      "head": "f8e1e78ead7c69847ce892c69d6a2f0a2265fe31",
+      "spec_sha256": "09e7a6e9d6b49dffefe318239c8ceba90afac10d4b669969f1da516be421aa50"
+    }
+  }
+}

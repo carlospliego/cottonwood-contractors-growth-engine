@@ -1,0 +1,128 @@
+{
+  "feature": "data-core",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "UTC time and contact normalization helpers",
+      "goal": "Shared helpers store times as UTC ISO strings, show them in America/Denver, and normalize email, phone, domain and name keys.",
+      "story_refs": [
+        "US-2"
+      ],
+      "covers": [
+        "AC-2.1",
+        "AC-2.2",
+        "AC-2.3",
+        "AC-2.4",
+        "AC-2.5"
+      ],
+      "plan": "1. Add tzdata to project dependencies (uv add tzdata) and commit uv.lock.\n2. Add cottonwood/timeutil.py: DENVER = ZoneInfo('America/Denver'); utc_now() -> str ('YYYY-MM-DDTHH:MM:SSZ'); to_utc_iso(dt) (aware datetimes only, converted to UTC, seconds precision); parse_utc(s) -> aware datetime (accepts the Z form); display_local(s) -> 'YYYY-MM-DD HH:MM -07:00' style string in Denver; local_date(s) -> date in Denver.\n3. Add cottonwood/normalize.py: normalize_email, normalize_phone (US default +1, international + with 8-15 digits), normalize_domain, normalize_name; each raises ValueError naming the rule broken.\n4. Add tests/test_timeutil.py (fixed instants around 2026-03-08 and 2026-11-01 DST changes, the 05:30Z local-date case, naive datetime rejected) and tests/test_normalize.py (table-driven valid and invalid inputs from the spec).\n5. Run all checks.",
+      "acceptance_criteria": [
+        "timeutil.utc_now() returns a string matching ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$ and to_utc_iso rejects a naive datetime with ValueError; tests assert both.",
+        "timeutil.display_local('2026-01-15T19:00:00Z') contains '12:00' and '-07:00', and display_local('2026-07-15T18:00:00Z') contains '12:00' and '-06:00'; tests assert both.",
+        "timeutil.local_date('2026-11-16T05:30:00Z') == date(2026, 11, 15) and a test asserts it.",
+        "normalize_email('  Jane.Doe@Example.COM ') == 'jane.doe@example.com', and normalize_email raises ValueError for 'no-at-sign', 'a@b@c.com' and 'a@localhost'; tests assert each.",
+        "normalize_phone returns '+18015550134' for '(801) 555-0134', '801.555.0134', '1-801-555-0134' and '+1 801 555 0134', returns '+442071838750' for '+44 20 7183 8750', and raises ValueError for '555-0134' and '+12'; tests assert each.",
+        "normalize_domain('https://WWW.Example.com:443/about') == 'example.com' and normalize_name('  Jane   O\\'Neil, Jr. ') == 'jane oneil jr'; tests assert both.",
+        "tzdata is a project dependency in pyproject.toml and uv.lock lists it.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy .` exit 0."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-010"
+    },
+    {
+      "id": "T-02",
+      "title": "Core schema migration with append-only triggers",
+      "goal": "Migration 002_core.sql creates the 7 tables with the R-14 stage rule and the activities/suppression protections, and db.connect() opens connections with foreign keys on.",
+      "story_refs": [
+        "US-1"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-1.3",
+        "AC-1.4",
+        "AC-1.5"
+      ],
+      "plan": "1. Add cottonwood/migrations/002_core.sql with organizations, contacts, leads, evidence, activities, agent_runs, suppression per architecture.md Interfaces & data; CHECK constraints for lead type, stage per type (R-14), eligibility, evidence kind, is_test 0/1, json_valid(payload); foreign keys; partial unique index on organizations.domain_norm; indexes on contacts.email_norm, contacts.phone_e164, leads.type, activities.lead_id; triggers rejecting UPDATE/DELETE on activities and UPDATE/DELETE on suppression. No BEGIN/COMMIT in the file (the runner wraps it).\n2. Add db.connect(db_path) -> sqlite3.Connection: PRAGMA foreign_keys = ON, busy timeout BUSY_TIMEOUT_SECONDS, sqlite3.Row row factory; raise MigrationError-style clear error if the file does not exist.\n3. Update the default-migration assertions in tests/test_migrate.py from version 1 / no tables to version 2 / the 7 tables (listed in Tests to change).\n4. Add tests/test_schema.py: table and key-column presence; activities UPDATE and DELETE rejected with the row unchanged; suppression DELETE and UPDATE rejected; every allowed type/stage pair inserts and cross-type stages fail; a version-1 database upgrades to 2 and a second migrate applies nothing; foreign keys enforced through connect().\n5. Run all checks.",
+      "acceptance_criteria": [
+        "After `cottonwood migrate` on a new file, PRAGMA user_version is 2 and the non-internal tables are exactly activities, agent_runs, contacts, evidence, leads, organizations and suppression; a test asserts it.",
+        "A test asserts each table has the key columns listed in architecture.md Interfaces & data (for example activities has id, lead_id, contact_id, type, payload, actor, occurred_at, recorded_at, voids_activity_id).",
+        "A test shows UPDATE and DELETE on an activities row each raise sqlite3.IntegrityError and the row is unchanged afterwards.",
+        "A test shows DELETE on a suppression row raises sqlite3.IntegrityError and the row is still present.",
+        "A parametrized test inserts a lead for every allowed R-14 type/stage pair successfully, and shows `walkthrough` for relationship_prospect and `introduced` for direct_candidate are rejected.",
+        "A test migrates a database that is at user_version 1 to user_version 2, and a second migrate reports 0 applied.",
+        "db.connect() returns a connection on which PRAGMA foreign_keys is 1, and a test shows inserting a contact with a missing organization_id reference fails.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy .` exit 0."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [
+        "tests/test_migrate.py"
+      ],
+      "complexity": "M",
+      "imported_as": "CCGE-011"
+    },
+    {
+      "id": "T-03",
+      "title": "Config loader and backup command",
+      "goal": "`cottonwood backup` copies the database with the SQLite backup API into the backup folder from config/pilot.yaml under a timestamped name; .env.example is committed and .env ignored.",
+      "story_refs": [
+        "US-3"
+      ],
+      "covers": [
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-3.4"
+      ],
+      "plan": "1. Add PyYAML to dependencies and types-PyYAML to the dev group; commit uv.lock.\n2. Add config/pilot.yaml with paths.backup_dir: data/backups and comments; add cottonwood/config.py with load_config(path=None) reading $COTTONWOOD_CONFIG or config/pilot.yaml, returning a frozen Config(backup_dir: Path); ConfigError on a missing file, invalid YAML or a non-string backup_dir.\n3. Add cottonwood/backup.py: backup(db_path, dest_dir) -> Path; refuse a missing dest folder (BackupError naming it) and a missing database; name cottonwood-<UTC YYYYMMDDTHHMMSSZ>.db with -2, -3 suffix on collision; copy with sqlite3 backup API.\n4. Register `backup` in cli.py with --db, --to, --config; print `backup written: <path>`; exit 1 with `error: ...` on BackupError/ConfigError.\n5. Add .env.example (comment that no email-sending credentials belong here) and `.env` to .gitignore.\n6. Add tests/test_backup.py; run all checks.",
+      "acceptance_criteria": [
+        "A test migrates a temp database, inserts a suppression row, runs `main(['backup', '--db', db, '--to', dir])`, and asserts exit 0, a printed path matching cottonwood-\\d{8}T\\d{6}Z(-\\d+)?\\.db inside dir, and that the copy has user_version 2 and the suppression row.",
+        "A test asserts backup to a folder that does not exist exits 1, prints that folder path on stderr, and creates nothing.",
+        "A test asserts backup of a database path that does not exist exits 1 and names the path.",
+        "A test shows that without --to the folder comes from paths.backup_dir in the YAML file named by COTTONWOOD_CONFIG.",
+        "config/pilot.yaml exists with paths.backup_dir set to data/backups.",
+        ".env.example is tracked, `git check-ignore .env` and `git check-ignore data/backups/x.db` both succeed, and `grep -riE 'smtp|sendgrid|mailgun|api_key|password' .env.example config/` finds no credential values.",
+        "Two backups taken in the same second produce two distinct files (the second gets a -2 suffix), and a test asserts it.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy .` exit 0."
+      ],
+      "depends_on": [
+        "T-02"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-012"
+    },
+    {
+      "id": "T-04",
+      "title": "Runbook: restore and deletion-request procedures",
+      "goal": "docs/runbook.md documents restoring a backup (with the suppression re-apply step) and handling deletion requests, and a test exercises the restore checks.",
+      "story_refs": [
+        "US-4"
+      ],
+      "covers": [
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3"
+      ],
+      "plan": "1. Create docs/runbook.md with a short intro and sections `## Restore from backup`, `## Re-applying suppression after a restore`, `## Deletion requests`; leave clearly marked placeholders-free headings for the inbound sections inbound-logging adds later (no TODO text, just the three sections now).\n2. Restore steps: run `cottonwood backup` first if the database opens; copy the current database aside to data/cottonwood.db.before-restore-<UTC>; copy the chosen backup into place; check it opens (`sqlite3 data/cottonwood.db 'PRAGMA integrity_check;'` returns ok) and contains the suppression table (`SELECT count(*) FROM suppression;`); run `cottonwood migrate`; re-apply suppression entries newer than the backup from the set-aside copy (SQL given).\n3. Deletion steps: take a backup; clear name, email, email_norm, phone_e164, role, source_url and the person's notes in activities payloads are not edited (append a correction activity instead); set deleted_at; keep the suppression row (say so explicitly).\n4. Add tests/test_runbook_restore.py: asserts the headings and key phrases exist, then performs the restore steps on scratch files with Python sqlite3/shutil (set aside, copy, integrity_check ok, suppression present, re-apply newer suppression rows) and asserts the result.\n5. Run all checks.",
+      "acceptance_criteria": [
+        "docs/runbook.md contains a `## Restore from backup` section whose steps, in order, set the current database aside, copy the backup into place, run `PRAGMA integrity_check`, query the suppression table, and run `cottonwood migrate`.",
+        "docs/runbook.md contains a `## Re-applying suppression after a restore` section with the SQL that copies suppression rows added after the backup from the set-aside database into the restored one.",
+        "docs/runbook.md contains a `## Deletion requests` section that says to take a backup first, clear the contact's personal fields, set deleted_at, and that the suppression entry is kept.",
+        "tests/test_runbook_restore.py performs the restore and suppression re-apply steps on scratch databases and asserts the restored database passes integrity_check, has the suppression table, and includes a suppression row added after the backup.",
+        "`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run mypy .` exit 0."
+      ],
+      "depends_on": [
+        "T-03"
+      ],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-013"
+    }
+  ]
+}

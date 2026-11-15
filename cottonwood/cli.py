@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from cottonwood import __version__, db
+from cottonwood import __version__, backup, config, db
 
 EXIT_OK = 0
 EXIT_REFUSED = 1
@@ -52,6 +52,46 @@ def _run_migrate(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_backup_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the backup command's arguments."""
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+    parser.add_argument(
+        "--to",
+        type=Path,
+        default=None,
+        help="backup folder (default: paths.backup_dir from the config file)",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            f"config file, read only without --to"
+            f" (default: ${config.CONFIG_ENV_VAR}, else {config.DEFAULT_CONFIG_PATH})"
+        ),
+    )
+
+
+def _run_backup(args: argparse.Namespace) -> int:
+    """Copy the database into the backup folder under a timestamped name."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        dest_dir: Path = (
+            args.to if args.to is not None else config.load_config(args.config).backup_dir
+        )
+        written = backup.backup(db_path, dest_dir)
+    except (backup.BackupError, config.ConfigError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    print(f"backup written: {written}")
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -59,6 +99,12 @@ COMMANDS: list[Command] = [
         "Create or upgrade the SQLite database by applying pending migrations.",
         _add_migrate_arguments,
         _run_migrate,
+    ),
+    Command(
+        "backup",
+        "Copy the database into the backup folder under a timestamped name.",
+        _add_backup_arguments,
+        _run_backup,
     ),
 ]
 
