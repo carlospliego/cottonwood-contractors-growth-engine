@@ -1,0 +1,20 @@
+{
+  "feature": "events-and-stages",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-15T11:38:44.998Z",
+      "sha256": "c0c7b4a928090e3b558318ea62b0a15782e80146af5344312ca9f54289383633",
+      "head": "81f66878ac4b4adc1f922bd2385ee102a7f03cfe"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-15T11:39:21.848Z",
+      "sha256": "32ee8ac0729a65a4bc6917338bf5303ede0082316167c3b6a9d0063533f0ce0a",
+      "head": "81f66878ac4b4adc1f922bd2385ee102a7f03cfe",
+      "spec_sha256": "c0c7b4a928090e3b558318ea62b0a15782e80146af5344312ca9f54289383633"
+    }
+  }
+}

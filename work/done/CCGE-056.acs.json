@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-056",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "EVENT_TYPES in cottonwood/events.py holds the 12 R-15 types, and test_event_types_match_r15 checks the exact tuple. The log-event command (cli.py _run_log_event) validates the event, then log_event does one INSERT into activities. The row has type=event.type, occurred_at from parse_received, actor defaulting to 'developer', and recorded_at set to utc_now(). log_event never writes to leads, so the stage cannot change. tests/test_events.py::test_each_type_appends_one_activity runs all 12 types on a migrated DB where lead 1 comes from log-inbound, with utc_now pinned to 2026-12-01. It asserts exit 0, exactly one new activity, lead_id 1, the right type, occurred_at 2026-11-16T16:30:00Z, actor 'developer', non-empty recorded_at, and stage 'candidate'. All 37 tests in tests/test_events.py passed when I ran them. Two small gaps do not change the verdict. The test passes --note only for the note type, but the code stores a note on any type and test_note_text_is_stored_on_other_types covers that. The stage check compares against the constant 'candidate' instead of a before-value, but nothing in the code path touches the stage.",
+          "file": "cottonwood/events.py",
+          "line": 98,
+          "quote": "def log_event(conn: sqlite3.Connection, event: Event) -> int:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_events.py passed (37/37). test_utc_at_is_stored_as_given checks that --at 2026-11-16T16:30:00Z is stored as occurred_at. test_missing_at_is_a_usage_error checks exit 2 (EXIT_USAGE=2) with no rows written; --at is required=True in cli.py. test_unparseable_at_is_refused and test_future_at_is_refused (2999-01-01 00:00) check exit 1 (EXIT_REFUSED) with no rows written. test_unknown_type_is_a_usage_error checks exit 2 with no rows written; argparse choices=EVENT_TYPES gives exit 2. In events.validate_event the parse and future checks run before any DB write. I did not run the CLI by hand because the sandbox blocked the write needed for a scratch database.",
+          "file": "cottonwood/events.py",
+          "line": 70,
+          "quote": "    if occurred_at > now:\n        raise EventError(\"at\", f\"is later than now ({timeutil.display_local(now)})\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "All three behaviours are implemented and covered by tests, and tests/test_events.py passes (37/37). Lead 999 with no row: log_event raises LeadNotFoundError before any INSERT, and its str is 'no lead 999'. The CLI prints 'error: no lead 999' to stderr and returns EXIT_REFUSED (1). test_unknown_lead_is_refused asserts exit 1, the stderr text, and an unchanged activity count. Note type with no note, '' or '   ': validate_event raises EventError, and the CLI returns 1 before the database is touched. test_note_type_needs_note_text covers None, '' and '   ' and asserts exit 1 and no events. Note on another type: log_event stores payload['note'] = event.note, which is stripped. test_note_text_is_stored_on_other_types asserts payload {'event':'call','note':'left a voicemail'}.",
+          "file": "cottonwood/events.py",
+          "line": 90,
+          "quote": "    if raw.type == \"note\" and note is None:\n        raise EventError(\"note\", \"a note event needs --note text\")"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_run_log_event prints to stdout 'logged {type} activity {activity_id} for lead {lead_id} at {timeutil.display_local(event.occurred_at)}'. That line carries the activity id, the type, the lead id and the display_local time. test_success_line_names_activity_type_lead_and_local_time checks all four in stdout, and tests/test_events.py passes (37/37). I did not check that event.occurred_at holds the --at time.",
+          "file": "cottonwood/cli.py",
+          "line": 307,
+          "quote": "f\"logged {event.type} activity {activity_id} for lead {event.lead_id}\"\n        f\" at {timeutil.display_local(event.occurred_at)}\""
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `cottonwood log-event 1 note --at '2026-11-10 09:30' --note hi --db <path>` in the worktree. (1) Missing path, in a nonexistent directory and in an existing one: rc=1, stderr 'error: database does not exist: ... (run `cottonwood migrate` first)', no Traceback, and no file was created. (2) Empty 0-byte file: rc=1, stderr 'error: could not save the event: no such table: leads', no Traceback. The file was still 0 bytes afterwards and `sqlite3 .tables` listed nothing, so it has no tables. Handler: cottonwood/cli.py _run_log_event prints 'error: ...' to stderr and returns EXIT_REFUSED on db.MigrationError and sqlite3.Error. I did not run the repo's test suite.",
+          "file": "cottonwood/cli.py",
+          "line": 303,
+          "quote": "print(f\"error: could not save the event: {exc}\", file=sys.stderr)"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest: exit 0, 261 passed. uv run ruff check .: exit 0, All checks passed. uv run mypy .: exit 0, no issues found in 37 source files. uv run ruff format --check .: exit 0, 123 files already formatted.",
+          "file": "cottonwood/events.py",
+          "line": 1,
+          "quote": "261 passed in 0.54s"
+        }
+      ],
+      "returns_through": "2026-11-15T11:45:28.085Z"
+    }
+  ]
+}

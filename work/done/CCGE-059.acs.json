@@ -1,0 +1,82 @@
+{
+  "task_id": "CCGE-059",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The log-time command is registered in cottonwood/cli.py. log_time in cottonwood/events.py inserts one activity with lead_id None, occurred_at set to the Denver day start in UTC, and a payload of date, hours (Decimal string), lowercased category, person (default founder) and estimated. tests/test_time_cost.py asserts the exact AC values: exit 0, one new row, type time_logged, lead_id None, occurred_at 2026-11-16T07:00:00Z, payload {date:'2026-11-16', hours:'1.5', category:'outreach', person:'founder', estimated:False}. A second test covers --person developer --estimated, giving person 'developer' and estimated True. I ran the whole file and all 56 tests passed. Those tests pin utc_now to 2026-12-01.",
+          "file": "tests/test_time_cost.py",
+          "line": 75,
+          "quote": "def test_log_time_appends_one_entry_with_defaults(db_path: Path) -> None:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "log_cost builds a payload with date, amount_usd str(Decimal '49.00'), lowercased category and estimated. The --estimated flag sets estimated True via bool(args.estimated). test_log_cost_appends_one_entry checks exit 0, one new row, type cost_logged, lead_id None, and the exact payload {amount_usd '49.00', category 'formspark plan', estimated False}. test_log_cost_estimated checks that --estimated stores true. All 56 tests in tests/test_time_cost.py pass with the clock pinned. I did not run the command by hand against the real clock, where 2026-11-16 is after today.",
+          "file": "cottonwood/events.py",
+          "line": 611,
+          "quote": "payload: dict[str, object] = {\n        \"date\": entry.date.isoformat(),\n        \"amount_usd\": str(entry.amount_usd),\n        \"category\": entry.category,\n        \"estimated\": entry.estimated,\n    }"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Validation runs before any DB connection or write (cli.py _run_entry) and raises EventError, which exits with EXIT_REFUSED=1. tests/test_time_cost.py has parametrized tests for bad hours, bad amounts, blank category, bad date format and a future Denver date, and each asserts exit 1 and an unchanged activity count. The suite passes (56 passed). I also ran the real CLI. Hours -1 and 24.5, amount -5, a blank category and a date of 2099-01-01 each printed an error and exited 1. I did not run the 'abc', '0' and '1.234' inputs through the real CLI. The test file covers them, and _PLAIN_DECIMAL (events.py) rejects 'abc' while _parse_amount rejects 0 and more than 2 decimal places. The Denver-today check uses timeutil.local_date, and the test pins UTC 2026-12-01 against Denver 2026-11-30.",
+          "file": "cottonwood/events.py",
+          "line": 520,
+          "quote": "    if not _PLAIN_DECIMAL.match(text):\n        raise EventError(field, f\"must be a plain decimal number like 1.5, got {value!r}\")"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "void_entry (events.py:622-663) inserts one correction with lead_id None and voids_activity_id set. It raises EventError for a missing id, a wrong type, or an already-void target, and rolls back. _void_entry_conflict (cli.py) refuses --voids combined with an amount, --date or --category. Refusals return EXIT_REFUSED, which is 1 (cli.py:18). tests/test_time_cost.py:214-257 covers both success paths and nine refusal cases, each checking exit 1, an 'error:' message on stderr, and an unchanged row count. All 56 tests in that file passed.",
+          "file": "cottonwood/events.py",
+          "line": 642,
+          "quote": "if target[\"type\"] != kind:\n            raise EventError(\"voids\", f\"activity {voids_id} is a {target['type']}, not {kind}\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "time_totals and cost_totals (events.py:698-727) read counted entries via _entries_in_range. That function filters with COUNTED_ACTIVITIES_SQL, which drops voided entries, and with a BETWEEN on the ISO date, which is inclusive at both ends. Amounts are stored as strings (events.py:599,613) and summed as Decimal. Totals start at Decimal(0), so an empty range gives 0. Time is split by person and by observed vs estimated. Cost is split by category and by observed vs estimated. tests/test_time_cost.py has tests for the split with void and out-of-range entries excluded (line 287), exact decimals (315), inclusive ends (323) and an empty range (332). All 56 tests in the file pass.",
+          "file": "cottonwood/events.py",
+          "line": 690,
+          "quote": "f\"SELECT a.payload FROM activities a WHERE {COUNTED_ACTIVITIES_SQL} AND a.type = ?\"\n        \" AND json_extract(a.payload, '$.date') BETWEEN ? AND ? ORDER BY a.id\","
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Tests test_missing_database_is_refused and test_unmigrated_database_is_refused are parametrized over log-time and log-cost (and the --voids forms). They assert exit code EXIT_REFUSED, stderr starting 'error:', no 'Traceback', and an empty sqlite_master for the empty file. The missing path is also asserted not to be created. I ran the 8 matching tests and all passed. I did not check that EXIT_REFUSED equals 1, and I did not run the CLI by hand because the sandbox blocked creating an empty file.",
+          "file": "tests/test_time_cost.py",
+          "line": 372,
+          "quote": "def test_unmigrated_database_is_refused("
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 from the worktree. uv run pytest exited 0 (380 passed in 1.36s). uv run ruff check . printed 'All checks passed!'. uv run mypy . printed 'Success: no issues found in 41 source files'. uv run ruff format --check . printed '127 files already formatted'. I did not capture the exit codes of the last three commands. The 0 printed after ruff check is the exit status of tail, not ruff. The pass verdict rests on their success messages.",
+          "file": "tests/test_time_cost.py",
+          "line": 1,
+          "quote": "380 passed in 1.36s"
+        }
+      ],
+      "returns_through": "2026-11-15T16:09:19.897Z"
+    }
+  ]
+}

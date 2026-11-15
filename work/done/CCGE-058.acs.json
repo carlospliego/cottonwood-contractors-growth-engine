@@ -1,0 +1,82 @@
+{
+  "task_id": "CCGE-058",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_correction_appends_one_row_and_leaves_target_untouched logs a call, then runs `log-event 1 correction --voids <id> --at <T_FIX>` and asserts exit 0, that the activity count rose by exactly 1, and that there is exactly one correction row with lead_id 1 and voids_activity_id equal to the id. It also asserts that the voided row's full SELECT * tuple is equal before and after. The CLI path is in cottonwood/cli.py:306-346. All 10 tests in tests/test_events_corrections.py passed. I did not open the T_FIX definition. The stored time 2026-11-16T17:00:00Z is consistent with 10:00 local on 2026-11-16. The test used a --note and the AC command does not, but the code does not require one.",
+          "file": "tests/test_events_corrections.py",
+          "line": 110,
+          "quote": "    assert fix[\"voids_activity_id\"] == call_id"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "COUNTED_ACTIVITIES_SQL excludes type 'correction'. It excludes any row that a correction voids through voids_activity_id = a.id. It excludes any stage_change whose payload event_activity_id is voided by a correction. Other rows stay. counted_activities() runs this filter (events.py:296-305). test_counted_activities_drop_voided_event_correction_and_its_stage_change (tests/test_events_corrections.py:121-144) logs an acknowledgement and a call with a stage change, then voids the call. It asserts that the call, its stage_change and the correction are not counted, and that the acknowledgement is still counted. The tests in tests/test_events_corrections.py pass (10 passed). One gap: the stage_change that a correction itself writes to revert the stage is not excluded by the rule. The AC does not mention it, so I did not hold it against the verdict.",
+          "file": "cottonwood/events.py",
+          "line": 275,
+          "quote": "COUNTED_ACTIVITIES_SQL = (\n    \"a.type <> 'correction'\"\n    \" AND NOT EXISTS (SELECT 1 FROM activities c\"\n    \" WHERE c.type = 'correction' AND c.voids_activity_id = a.id)\"\n    \" AND NOT (a.type = 'stage_change' AND EXISTS (SELECT 1 FROM activities c\"\n    \" WHERE c.type = 'correction'\"\n    \" AND c.voids_activity_id = json_extract(a.payload, '$.event_activity_id')))\""
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "rejected",
+          "evidence": "log_correction in cottonwood/events.py looks up the stage change that the voided event caused. It also finds the lead's latest effective event-caused stage change. If the two differ, it raises EventError naming that later change's activity id, before any insert. Otherwise it inserts the correction, sets leads.stage to the caused change's 'from' value, and appends a stage_change whose payload event_activity_id is the correction's id. Both paths run in one transaction that rolls back on error. EXIT_REFUSED is 1 (cottonwood/cli.py:18). The tests test_voiding_latest_stage_event_reverts_the_stage and test_voiding_an_older_stage_event_is_refused_naming_the_later_change assert the revert, the exit 1, the later stage change's id in stderr, and an unchanged row count and stage. All 10 tests in tests/test_events_corrections.py pass.; refutation rejected: The refuter's counterexample treats the stage change written last (event B, --at 09:30, higher id) as 'later'. The contract Plan and work/specs/events-and-stages/plan.md:55 define the latest effective stage change by (occurred_at, id) descending, and assumption 15 (assumptions.md:78) relies on that order. In the probe, A (09:45) is the latest by that definition, so voiding A is the allowed case, not the 'later change exists' case; cottonwood/events.py:404 orders by occurred_at DESC, id DESC exactly as specified, and the revert/refusal paths are asserted by test_voiding_latest_stage_event_reverts_the_stage and test_voiding_an_older_stage_event_is_refused_naming_the_later_change. The probe does show a real gap outside AC3: log-event lets a backdated --stage overwrite leads.stage, so leads.stage follows write order while 'latest' follows occurred_at. That is filed as a follow-up task, not counted against AC3.",
+          "file": "cottonwood/events.py",
+          "line": 408,
+          "quote": "if latest is not None and latest[\"id\"] != caused[\"id\"]:\n                raise EventError(\n                    \"voids\",\n                    f\"lead {lead_id} has a later stage change (activity {latest['id']});\""
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "cli.py _run_correction returns EXIT_REFUSED (1) when --voids is missing and when --stage is given (it also refuses --need and --procurement-url). _run_log_event refuses --voids on a non-correction type. events.log_correction refuses a missing activity, another lead's activity, a non-R-15 type (stage_change, correction, inquiry_logged) and an already-void target. All of these raise EventError before any insert, and the writes sit in a transaction that rolls back on error. tests/test_events_corrections.py::test_refusals_write_nothing covers every case. Its _refused helper asserts exit 1, an 'error:' message on stderr, an unchanged activity count and an unchanged lead stage. All 10 tests in that file pass.",
+          "file": "cottonwood/cli.py",
+          "line": 308,
+          "quote": "    if args.voids is None:\n        print(\"error: voids: a correction needs --voids ACTIVITY_ID\", file=sys.stderr)\n        return EXIT_REFUSED"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "COUNTED_ACTIVITIES_SQL requires lead_id IS NULL or a leads row with is_test = 0, and counted_activities builds its query from that clause. test_test_lead_activities_are_not_counted logs activities on test lead 3 and on lead 1, then asserts none of lead 3's activities appear in counted_activities. All 10 tests in tests/test_events_corrections.py pass.",
+          "file": "cottonwood/events.py",
+          "line": 282,
+          "quote": "\" AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l\"\n    \" WHERE l.id = a.lead_id AND l.is_test = 0))\""
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran all four commands in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. `uv run pytest -q` exited 0 with 324 passed. `uv run ruff check .` printed 'All checks passed!'. `uv run mypy .` printed 'Success: no issues found in 40 source files'. `uv run ruff format --check .` printed '126 files already formatted'. I did not capture exit codes for the last three. The 'ruff 0' line in my output is the exit status of `tail`, not ruff. Their success messages are the evidence for those three.",
+          "file": "tests/test_events_corrections.py",
+          "line": 1,
+          "quote": "324 passed in 0.87s"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff 6daf186 -- tests/test_events.py shows one changed line. 'correction' is removed from the bad_type parametrize list of test_unknown_type_is_a_usage_error, leaving bogus, stage_change and Call. The assertions are unchanged (usage exit, no events logged). Nothing else in the file changed, so every other base behavior is kept. cottonwood/cli.py:256 makes 'correction' a valid log-event choice, which justifies the removal. tests/test_events.py and tests/test_events_corrections.py pass together (46 passed).",
+          "file": "tests/test_events.py",
+          "line": 154,
+          "quote": "@pytest.mark.parametrize(\"bad_type\", [\"bogus\", \"stage_change\", \"Call\"])"
+        }
+      ],
+      "returns_through": "2026-11-15T15:15:16.333Z"
+    }
+  ]
+}
