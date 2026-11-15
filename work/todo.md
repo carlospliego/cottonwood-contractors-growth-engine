@@ -73,9 +73,6 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-085` — Make the events and review helpers the report uses public → [CCGE-085.md](tasks/CCGE-085.md)
 - [ ] `CCGE-086` — Test that non-finite agent_runs.cost_usd values are skipped → [CCGE-086.md](tasks/CCGE-086.md)
 - [ ] `CCGE-087` — Test the report command's --out write failure and database read failure branches → [CCGE-087.md](tasks/CCGE-087.md)
-- [x] `CCGE-088` — Research-record schema, file loading and record validation → [CCGE-088.md](tasks/CCGE-088.md)
-- [x] `CCGE-089` — prospects-import command: create leads, record rejections, suppression, referrals and test labels → [CCGE-089.md](tasks/CCGE-089.md)
-- [x] `CCGE-090` — Re-import matching: no duplicates, new evidence only, differing fields printed → [CCGE-090.md](tasks/CCGE-090.md)
 - [ ] `CCGE-091` — CSV research import cannot express an empty hypothesis or empty verified_facts → [CCGE-091.md](tasks/CCGE-091.md)
 - [ ] `CCGE-092` — Research import accepts value.amount and referred_by with a trailing newline or non-ASCII digits → [CCGE-092.md](tasks/CCGE-092.md)
 - [ ] `CCGE-093` — CSV research rows with more cells than the header lose the extra cells silently → [CCGE-093.md](tasks/CCGE-093.md)
@@ -91,6 +88,9 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Done
 
+- [x] `CCGE-090` — Re-import matching: no duplicates, new evidence only, differing fields printed → [CCGE-090.md](done/CCGE-090.md)
+- [x] `CCGE-089` — prospects-import command: create leads, record rejections, suppression, referrals and test labels → [CCGE-089.md](done/CCGE-089.md)
+- [x] `CCGE-088` — Research-record schema, file loading and record validation → [CCGE-088.md](done/CCGE-088.md)
 - [x] `CCGE-082` — Model cost against the cap, other costs and blocked sending → [CCGE-082.md](done/CCGE-082.md)
 - [x] `CCGE-081` — Prospecting, outreach, replies, data quality and referrals → [CCGE-081.md](done/CCGE-081.md)
 - [x] `CCGE-080` — Conversations, outcomes, hours and the month-one KPI → [CCGE-080.md](done/CCGE-080.md)
