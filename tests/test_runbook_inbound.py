@@ -87,4 +87,5 @@ def test_placeholder_line_is_gone_and_sections_keep_their_order() -> None:
         "Deletion requests",
         "Inbound verification checklist",
         "Relay",
+        "Research run",
     ]

@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-111",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The --check flag is added in cli.py and routes to _check_prospects, which prints each rejection line to stderr, then 'check: N valid, M rejected' to stdout. It returns EXIT_REFUSED when any record is rejected. prospects.check_records only reads the database. test_check_prints_the_import_rejection_and_writes_nothing (tests/test_prospects_check.py) uses a valid record 1 and a record 2 with no evidence. It asserts exit EXIT_REFUSED, stdout exactly 'check: 1 valid, 1 rejected\\n', and one stderr line starting 'rejected record 2'. It asserts the row counts of organizations, contacts, leads, evidence and activities are unchanged. It also asserts the plain import prints the same 'rejected' lines for the same file. All 6 tests in the file pass. I did not run the CLI by hand.",
+          "file": "tests/test_prospects_check.py",
+          "line": 86,
+          "quote": "assert checked.out == \"check: 1 valid, 1 rejected\\n\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The AC is item 2 in /Users/carlos/src/cottonwood-contractors-growth-engine/work/tasks/CCGE-111.md. The worktree has no copy of that file, so I read the main repo's. All 6 tests in tests/test_prospects_check.py pass (uv run pytest). test_all_valid_file_passes_and_creates_nothing checks exit 0, stdout 'check: 2 valid, 0 rejected', and zero rows in every table. test_unparseable_file_gives_the_import_error checks that --check exits 1 and its stderr starts with 'error:' and equals the plain import's stderr. test_check_uses_the_configured_checklist_keys runs --check --config against a config without direct_signal, expects exit 1 and 'checklist.direct_signal: checklist-item' in stderr. In cottonwood/cli.py, --check runs after the load and parse step, so the parse error path is the same as the import's. _check_prospects prints the summary and returns EXIT_OK or EXIT_REFUSED. prospects.check_records is read-only.",
+          "file": "cottonwood/cli.py",
+          "line": 744,
+          "quote": "print(f\"check: {valid} valid, {len(rejections)} rejected\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest gave 673 passed, exit 0. uv run ruff check . gave 'All checks passed!'. uv run mypy . gave 'Success: no issues found in 70 source files'. uv run ruff format --check . gave '222 files already formatted'.",
+          "file": "tests/test_prospects_check.py",
+          "line": 1,
+          "quote": "673 passed in 2.87s"
+        }
+      ],
+      "returns_through": "2026-11-16T00:59:40.970Z"
+    }
+  ]
+}

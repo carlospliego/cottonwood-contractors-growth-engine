@@ -88,9 +88,17 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-107` — Rename _import_review_config to _load_review_config (used by review too) → [CCGE-107.md](tasks/CCGE-107.md)
 - [ ] `CCGE-108` — Test --actor, blank actor and sqlite3.Error refusal for set-eligibility and mark-reviewed → [CCGE-108.md](tasks/CCGE-108.md)
 - [ ] `CCGE-109` — Test the review queue fallbacks: unreadable checklist, non-date evidence, unreadable hand-review payload → [CCGE-109.md](tasks/CCGE-109.md)
+- [ ] `CCGE-114` — prospects-import --check: account for leads an earlier record in the same file would create → [CCGE-114.md](tasks/CCGE-114.md)
+- [ ] `CCGE-115` — record-run: refuse an --ended time later than now → [CCGE-115.md](tasks/CCGE-115.md)
+- [ ] `CCGE-116` — Test prospects-import --check with a valid stored referrer → [CCGE-116.md](tasks/CCGE-116.md)
+- [ ] `CCGE-117` — Credential scan: cover untracked files and stop exempting its own file → [CCGE-117.md](tasks/CCGE-117.md)
 
 ## Done
 
+- [x] `CCGE-113` — No committed sending credentials (R-27) and a runbook section for a research run → [CCGE-113.md](done/CCGE-113.md)
+- [x] `CCGE-112` — research-prospects skill: web and file tools only, schema-valid output, a worked example that imports → [CCGE-112.md](done/CCGE-112.md)
+- [x] `CCGE-111` — prospects-import --check: validate a research file exactly as the import would, writing nothing → [CCGE-111.md](done/CCGE-111.md)
+- [x] `CCGE-110` — record-run command: Claude skill runs with version, model, times, files, validation and cost source → [CCGE-110.md](done/CCGE-110.md)
 - [x] `CCGE-106` — review: direct-candidate and relationship-prospect queues with checklist, evidence age and order → [CCGE-106.md](done/CCGE-106.md)
 - [x] `CCGE-105` — mark-reviewed command: hand-review results with reviewer, date and replace → [CCGE-105.md](done/CCGE-105.md)
 - [x] `CCGE-104` — set-eligibility command with source, identity and suppression checks → [CCGE-104.md](done/CCGE-104.md)
