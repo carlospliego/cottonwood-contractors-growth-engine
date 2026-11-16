@@ -60,9 +60,7 @@ def test_bad_sending_values_are_refused(tmp_path: Path, text: str, needle: str) 
     assert needle in str(excinfo.value)
 
 
-def test_the_shipped_config_documents_sending_but_leaves_it_unset() -> None:
-    path = ROOT / "config" / "pilot.yaml"
-    text = path.read_text(encoding="utf-8")
-    assert "# sending:" in text
-    assert "\nsending:" not in text
-    assert config.load_config(path).sending == config.SendingConfig()
+def test_the_shipped_config_leaves_sender_and_address_unset() -> None:
+    sending = config.load_config(ROOT / "config" / "pilot.yaml").sending
+    assert sending.sender_identity == ""
+    assert sending.postal_address == ""

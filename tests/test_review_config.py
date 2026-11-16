@@ -37,7 +37,7 @@ def test_repo_config_has_six_direct_and_five_relationship_items() -> None:
         for item in items:
             assert item.key and KEY.fullmatch(item.key)
             assert item.label.strip()
-    assert loaded.review.max_evidence_age_days is None
+    assert loaded.review.max_evidence_age_days == 90
 
 
 def test_missing_review_block_means_no_items_and_no_max_age(tmp_path: Path) -> None:

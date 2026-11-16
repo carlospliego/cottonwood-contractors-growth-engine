@@ -11,35 +11,44 @@
 # `cottonwood claims` shows each claim's effective status and exits 1 on any mismatch: a claim
 # marked verified here without a matching approval, or approved but still unverified here.
 # The CLI never rewrites this file. Ids are lower-kebab-case and must not change once used.
+#
+# Founder brief 2026-11-15: the website (cottonwoodcontractors.com) is the source of truth for
+# what a claim says. Every claim stays unverified until the founder confirms it in writing.
 
 claims:
   - id: fashion-place-attribution
-    text: "Cottonwood Contractors was the general contractor on the Fashion Place entrance concourse."
+    text: "Cottonwood Contractors was the general contractor for the entrance and concourse remodel at the Macy's end of Fashion Place in Murray."
     status: unverified
-    evidence: "Open founder question: whether Cottonwood was in fact the GC on the Fashion Place entrance concourse, and whether its images may be reused (docs/cottonwood-growth-engine.md, open questions)."
+    evidence: "The website states it word for word: https://cottonwoodcontractors.com/projects/fashion-place-entrance-concourse/ (read 2026-11-15). The developer reported on 2026-11-15 that its project photos may be reused; awaiting the founder's written confirmation."
     verified_by: null
     verified_at: null
   - id: service-area
-    text: "Cottonwood Contractors serves Salt Lake, Utah, Davis and Weber counties."
+    text: "Cottonwood Contractors serves Salt Lake County, Utah (the Salt Lake Valley)."
     status: unverified
-    evidence: "Open founder question: the website advertises Salt Lake County while prospecting targets four counties (docs/cottonwood-growth-engine.md, open questions)."
+    evidence: "The website names Salt Lake County and the Salt Lake Valley as its service area: https://cottonwoodcontractors.com/service-areas/ (read 2026-11-15). Prospecting briefs that target Utah, Davis or Weber counties go beyond it. Awaiting the founder's written confirmation."
     verified_by: null
     verified_at: null
   - id: license-classification
     text: "Cottonwood Contractors holds a Utah contractor license in the classification stated in the draft."
     status: unverified
-    evidence: "Open founder question: legal entity and Utah contractor license classification (docs/cottonwood-growth-engine.md, open questions)."
+    evidence: "Open founder question: legal entity name and Utah contractor license classification. The homepage says \"Licensed and insured\" with no license number (https://cottonwoodcontractors.com/, read 2026-11-15)."
     verified_by: null
     verified_at: null
   - id: insurance-bonding
     text: "Cottonwood Contractors is insured and bonded for the project types stated in the draft."
     status: unverified
-    evidence: "Open founder question: insurance, bonding and permitted project types (docs/cottonwood-growth-engine.md, open questions)."
+    evidence: "Open founder question: insurance, bonding and permitted project types. The homepage says \"Licensed and insured\"; no page mentions bonding (https://cottonwoodcontractors.com/, read 2026-11-15)."
     verified_by: null
     verified_at: null
   - id: prior-company-experience
     text: "The founder's project experience at a prior company, as described in the draft."
     status: unverified
-    evidence: "Not yet sourced: the founder must confirm which prior-company projects may be cited and how (R-19)."
+    evidence: "Not yet sourced: the website names no prior companies or founder history (read 2026-11-15), so the founder must confirm which prior-company projects may be cited and how (R-19)."
+    verified_by: null
+    verified_at: null
+  - id: website-projects
+    text: "Cottonwood Contractors' completed projects include the Coffered Ceiling Kitchen, the Spa-Inspired Primary Bathroom, the Primary Bathroom in Lehi, the Lower-Level Family Room and the Open-Concept Great Room."
+    status: unverified
+    evidence: "The website's project list: https://cottonwoodcontractors.com/projects/ (read 2026-11-15). The developer reported on 2026-11-15 that everything on the website is accurate; awaiting the founder's written confirmation."
     verified_by: null
     verified_at: null

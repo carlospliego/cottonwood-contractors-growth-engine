@@ -1,0 +1,82 @@
+{
+  "task_id": "CCGE-146",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new tests/test_founder_brief_config.py loads config/pilot.yaml through config.load_config. It asserts max_evidence_age_days == 90, the exact opt_out_line and ad_identification strings, empty sender_identity and postal_address, sending_blocked_by == 'Founder: sender identity and business postal address', and model_cost_cap_usd is None. config/pilot.yaml sets each of these values, and the model_cost_cap_usd line stays commented out. Both tests in the file pass (2 passed). I did not check the claims half of this AC (AC 2), the other ACs, or the full suite.",
+          "file": "tests/test_founder_brief_config.py",
+          "line": 12,
+          "quote": "    assert cfg.review.max_evidence_age_days == 90"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "config/claims.yaml holds the six ids in the required order, all with status unverified and verified_by and verified_at null. The service-area text is 'Cottonwood Contractors serves Salt Lake County, Utah (the Salt Lake Valley).' It names Salt Lake County and not Davis, Weber or Utah County. The website-projects text names all five projects. The evidence for fashion-place-attribution, service-area and website-projects each contains a https://cottonwoodcontractors.com/ URL. tests/test_founder_brief_config.py::test_claims_follow_the_website_and_stay_unverified asserts each of these, and both tests in that file passed (2 passed).",
+          "file": "tests/test_founder_brief_config.py",
+          "line": 22,
+          "quote": "def test_claims_follow_the_website_and_stay_unverified() -> None:"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command from the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. All four exited 0. uv run pytest: 893 passed. uv run ruff check .: All checks passed!. uv run mypy .: Success, no issues found in 98 source files. uv run ruff format --check .: 300 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/work/tasks/CCGE-146.md",
+          "line": 21,
+          "quote": "- [ ] uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_claims.py against base 06b9781 has two changes. It appends 'website-projects' to SHIPPED_IDS, and it renames test_shipped_claims_are_the_five_r19_claims_all_unverified to test_shipped_claims_are_the_r19_claims_all_unverified. Both follow from the new sixth claim in the task's AC 2. The test body is untouched. It still asserts the ids equal SHIPPED_IDS, that text and evidence are non-empty, that status is 'unverified', and that verified_by and verified_at are None. No other test in the file changed, and no assertion was removed or weakened.",
+          "file": "tests/test_claims.py",
+          "line": 118,
+          "quote": "def test_shipped_claims_are_the_r19_claims_all_unverified() -> None:\n    shipped = claims.load_claims(ROOT / \"config\" / \"claims.yaml\")\n    assert [claim.id for claim in shipped] == SHIPPED_IDS"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The only change to tests/test_report_costs.py is the shipped-config test. It was renamed from test_shipped_pilot_config_loads_with_keys_unset to test_shipped_pilot_config_has_no_cap_and_names_the_blocker. The `model_cost_cap_usd is None` assertion is kept. The `sending_blocked_by is None` assertion became `== \"Founder: sender identity and business postal address\"`, which matches AC1 and config/pilot.yaml:19. No other test in the file changed, and no assertion was dropped or weakened. The file passes (25 passed, run with the venv python because `uv run` panicked in the sandbox).",
+          "file": "tests/test_report_costs.py",
+          "line": 250,
+          "quote": "def test_shipped_pilot_config_has_no_cap_and_names_the_blocker() -> None:\n    cfg = config.load_config(Path(__file__).resolve().parents[1] / \"config\" / \"pilot.yaml\")\n    assert cfg.model_cost_cap_usd is None\n    assert cfg.sending_blocked_by == \"Founder: sender identity and business postal address\""
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff against the base commit for tests/test_sending_config.py has one hunk. It replaces test_the_shipped_config_documents_sending_but_leaves_it_unset, which asserted '# sending:' was in the text, '\\nsending:' was not, and the whole SendingConfig equalled the default. The replacement asserts sender_identity == '' and postal_address == '' on the shipped config. All other tests in the file are untouched, including test_bad_sending_values_are_refused. The dropped assertions pinned the shipped values as unset (a commented-out sending block, a default SendingConfig). That is exactly the change the AC's reason allows, because config/pilot.yaml now has a live sending: block with opt_out_line and ad_identification set. The two values still unset, sender_identity and postal_address, are still asserted. The new values are asserted in tests/test_founder_brief_config.py, which I did not review. I did not run the test suite.",
+          "file": "tests/test_sending_config.py",
+          "line": 63,
+          "quote": "def test_the_shipped_config_leaves_sender_and_address_unset() -> None:\n    sending = config.load_config(ROOT / \"config\" / \"pilot.yaml\").sending\n    assert sending.sender_identity == \"\"\n    assert sending.postal_address == \"\""
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_review_config.py against base 06b9781 is one changed line. `assert loaded.review.max_evidence_age_days is None` became `assert loaded.review.max_evidence_age_days == 90`. This is the shipped-config pin that AC 1 requires to move to 90. Every other assertion in the file is untouched, including the six direct items, the five relationship items, the key regex and the non-empty label checks. The test name and the other tests, such as test_missing_review_block_means_no_items_and_no_max_age, are unchanged. I did not run the test suite.",
+          "file": "tests/test_review_config.py",
+          "line": 40,
+          "quote": "assert loaded.review.max_evidence_age_days == 90"
+        }
+      ],
+      "returns_through": "2026-11-16T06:51:22.655Z"
+    }
+  ]
+}

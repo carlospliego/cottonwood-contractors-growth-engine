@@ -110,9 +110,12 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-140` — log-reply date refusals and transaction atomicity are untested → [CCGE-140.md](tasks/CCGE-140.md)
 - [ ] `CCGE-144` — prepare-outreach cannot see existing drafts, so a second run reuses draft number 1 → [CCGE-144.md](tasks/CCGE-144.md)
 - [ ] `CCGE-145` — Untested lead export branches → [CCGE-145.md](tasks/CCGE-145.md)
+- [ ] `CCGE-147` — Deletion requests remove personal details from activity records (founder decision: Option A) → [CCGE-147.md](tasks/CCGE-147.md)
+- [ ] `CCGE-148` — Website privacy page denies analytics, but Google Analytics is installed (website repo, not this one) → [CCGE-148.md](tasks/CCGE-148.md)
 
 ## Done
 
+- [x] `CCGE-146` — Apply the founder brief's answers to the pilot config and claims library → [CCGE-146.md](done/CCGE-146.md)
 - [x] `CCGE-143` — Runbook: a drafting run from export to logged send → [CCGE-143.md](done/CCGE-143.md)
 - [x] `CCGE-142` — prepare-outreach skill: draft, claims list and founder brief from one lead export → [CCGE-142.md](done/CCGE-142.md)
 - [x] `CCGE-141` — review --lead --json: export one lead for the drafting skill → [CCGE-141.md](done/CCGE-141.md)

@@ -7,20 +7,22 @@ paths:
   # The folder must exist; data/ is git-ignored, so backups never reach git.
   backup_dir: data/backups
 
-# Settings `cottonwood report` reads. Both keys are optional; leave them unset until decided.
-# report:
-#   # Monthly model-cost cap in USD. The report shows month-to-date model cost against it;
-#   # it is a record, never enforced. Unset: the report says no cap is configured.
-#   model_cost_cap_usd: 100
-#   # The open question that blocks sending outreach. When set, the report says sending is
-#   # blocked and quotes this text. Unset or blank: nothing is blocked.
-#   sending_blocked_by: "Q3: which domain sends outreach"
+# Settings `cottonwood report` reads. Both keys are optional.
+report:
+  # Monthly model-cost cap in USD. The report shows month-to-date model cost against it;
+  # it is a record, never enforced. Unset: the report says no cap is configured.
+  # Founder brief 2026-11-15: no dollar cap (subscription plan); runs are paused by usage
+  # after a trial instead. Run records still log tokens.
+  # model_cost_cap_usd: 100
+  # The open question that blocks sending outreach. When set, the report says sending is
+  # blocked and quotes this text. Unset or blank: nothing is blocked.
+  sending_blocked_by: "Founder: sender identity and business postal address"
 
 # Settings `cottonwood review` and `cottonwood prospects-import` read (R-10, R-13).
 review:
   # Newest-evidence age, in days, past which review flags a lead (and prepare-send will refuse
-  # it). Open founder question: leave unset until decided; review then says "not configured".
-  # max_evidence_age_days: 90
+  # it). Founder brief 2026-11-15: 90 days.
+  max_evidence_age_days: 90
   # Yes/no/unknown questions per candidate queue (SPEC.md section 9). Research records answer
   # them in their `checklist` object by key; founder time is its own column, not an item.
   # Keys are lower_snake_case and unique per queue; renaming a key orphans stored answers.
@@ -51,14 +53,19 @@ review:
         label: "Specific introduction angle"
 
 # What every sendable draft must carry; `cottonwood prepare-send` checks each draft for these
-# values verbatim (R-21). Open founder questions: leave them unset until decided. While
-# sender_identity or postal_address is unset, prepare-send refuses every draft.
-# sending:
-#   # The sender's name and business as it must appear in the message.
-#   sender_identity: "Cottonwood Contractors"
-#   # A valid business postal address (CAN-SPAM).
-#   postal_address: "PO Box 0, City, UT 00000"
-#   # The working opt-out line, word for word.
-#   opt_out_line: "Reply STOP and we will not contact you again."
-#   # Ad identification, only where required; leave unset when not needed.
-#   ad_identification: "Advertisement"
+# values verbatim (R-21). While sender_identity or postal_address is unset, prepare-send
+# refuses every draft. Values below are from the founder brief of 2026-11-15; replies and
+# bounces go to the monitored inbox office@cottonwoodcontractors.com, which is also the
+# sending address (kept out of these values: lead exports carry no email address).
+sending:
+  # The sender's name and business as it must appear in the message.
+  # Open founder question: unset until the founder answers.
+  sender_identity: ""
+  # A valid business postal address (CAN-SPAM).
+  # Open founder question: unset until the founder answers.
+  postal_address: ""
+  # The working opt-out line, word for word. An opt-out reply is logged with
+  # `cottonwood log-reply ID opt_out` the same day, which suppresses the address.
+  opt_out_line: "Don't want to hear from us? Reply \"unsubscribe\" and we will never contact you again."
+  # Ad identification, only where required; leave unset when not needed.
+  ad_identification: "This is a business solicitation from Cottonwood Contractors."
