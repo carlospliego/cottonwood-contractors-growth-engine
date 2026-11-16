@@ -20,6 +20,7 @@ from cottonwood import (
     db,
     eligibility,
     events,
+    gate,
     hand_review,
     inbound,
     prospects,
@@ -946,6 +947,82 @@ def _run_record_run(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_approve_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the approve command's arguments."""
+    parser.add_argument("scope", choices=gate.SCOPES, help="what kind of item is approved")
+    parser.add_argument(
+        "item",
+        help="the lead id, the draft file, or the audience or offer text that is approved",
+    )
+    parser.add_argument("--approver", required=True, help="who approved it (the founder)")
+    # Not argparse-required: a missing reference is a gate refusal (exit 1), like a blank one.
+    parser.add_argument(
+        "--reference",
+        default="",
+        help="required: the founder's written approval, e.g. the email's date and subject",
+    )
+    parser.add_argument(
+        "--lead",
+        type=int,
+        default=None,
+        help="the lead the approval is for (required for a draft)",
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="the day of the written approval, YYYY-MM-DD (Denver; default today)",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_approve(args: argparse.Namespace) -> int:
+    """Record one founder approval with its written-approval reference (R-18)."""
+    today = events.denver_today()
+    try:
+        day = today if args.date is None else events._parse_entry_date(args.date, today)
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        approval = gate.approve(
+            conn,
+            args.scope,
+            args.item,
+            args.approver,
+            args.reference,
+            day,
+            args.lead,
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except gate.GateError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the approval: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(approval.line())
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -1019,6 +1096,12 @@ COMMANDS: list[Command] = [
         "Record one Claude skill run with its version, model, times, files and cost source.",
         _add_record_run_arguments,
         _run_record_run,
+    ),
+    Command(
+        "approve",
+        "Record a founder approval of a lead, draft, claim, audience or offer, with its reference.",
+        _add_approve_arguments,
+        _run_approve,
     ),
 ]
 

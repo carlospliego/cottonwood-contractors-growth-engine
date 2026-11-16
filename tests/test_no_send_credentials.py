@@ -89,11 +89,39 @@ def _tracked_files() -> list[Path]:
     return [ROOT / name for name in listed.split("\0") if name]
 
 
+# sir's planning records (task contracts, specs, the todo index) quote the sample credential
+# lines above as acceptance-criterion text; they are requirements, never configuration.
+PLANNING_RECORDS = "work/"
+
+
+def _is_exempt(relative: str) -> bool:
+    """Whether a repo-relative path is a planning record the scan skips."""
+    return relative.startswith(PLANNING_RECORDS)
+
+
+@pytest.mark.parametrize(
+    ("relative", "exempt"),
+    [
+        ("work/tasks/CCGE-113.md", True),
+        ("work/specs/research-skill/tasks.json", True),
+        ("config/pilot.yaml", False),
+        ("cottonwood/cli.py", False),
+        ("docs/runbook.md", False),
+        (".env.example", False),
+        ("tests/work/fixture.env", False),
+    ],
+)
+def test_only_planning_records_are_exempt(relative: str, exempt: bool) -> None:
+    assert _is_exempt(relative) is exempt
+
+
 def test_no_tracked_file_holds_a_sending_credential() -> None:
     hits = []
     this_file = Path(__file__).resolve()
     for path in _tracked_files():
         if path.resolve() == this_file or not path.is_file():
+            continue
+        if _is_exempt(path.relative_to(ROOT).as_posix()):
             continue
         try:
             text = path.read_text(encoding="utf-8")
