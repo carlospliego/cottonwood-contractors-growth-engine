@@ -108,9 +108,14 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-138` — prepare-send tests check payload keys but not approval ids or other leads' approvals → [CCGE-138.md](tasks/CCGE-138.md)
 - [ ] `CCGE-139` — prepare-send order test omits suppression and claims → [CCGE-139.md](tasks/CCGE-139.md)
 - [ ] `CCGE-140` — log-reply date refusals and transaction atomicity are untested → [CCGE-140.md](tasks/CCGE-140.md)
+- [ ] `CCGE-144` — prepare-outreach cannot see existing drafts, so a second run reuses draft number 1 → [CCGE-144.md](tasks/CCGE-144.md)
+- [ ] `CCGE-145` — Untested lead export branches → [CCGE-145.md](tasks/CCGE-145.md)
 
 ## Done
 
+- [x] `CCGE-143` — Runbook: a drafting run from export to logged send → [CCGE-143.md](done/CCGE-143.md)
+- [x] `CCGE-142` — prepare-outreach skill: draft, claims list and founder brief from one lead export → [CCGE-142.md](done/CCGE-142.md)
+- [x] `CCGE-141` — review --lead --json: export one lead for the drafting skill → [CCGE-141.md](done/CCGE-141.md)
 - [x] `CCGE-133` — log-reply: record replies; opt-out suppresses and bounce makes ineligible in the same command → [CCGE-133.md](done/CCGE-133.md)
 - [x] `CCGE-132` — log-outreach: record a send and flag any send that bypassed the gate → [CCGE-132.md](done/CCGE-132.md)
 - [x] `CCGE-131` — prepare-send: write a sendable draft only when every R-21 check passes → [CCGE-131.md](done/CCGE-131.md)
