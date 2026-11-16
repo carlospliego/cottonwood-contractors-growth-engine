@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-144",
+  "runs": [
+    {
+      "date": "2026-11-16",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The lead export gains a next_draft key (cottonwood/review.py, lead_export). The new helper next_draft_number returns 1 for a missing or empty drafts folder and 3 when 7-1.md and 7-2.md exist. tests/test_lead_export_next_draft.py covers both cases, plus the CLI export returning 3 with two drafts present. SKILL.md lists next_draft in Input and tells the skill to use it as N in Output. The allowed-tools frontmatter is unchanged, so the existing assertion in tests/test_outreach_skill.py (line 51) still matches. The full suite passed with 899 tests. Caveat: the AC says ID-1.md and ID-2.md, and the test uses the numeric lead id as the filename prefix (7-1.md). That is consistent with the LEAD naming in SKILL.md.",
+          "file": "cottonwood/review.py",
+          "line": 429,
+          "quote": "\"next_draft\": next_draft_number(drafts_dir, lead_id),"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The only change to tests/test_review_lead_export.py against the base commit is one added line, \"next_draft\", in the KEYS set. No assertion was removed or loosened. cottonwood/review.py:426 now emits \"next_draft\" from lead_export, which is the stated reason for the change. The test file passes (6 passed) using the worktree's .venv. `uv run` panicked in the sandbox, so I did not use it.",
+          "file": "tests/test_review_lead_export.py",
+          "line": 29,
+          "quote": "    \"blocked_by\",\n    \"next_draft\",\n}"
+        }
+      ],
+      "returns_through": "2026-11-16T07:08:22.210Z"
+    }
+  ]
+}
