@@ -685,6 +685,11 @@ def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
             f" {config.DEFAULT_CONFIG_PATH}; without one, no checklist answers are accepted)"
         ),
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate the file exactly as an import would and print the result; write nothing",
+    )
 
 
 def _import_review_config(path: Path | None) -> config.ReviewConfig:
@@ -718,6 +723,8 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
     except db.MigrationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+    if args.check:
+        return _check_prospects(conn, records)
     try:
         result = prospects.import_records(conn, path.name, records, args.actor)
     except sqlite3.Error as exc:
@@ -732,6 +739,24 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
             print(line)
     print(result.summary())
     return EXIT_REFUSED if result.rejected else EXIT_OK
+
+
+def _check_prospects(
+    conn: sqlite3.Connection, records: Sequence[validate.ProspectRecord | validate.Rejection]
+) -> int:
+    """prospects-import --check: print the import's rejections and a summary; write nothing."""
+    try:
+        rejections = prospects.check_records(conn, records)
+    except sqlite3.Error as exc:
+        print(f"error: could not read the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    for rejection in rejections:
+        print(rejection.line(), file=sys.stderr)
+    valid = len(records) - len(rejections)
+    print(f"check: {valid} valid, {len(rejections)} rejected")
+    return EXIT_REFUSED if rejections else EXIT_OK
 
 
 def _add_set_eligibility_arguments(parser: argparse.ArgumentParser) -> None:

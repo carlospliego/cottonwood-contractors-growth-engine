@@ -145,6 +145,25 @@ def import_records(
     return ImportResult(tuple(outcomes))
 
 
+def check_records(
+    conn: sqlite3.Connection, records: Sequence[ProspectRecord | Rejection]
+) -> list[Rejection]:
+    """The rejections import_records would report for ``records``, writing nothing (R-25).
+
+    Validation rejections are returned as they are; a valid record is also checked for a
+    referrer that is not a stored relationship prospect, with a read-only query.
+    """
+    rejections: list[Rejection] = []
+    for record in records:
+        if isinstance(record, Rejection):
+            rejections.append(record)
+            continue
+        rejection = _referrer_rejection(conn, record)
+        if rejection is not None:
+            rejections.append(rejection)
+    return rejections
+
+
 def _referrer_rejection(conn: sqlite3.Connection, record: ProspectRecord) -> Rejection | None:
     """A Rejection when referred_by names no stored relationship-prospect lead (R-12)."""
     if record.referred_by is None:
