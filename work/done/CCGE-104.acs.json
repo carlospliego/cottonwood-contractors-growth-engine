@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-104",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The set-eligibility command is registered in cottonwood/cli.py. Its code path in cottonwood/eligibility.py sets eligibility and source_url on the contact. It inserts one activity with type eligibility_set, contact_id set, lead_id NULL and payload json.dumps({from, to, basis}). The basis is public-source-url when the new value is eligible. The success line is 'contact N: eligibility unknown -> eligible', and the command exits 0 (EXIT_OK). The eligibility checks (name, email, no other not-deleted contact with the same email_norm, not suppressed) all pass for the AC's contact. tests/test_set_eligibility.py asserts exactly this scenario through main(): exit code, printed line, stored eligibility and source_url, one activity, lead_id None, and the payload dict. All 21 tests in that file pass. I could not run the CLI by hand because the read-only policy blocked my script. The payload check compares parsed JSON, so key order and spacing are not checked.",
+          "file": "cottonwood/eligibility.py",
+          "line": 107,
+          "quote": "payload = {\n        \"from\": previous,\n        \"to\": to,\n        \"basis\": BASIS_SOURCE_URL if to == ELIGIBLE else BASIS_MANUAL,\n    }"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran tests/test_set_eligibility.py and all 21 tests passed. test_eligible_without_source_url_is_refused calls set-eligibility with 'eligible' and no --source-url. It asserts exit 1 (EXIT_REFUSED = 1, cli.py:31) and stderr exactly ['error: source-url: required']. test_eligible_with_a_bad_source_url_is_refused covers ftp://acme.example/x and asserts exit 1 and exactly 'error: source-url: url'. Both tests then call _unchanged, which asserts the contact is still unknown with source_url NULL and that the activities table is empty. The _unchanged check covers only the eligibility and source_url fields of that one contact, not every contact column. The CLI prints one 'error: {field}: {rule}' line per failure (_run_set_eligibility in cottonwood/cli.py, the EligibilityError handler).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-104/tests/test_set_eligibility.py",
+          "line": 139,
+          "quote": "    assert _set(db_path, contact, \"eligible\") == EXIT_REFUSED\n    assert _errors(capsys) == [\"error: source-url: required\"]\n    _unchanged(db_path, contact)"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In cottonwood/eligibility.py, _failures() adds ('contact','suppressed') for 'eligible' and for 'unknown' when the email_norm is in suppression. The CLI prints each failure as 'error: contact: suppressed' and returns EXIT_REFUSED. 'ineligible' has no suppression check, so it succeeds. It writes an eligibility_set activity with basis 'manual', because the payload basis is 'public-source-url' only when to == ELIGIBLE. tests/test_set_eligibility.py (lines 162-196) covers all three cases: the eligible and unknown refusals with exact stderr, and ineligible exiting 0 with payload {from: unknown, to: ineligible, basis: manual}. All 24 tests in the file pass. I did not run the CLI by hand outside the tests.",
+          "file": "cottonwood/eligibility.py",
+          "line": 148,
+          "quote": "    elif to == UNKNOWN and suppressed:\n        failures.append((FIELD_CONTACT, RULE_SUPPRESSED))"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "eligibility._failures appends (contact, deleted) when deleted_at is set and (contact, identity) when name or email is missing or email_norm is shared with another not-deleted contact. It also appends (contact, suppressed) for a suppressed address, so a suppressed and nameless contact gets both lines. cli._run_set_eligibility prints 'error: field: rule' for each failure and returns EXIT_REFUSED, which is 1 (cli.py:31). tests/test_set_eligibility.py covers deleted, nameless, whitespace-name, no-email, shared-email and the combined suppressed+nameless case. I did not run the CLI by hand. All 21 tests in that file pass. The combined-case test also expects 'error: source-url: required', because it omits --source-url, so no test sets suppressed and nameless together with a source URL.",
+          "file": "cottonwood/eligibility.py",
+          "line": 131,
+          "quote": "        if suppressed:\n            failures.append((FIELD_CONTACT, RULE_SUPPRESSED))\n        if contact[\"deleted_at\"] is not None:\n            failures.append((FIELD_CONTACT, RULE_DELETED))\n        if not _identity_is_unambiguous(conn, contact):\n            failures.append((FIELD_CONTACT, RULE_IDENTITY))"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "ContactNotFound renders 'no contact 99'; the CLI prints 'error: no contact 99' to stderr and returns EXIT_REFUSED, which is 1 (cli.py:31). When the value is unchanged, _apply returns activity_id=None with no UPDATE or INSERT, and line() prints 'contact 1: eligibility already eligible'; the CLI exits 0. tests/test_set_eligibility.py::test_unknown_contact_id_is_refused and ::test_setting_the_current_value_is_a_no_op cover both cases, including that no activities are written. All 24 tests in that file pass. One caveat: the checks run before the no-op test, so a suppressed or ambiguous contact that already holds the value is refused instead. That is outside this AC's scenario.",
+          "file": "cottonwood/eligibility.py",
+          "line": 60,
+          "quote": "return f\"contact {self.contact_id}: eligibility already {self.current}\""
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. All four exited 0. uv run pytest: 610 passed. uv run ruff check .: All checks passed. uv run mypy .: no issues found in 63 source files. uv run ruff format --check .: 205 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-104/cottonwood/eligibility.py",
+          "line": 1,
+          "quote": "610 passed in 2.41s"
+        }
+      ],
+      "returns_through": "2026-11-16T00:27:47.989Z"
+    }
+  ]
+}

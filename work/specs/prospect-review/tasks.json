@@ -1,0 +1,128 @@
+{
+  "feature": "prospect-review",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "Review checklists in config, migration 005 and checklist answers in research records",
+      "goal": "Keep each queue's checklist items in config/pilot.yaml and let research records carry yes/no/unknown answers that prospects-import validates against those items and stores on the lead.",
+      "story_refs": [
+        "US-4"
+      ],
+      "covers": [
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3"
+      ],
+      "plan": "1. cottonwood/config.py: ChecklistItem, ReviewConfig (checklists per lead type, max_evidence_age_days), Config.review defaulting to empty checklists and no max age; validate review.checklists.<type> as a list of {key, label} (non-empty strings, key ^[a-z][a-z0-9_]*$, no duplicate key per queue) and review.max_evidence_age_days as a positive int (bool refused), raising ConfigError with the key path.\n2. config/pilot.yaml: review block with the six direct_candidate and five relationship_prospect items from SPEC.md section 9 (founder time excluded) and a commented-out max_evidence_age_days.\n3. cottonwood/migrations/005_review.sql: ALTER TABLE leads ADD COLUMN checklist TEXT; move the tests pinning schema version 4 to 5 (and the shipped-migrations list).\n4. Schema: optional checklist object (property names match the key pattern, values enum yes/no/unknown). validate.py: validate_record takes the allowed keys per record type; an unconfigured key is rejected 'checklist.KEY: checklist-item', a bad value 'checklist.KEY: enum'; CSV columns named checklist.KEY (empty cell = absent); ProspectRecord.checklist.\n5. prospects.py: store the checklist as sorted JSON object text (NULL when absent); _differences adds a checklist.KEY pair per incoming key. cli.py: prospects-import loads the config (existing --config option) and passes the allowed keys.\n6. New tests: tests/test_review_config.py, tests/test_prospects_checklist.py.",
+      "acceptance_criteria": [
+        "config/pilot.yaml loads with load_config into review.checklists holding 6 direct_candidate and 5 relationship_prospect items, each with a non-empty key matching ^[a-z][a-z0-9_]*$ and a non-empty label, and review.max_evidence_age_days None.",
+        "load_config raises ConfigError whose message names the offending path for each of: review.checklists.direct_candidate not a list; an item without a key; an item with an empty label; key 'Direct-Signal'; two items with key 'fit' in one queue; review.max_evidence_age_days 0, -5, 'ninety' and true.",
+        "Importing a direct_candidate JSON record whose checklist is {\"direct_signal\": \"yes\", \"buyer_identified\": \"no\"} (both configured keys in the test config) exits 0 and stores leads.checklist as the JSON object text {\"buyer_identified\": \"no\", \"direct_signal\": \"yes\"}; a record without checklist stores NULL.",
+        "A record with checklist {\"direct_signal\": \"maybe\"} is rejected with stderr line 'rejected record 1: checklist.direct_signal: enum', and one with checklist {\"not_an_item\": \"yes\"} is rejected 'rejected record 1: checklist.not_an_item: checklist-item'; neither writes a lead.",
+        "A CSV with a column checklist.direct_signal whose cell is 'yes' stores the same leads.checklist as the equivalent JSON record.",
+        "Re-importing a matched lead whose stored checklist has direct_signal 'yes' with incoming direct_signal 'no' prints a line containing 'checklist.direct_signal differs' and 'kept stored', and leads.checklist is unchanged.",
+        "After cottonwood migrate on a fresh database, PRAGMA user_version is 5 and leads has a checklist column.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [
+        "tests/test_backup.py",
+        "tests/test_inbound.py",
+        "tests/test_migrate.py",
+        "tests/test_runbook_restore.py",
+        "tests/test_schema.py",
+        "tests/test_prospects_validate.py"
+      ],
+      "complexity": "M",
+      "imported_as": "CCGE-103"
+    },
+    {
+      "id": "T-02",
+      "title": "set-eligibility command with source, identity and suppression checks",
+      "goal": "Change a contact's eligibility only with a recorded basis: eligible needs a public professional source URL and an unambiguous identity and is refused for suppressed or deleted contacts.",
+      "story_refs": [
+        "US-1"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-1.3"
+      ],
+      "plan": "1. cottonwood/eligibility.py: EligibilityError carrying every (field, rule) failure; set_eligibility(conn, contact_id, to, source_url, actor, now) in one transaction: load the contact (unknown id -> 'no contact N'); no-op when unchanged; for eligible check source-url required/url (http/https with host, reuse validate.is_http_url), contact suppressed (normalized email in suppression), deleted, identity (name and email present, no other not-deleted contact with the same email_norm); unknown on a suppressed address -> suppressed; update eligibility (and source_url for eligible); append eligibility_set with contact_id, lead_id NULL, payload {from, to, basis} (public-source-url or manual).\n2. cli.py: set-eligibility CONTACT {eligible,ineligible,unknown} [--source-url] [--actor] [--db]; print 'contact N: eligibility FROM -> TO' or 'contact N: eligibility already TO'; refusals print one 'error: FIELD: RULE' line per failure and exit 1.\n3. New tests: tests/test_set_eligibility.py.",
+      "acceptance_criteria": [
+        "For a not-deleted contact 1 with a name and email, eligibility unknown, email_norm unique among not-deleted contacts and not suppressed, 'cottonwood set-eligibility 1 eligible --source-url https://acme.example/team' exits 0, prints 'contact 1: eligibility unknown -> eligible', stores eligibility eligible and source_url https://acme.example/team on contact 1, and writes exactly one new activity: type eligibility_set, contact_id 1, lead_id NULL, payload exactly {\"from\": \"unknown\", \"to\": \"eligible\", \"basis\": \"public-source-url\"}.",
+        "'set-eligibility 1 eligible' without --source-url exits 1 with a stderr line 'error: source-url: required'; with --source-url ftp://acme.example/x it reports 'error: source-url: url'; in both cases contacts and activities are unchanged.",
+        "When contact 1's email_norm is in suppression, 'set-eligibility 1 eligible --source-url https://acme.example/team' exits 1 with 'error: contact: suppressed' and 'set-eligibility 1 unknown' exits 1 with 'error: contact: suppressed', while 'set-eligibility 1 ineligible' exits 0 and writes an eligibility_set activity whose payload basis is 'manual'.",
+        "'set-eligibility 1 eligible --source-url https://acme.example/team' exits 1 with 'error: contact: deleted' for a contact with deleted_at set, and with 'error: contact: identity' for a contact with no name, for one with no email, and for one whose email_norm another not-deleted contact also has; a contact both suppressed and nameless gets both error lines.",
+        "'set-eligibility 99 eligible --source-url https://acme.example/team' with no contact 99 exits 1 with stderr 'error: no contact 99'; setting contact 1 to the eligibility it already has exits 0, prints 'contact 1: eligibility already eligible' and writes no activity.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-104"
+    },
+    {
+      "id": "T-03",
+      "title": "mark-reviewed command: hand-review results with reviewer, date and replace",
+      "goal": "Record one counted hand-review result per researched lead with reviewer and date, so the report's existing per-motion hand-review counts and data-quality failures are fed by real reviews.",
+      "story_refs": [
+        "US-2"
+      ],
+      "covers": [
+        "AC-2.1",
+        "AC-2.2",
+        "AC-2.3",
+        "AC-2.4"
+      ],
+      "plan": "1. cottonwood/hand_review.py: HandReviewError(field, message); mark_reviewed(conn, lead_id, result, reviewer, day, replace, actor, now): lead must exist ('no lead N') and be direct_candidate or relationship_prospect ('lead: type'); reviewer non-blank; day a date not after today in Denver; find the lead's counted hand_review (events.COUNTED_ACTIVITIES_SQL); if one exists and not replace -> refuse naming its result and id; if replace, append a correction voiding it; append hand_review with payload {result, reviewer}, occurred_at = start of the Denver day in UTC (events._day_start convention), recorded_at now; one transaction.\n2. cli.py: mark-reviewed LEAD {relevant,irrelevant,fabricated} --reviewer NAME [--date YYYY-MM-DD] [--replace] [--actor] [--db]; prints 'lead N: hand review RESULT'.\n3. New tests: tests/test_mark_reviewed.py, including report integration through cottonwood report --from/--to.",
+      "acceptance_criteria": [
+        "'cottonwood mark-reviewed 1 relevant --reviewer founder --date 2026-11-30' on direct_candidate lead 1 exits 0, prints 'lead 1: hand review relevant', and writes one hand_review activity for lead 1 with payload exactly {\"result\": \"relevant\", \"reviewer\": \"founder\"} whose occurred_at falls on 2026-11-30 in America/Denver; then 'cottonwood report --from 2026-11-30 --to 2026-11-30' output contains '- Hand review direct_candidate relevant: 1' and '- Hand review direct_candidate total: 1'.",
+        "Without --date, with utc_now pinned to 2026-12-01T00:00:00Z, the hand_review occurred_at falls on 2026-11-30 in America/Denver.",
+        "'mark-reviewed 2 fabricated --reviewer founder --date 2026-11-30' on relationship_prospect lead 2 makes the report for 2026-11-30 contain '- Hand review relationship_prospect fabricated: 1' and '- Data-quality failures: 1'.",
+        "Each of these exits 1 with a stderr line starting 'error:' and writes no activity: an inbound_inquiry lead (stderr contains 'lead: type'); lead 99 that does not exist (stderr contains 'no lead 99'); --reviewer '   '; --date 2026-02-30; --date 2026-12-01 (after today in Denver). A result 'maybe' is refused by argparse with exit 2.",
+        "A second 'mark-reviewed 1 irrelevant --reviewer founder --date 2026-11-30' after the first exits 1 with stderr naming the existing result 'relevant' and its activity id, and writes nothing; with --replace it exits 0, writes a correction whose voids_activity_id is the first hand_review's id and a new hand_review with result irrelevant, and the report for 2026-11-30 shows '- Hand review direct_candidate relevant: 0', '- Hand review direct_candidate irrelevant: 1' and '- Hand review direct_candidate total: 1'.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-105"
+    },
+    {
+      "id": "T-04",
+      "title": "review: direct-candidate and relationship-prospect queues with checklist, evidence age and order",
+      "goal": "Show the founder separate ranked queues of direct candidates and relationship prospects with checklist answers, newest evidence and its age, next action, founder time and hand-review result, ordered by a stated rule.",
+      "story_refs": [
+        "US-3"
+      ],
+      "covers": [
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-3.4",
+        "AC-3.5",
+        "AC-4.3"
+      ],
+      "plan": "1. cottonwood/review.py: candidate_rows(conn, lead_type) with organization and contact; newest evidence per lead (max observed_at, then highest id); counted hand_review result per lead (events.COUNTED_ACTIVITIES_SQL); order key (-yes, founder_time is None, founder_time or 0, lead id); _candidate_section(title, rows, items, max_age, today) rendering the order line, max-age line, '- KEY: LABEL' legend and table, or the empty line; render_review(conn, generated_at, review_config) appends both sections after the unchanged inbound section.\n2. Evidence age = (Denver today - observed_at date).days, 'N (over MAX)' when over.\n3. cli.py: review loads the config and passes Config.review.\n4. New tests: tests/test_review_candidates.py; keep tests/test_review.py's inbound assertions passing (edit only if a whole-output equality must include the new sections).",
+      "acceptance_criteria": [
+        "cottonwood review output contains '## Inbound inquiries', '## Direct candidates' and '## Relationship prospects' in that order, the inbound section's lines are identical to those produced before this change for the same database, and each candidate section contains the line 'Order: most yes answers first; ties: lower founder time first (unknown last); then lowest lead id.'",
+        "The direct-candidate table header is 'Lead | Organization | Contact | Eligibility | ' followed by the configured direct_candidate item keys in config order, then 'Yes | Evidence URL | Evidence age (days) | Next action | Founder time (h) | Hand review | Label'; a lead with no answer for an item shows 'unknown' in that column, the Yes column shows its count of yes answers, Hand review shows the counted hand_review result or '—', and a test lead shows 'TEST' in Label.",
+        "Three direct candidates with yes counts 2, 3, 2 and founder_time_h 1.5, 4, 0.5 appear in the order: the 3-yes lead, then the 2-yes lead with 0.5, then the 2-yes lead with 1.5; a fourth lead with 2 yes answers and no founder time appears after both 2-yes leads that have one.",
+        "With utc_now pinned to 2026-12-01T00:00:00Z, review.max_evidence_age_days 30, and a lead whose evidence rows were observed 2026-10-01 and 2026-10-30, the row shows the 2026-10-30 evidence URL and '31 (over 30)'; a lead observed 2026-10-31 shows '30'; each candidate section contains 'Max evidence age: 30 days', and with the key unset 'Max evidence age: not configured' and plain day counts.",
+        "Each candidate section lists '- KEY: LABEL' for every configured item of its queue; with no leads of a type the section shows 'No direct candidates.' or 'No relationship prospects.'; 'cottonwood review --out FILE' writes text equal to the printed review.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-01",
+        "T-03"
+      ],
+      "tests_to_change": [
+        "tests/test_review.py"
+      ],
+      "complexity": "M",
+      "imported_as": "CCGE-106"
+    }
+  ]
+}
