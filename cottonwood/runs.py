@@ -17,6 +17,7 @@ from cottonwood import timeutil
 VALIDATIONS = ("passed", "failed")
 COST_SOURCES = ("claude-code-cost", "billing-console")
 COST_MAX_PLACES = 4
+TOKENS_MAX = 2**63 - 1  # SQLite INTEGER ceiling
 
 _WHOLE_NUMBER = re.compile(r"^[0-9]+$")
 _PLAIN_COST = re.compile(r"^[0-9]+(?:\.([0-9]+))?$")
@@ -75,7 +76,10 @@ def parse_tokens(value: str) -> int:
     text = value.strip()
     if not _WHOLE_NUMBER.match(text):
         raise RunError("tokens", f"must be a whole number of 0 or more, got {value!r}")
-    return int(text)
+    number = int(text)
+    if number > TOKENS_MAX:
+        raise RunError("tokens", f"must be at most {TOKENS_MAX}, got {value!r}")
+    return number
 
 
 def parse_cost(value: str) -> str:
