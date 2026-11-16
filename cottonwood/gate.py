@@ -7,6 +7,10 @@ cannot be recorded without the reference. A ``draft`` approval names its lead an
 SHA-256 of the draft file's bytes, so the send gate can tell the approved draft from an edited
 one. A ``claim`` approval also appends a ``claim_verified`` activity, which the claims file must
 then agree with for the claim to count as verified (R-19, ``cottonwood.claims``).
+
+``suppress`` adds an address to suppression without a lead (R-24). The address is normalized
+exactly as every suppression check normalizes it; an existing entry is reported and left
+exactly as it is, because suppression entries are never changed or deleted.
 """
 
 from __future__ import annotations
@@ -17,9 +21,10 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from cottonwood import claims, events
+from cottonwood import claims, events, normalize, timeutil
 
 APPROVAL_TYPE = "approval"
+SUPPRESS_SOURCE = "suppress"
 SCOPES = ("lead", "draft", "claim", "audience", "offer")
 TEXT_SCOPES = ("audience", "offer")
 
@@ -58,6 +63,52 @@ class Approval:
                 f" verified_by: {self.approver} and verified_at: {self.approved_on.isoformat()}"
             )
         return line
+
+
+@dataclass(frozen=True)
+class SuppressResult:
+    """The suppression entry for an address, and whether this call added it."""
+
+    email_norm: str
+    added: bool
+    reason: str
+    added_at: str
+
+    def line(self) -> str:
+        """What suppress prints."""
+        if self.added:
+            return f"suppressed {self.email_norm}"
+        since = timeutil.local_date(self.added_at).isoformat()
+        return f"{self.email_norm} already suppressed since {since} ({self.reason})"
+
+
+def suppress(
+    conn: sqlite3.Connection, email: str, reason: str, source: str | None, now: str
+) -> SuppressResult:
+    """Add a normalized address to suppression, or report the entry it already has."""
+    try:
+        email_norm = normalize.normalize_email(email)
+    except ValueError as exc:
+        raise GateError("email", str(exc).removeprefix("email ")) from None
+    why = _required("reason", reason)
+    origin = (source or "").strip() or SUPPRESS_SOURCE
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute(
+            "SELECT reason, added_at FROM suppression WHERE email_norm = ?", (email_norm,)
+        ).fetchone()
+        if row is not None:
+            conn.rollback()
+            return SuppressResult(email_norm, False, str(row["reason"]), str(row["added_at"]))
+        conn.execute(
+            "INSERT INTO suppression (email_norm, reason, source, added_at) VALUES (?, ?, ?, ?)",
+            (email_norm, why, origin, now),
+        )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return SuppressResult(email_norm, True, why, now)
 
 
 def approve(

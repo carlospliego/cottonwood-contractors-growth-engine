@@ -1072,6 +1072,45 @@ def _run_claims(args: argparse.Namespace) -> int:
     return EXIT_REFUSED if any(status.note for status in statuses) else EXIT_OK
 
 
+def _add_suppress_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the suppress command's arguments."""
+    parser.add_argument("email", help="the address to suppress (trimmed and lower-cased)")
+    parser.add_argument("--reason", required=True, help="why it is suppressed")
+    parser.add_argument(
+        "--source",
+        default=None,
+        help=f"where the request came from (default: {gate.SUPPRESS_SOURCE})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_suppress(args: argparse.Namespace) -> int:
+    """Add an address to suppression without a lead (R-24); entries are never changed."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        result = gate.suppress(conn, args.email, args.reason, args.source, timeutil.utc_now())
+    except gate.GateError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the suppression: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(result.line())
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -1157,6 +1196,12 @@ COMMANDS: list[Command] = [
         "Show each outreach claim's effective status and any mismatch with recorded approvals.",
         _add_claims_arguments,
         _run_claims,
+    ),
+    Command(
+        "suppress",
+        "Add an email address to suppression without a lead; existing entries never change.",
+        _add_suppress_arguments,
+        _run_suppress,
     ),
 ]
 
