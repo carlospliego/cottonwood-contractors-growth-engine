@@ -26,6 +26,7 @@ KEYS = {
     "sending",
     "draftable",
     "blocked_by",
+    "next_draft",
 }
 SENDING = {
     "sender_identity": "Cottonwood Contractors",
