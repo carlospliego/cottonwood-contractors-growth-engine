@@ -57,7 +57,7 @@ def _record(db_path: Path, tokens: str) -> int:
 def _row_count(db_path: Path) -> int:
     conn = db.connect(db_path)
     try:
-        return conn.execute("SELECT COUNT(*) FROM agent_runs").fetchone()[0]
+        return int(conn.execute("SELECT COUNT(*) FROM agent_runs").fetchone()[0])
     finally:
         conn.close()
 

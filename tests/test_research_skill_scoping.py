@@ -9,7 +9,8 @@ from pathlib import Path
 
 import yaml
 
-SKILL = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "research-prospects" / "SKILL.md"
+ROOT = Path(__file__).resolve().parent.parent
+SKILL = ROOT / ".claude" / "skills" / "research-prospects" / "SKILL.md"
 ENTRY = re.compile(r"^(?P<name>[A-Za-z_][\w]*)(?:\((?P<spec>.*)\))?$")
 
 
