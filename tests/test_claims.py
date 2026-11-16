@@ -20,6 +20,7 @@ SHIPPED_IDS = [
     "license-classification",
     "insurance-bonding",
     "prior-company-experience",
+    "website-projects",
 ]
 
 
@@ -114,7 +115,7 @@ def _void(db_path: Path, activity_id: int) -> None:
 # --- the shipped file -------------------------------------------------------------------
 
 
-def test_shipped_claims_are_the_five_r19_claims_all_unverified() -> None:
+def test_shipped_claims_are_the_r19_claims_all_unverified() -> None:
     shipped = claims.load_claims(ROOT / "config" / "claims.yaml")
     assert [claim.id for claim in shipped] == SHIPPED_IDS
     for claim in shipped:
