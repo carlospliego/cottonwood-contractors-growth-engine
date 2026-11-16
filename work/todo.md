@@ -92,9 +92,21 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-115` — record-run: refuse an --ended time later than now → [CCGE-115.md](tasks/CCGE-115.md)
 - [ ] `CCGE-116` — Test prospects-import --check with a valid stored referrer → [CCGE-116.md](tasks/CCGE-116.md)
 - [ ] `CCGE-117` — Credential scan: cover untracked files and stop exempting its own file → [CCGE-117.md](tasks/CCGE-117.md)
+- [ ] `CCGE-121` — Claims loader: refuse a claim id that ends in a newline → [CCGE-121.md](tasks/CCGE-121.md)
+- [ ] `CCGE-122` — approve: refuse a lead id too large for SQLite instead of crashing → [CCGE-122.md](tasks/CCGE-122.md)
+- [ ] `CCGE-123` — Claims loader: refuse a claims file that is not valid UTF-8 → [CCGE-123.md](tasks/CCGE-123.md)
+- [ ] `CCGE-124` — approve claim: print verified_by and verified_at as YAML that reads back exactly → [CCGE-124.md](tasks/CCGE-124.md)
+- [ ] `CCGE-125` — gate.py: remove the unused TEXT_SCOPES constant → [CCGE-125.md](tasks/CCGE-125.md)
+- [ ] `CCGE-126` — events: expose public helpers instead of underscore names used by gate, claims and cli → [CCGE-126.md](tasks/CCGE-126.md)
+- [ ] `CCGE-127` — Tests for the database-error paths of approve, claims and suppress → [CCGE-127.md](tasks/CCGE-127.md)
+- [ ] `CCGE-128` — Test standing_verification skips malformed and other-claim payloads → [CCGE-128.md](tasks/CCGE-128.md)
+- [ ] `CCGE-129` — Test that a prohibited claim stays prohibited even with an approval on record → [CCGE-129.md](tasks/CCGE-129.md)
 
 ## Done
 
+- [x] `CCGE-120` — suppress command: add a normalized address to suppression without a lead → [CCGE-120.md](done/CCGE-120.md)
+- [x] `CCGE-119` — claims file and claim approvals: a claim is verified only when the file and a founder claim approval agree → [CCGE-119.md](done/CCGE-119.md)
+- [x] `CCGE-118` — approve command: founder approvals of a lead, draft, audience or offer with a written-approval reference → [CCGE-118.md](done/CCGE-118.md)
 - [x] `CCGE-113` — No committed sending credentials (R-27) and a runbook section for a research run → [CCGE-113.md](done/CCGE-113.md)
 - [x] `CCGE-112` — research-prospects skill: web and file tools only, schema-valid output, a worked example that imports → [CCGE-112.md](done/CCGE-112.md)
 - [x] `CCGE-111` — prospects-import --check: validate a research file exactly as the import would, writing nothing → [CCGE-111.md](done/CCGE-111.md)
