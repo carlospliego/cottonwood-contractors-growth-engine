@@ -195,3 +195,16 @@ INSERT OR IGNORE INTO suppression (email_norm, reason, source, added_at)
 
 Send the founder the review after logging: `uv run cottonwood review --out out/review.md`. The
 file holds contact data; `out/` is git-ignored, so keep it there.
+
+## Research run
+
+Run this each time the `research-prospects` skill researches a brief (R-25, R-26). The skill can only write a file; the CLI decides what is imported, and the founder hand-reviews a sample before Gate 1.
+
+1. In Claude Code, start the `research-prospects` skill with a research brief (motion, geography, firm types, how many). Note the start time.
+2. When it has written `out/research/YYYY-MM-DD-SLUG.json`, note the end time.
+3. Check the file without writing anything: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json --check`. Note `passed` when it ends `0 rejected`, else `failed`. Never repair a rejected record by guessing: drop it or research it again.
+4. Import it: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json`.
+5. Run `/cost` in the same Claude Code session and note the total cost and tokens.
+6. Record the run: `cottonwood record-run --skill research-prospects --skill-version VERSION --model MODEL --started "YYYY-MM-DD HH:MM" --ended "YYYY-MM-DD HH:MM" --input "brief: ..." --output out/research/YYYY-MM-DD-SLUG.json --validation passed --tokens N --cost USD --cost-source claude-code-cost`. `VERSION` is the `version` in the skill's frontmatter.
+7. When the cost is not exact (for example read from the billing console for a period), use `--cost-source billing-console --estimated` instead.
+8. Hand-review a sample with `cottonwood review` and `cottonwood mark-reviewed` (Gate 1).
