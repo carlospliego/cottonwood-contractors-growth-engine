@@ -5,7 +5,8 @@ the day of the founder's written approval (America/Denver), the scope, the item 
 reference to that written approval (for example the email's date and subject). An approval
 cannot be recorded without the reference. A ``draft`` approval names its lead and stores the
 SHA-256 of the draft file's bytes, so the send gate can tell the approved draft from an edited
-one.
+one. A ``claim`` approval also appends a ``claim_verified`` activity, which the claims file must
+then agree with for the claim to count as verified (R-19, ``cottonwood.claims``).
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from cottonwood import events
+from cottonwood import claims, events
 
 APPROVAL_TYPE = "approval"
 SCOPES = ("lead", "draft", "claim", "audience", "offer")
@@ -50,7 +51,13 @@ class Approval:
                 f"approval {self.activity_id} recorded: draft {self.item}"
                 f" for lead {self.lead_id} by {self.approver}"
             )
-        return f"approval {self.activity_id} recorded: {self.scope} {self.item} by {self.approver}"
+        line = f"approval {self.activity_id} recorded: {self.scope} {self.item} by {self.approver}"
+        if self.scope == "claim":
+            line += (
+                f"; mark it verified in {claims.DEFAULT_CLAIMS_PATH.as_posix()} with"
+                f" verified_by: {self.approver} and verified_at: {self.approved_on.isoformat()}"
+            )
+        return line
 
 
 def approve(
@@ -63,6 +70,7 @@ def approve(
     lead_id: int | None,
     actor: str,
     now: str,
+    claims_path: Path = claims.DEFAULT_CLAIMS_PATH,
 ) -> Approval:
     """Record one founder approval in its own transaction, or raise GateError."""
     if scope not in SCOPES:
@@ -70,11 +78,18 @@ def approve(
     who = _required("approver", approver)
     ref = _required("reference", reference)
     by = _required("actor", actor)
+    library: tuple[claims.Claim, ...] = ()
     if scope == "claim":
-        raise GateError("scope", "claim approvals are not available yet")
+        try:
+            library = claims.load_claims(claims_path)
+        except claims.ClaimsError as exc:
+            raise GateError("claims", str(exc)) from None
     conn.execute("BEGIN IMMEDIATE")
     try:
-        approval = _apply(conn, scope, item, who, ref, day, lead_id, by, now)
+        if scope == "claim":
+            approval = _apply_claim(conn, library, item, who, ref, day, lead_id, by, now)
+        else:
+            approval = _apply(conn, scope, item, who, ref, day, lead_id, by, now)
         conn.commit()
     except BaseException:
         conn.rollback()
@@ -139,6 +154,65 @@ def _apply(
         now,
     )
     return Approval(activity_id, scope, text, approver, lead_id, day)
+
+
+def _apply_claim(
+    conn: sqlite3.Connection,
+    library: tuple[claims.Claim, ...],
+    item: str,
+    approver: str,
+    reference: str,
+    day: date,
+    lead_id: int | None,
+    actor: str,
+    now: str,
+) -> Approval:
+    claim_id = item.strip()
+    claim = claims.find_claim(library, claim_id)
+    if claim is None:
+        raise GateError("claim", f"no claim {claim_id!r} in the claims file")
+    if claim.status == "prohibited":
+        raise GateError("claim", f"{claim_id} is prohibited and cannot be verified")
+    standing = claims.standing_verification(conn, claim_id)
+    if standing is not None:
+        raise GateError(
+            "claim",
+            f"{claim_id} is already verified by {standing.verified_by} on"
+            f" {standing.verified_at} (activity {standing.activity_id})",
+        )
+    if lead_id is not None:
+        _check_lead(conn, lead_id)
+    occurred_at = events._day_start(day)
+    approval_id = events._insert_activity(
+        conn,
+        lead_id,
+        APPROVAL_TYPE,
+        {
+            "scope": "claim",
+            "item": claim_id,
+            "approver": approver,
+            "reference": reference,
+            "approved_on": day.isoformat(),
+        },
+        actor,
+        occurred_at,
+        now,
+    )
+    events._insert_activity(
+        conn,
+        None,
+        claims.CLAIM_VERIFIED_TYPE,
+        {
+            "claim_id": claim_id,
+            "approval_activity_id": approval_id,
+            "verified_by": approver,
+            "verified_at": day.isoformat(),
+        },
+        actor,
+        occurred_at,
+        now,
+    )
+    return Approval(approval_id, "claim", claim_id, approver, lead_id, day)
 
 
 def _lead_item(conn: sqlite3.Connection, item: str) -> int:

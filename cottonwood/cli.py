@@ -16,6 +16,7 @@ from pathlib import Path
 from cottonwood import (
     __version__,
     backup,
+    claims,
     config,
     db,
     eligibility,
@@ -973,6 +974,12 @@ def _add_approve_arguments(parser: argparse.ArgumentParser) -> None:
         help="the day of the written approval, YYYY-MM-DD (Denver; default today)",
     )
     parser.add_argument(
+        "--claims",
+        type=Path,
+        default=claims.DEFAULT_CLAIMS_PATH,
+        help=f"claims file for a claim approval (default: {claims.DEFAULT_CLAIMS_PATH})",
+    )
+    parser.add_argument(
         "--actor",
         default=events.DEFAULT_ACTOR,
         help=f"who logs it (default: {events.DEFAULT_ACTOR})",
@@ -1010,6 +1017,7 @@ def _run_approve(args: argparse.Namespace) -> int:
             args.lead,
             args.actor,
             timeutil.utc_now(),
+            args.claims,
         )
     except gate.GateError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1021,6 +1029,47 @@ def _run_approve(args: argparse.Namespace) -> int:
         conn.close()
     print(approval.line())
     return EXIT_OK
+
+
+def _add_claims_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the claims command's arguments."""
+    parser.add_argument(
+        "--claims",
+        type=Path,
+        default=claims.DEFAULT_CLAIMS_PATH,
+        help=f"claims file (default: {claims.DEFAULT_CLAIMS_PATH})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_claims(args: argparse.Namespace) -> int:
+    """Print each claim's effective status; exit 1 when the file and the approvals disagree."""
+    try:
+        library = claims.load_claims(args.claims)
+    except claims.ClaimsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        statuses = claims.effective_statuses(conn, library)
+    except sqlite3.Error as exc:
+        print(f"error: could not read the claim approvals: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    for status in statuses:
+        print(status.line())
+    return EXIT_REFUSED if any(status.note for status in statuses) else EXIT_OK
 
 
 # Subcommands register here; build_parser() adds each one in order.
@@ -1102,6 +1151,12 @@ COMMANDS: list[Command] = [
         "Record a founder approval of a lead, draft, claim, audience or offer, with its reference.",
         _add_approve_arguments,
         _run_approve,
+    ),
+    Command(
+        "claims",
+        "Show each outreach claim's effective status and any mismatch with recorded approvals.",
+        _add_claims_arguments,
+        _run_claims,
     ),
 ]
 
