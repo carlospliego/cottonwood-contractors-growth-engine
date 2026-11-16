@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
-from cottonwood import claims, config, draft_claims, events, normalize
+from cottonwood import claims, config, draft_claims, eligibility, events, gate, normalize
 
 PREPARED_TYPE = "draft_prepared"
 REFUSED_TYPE = "prepare_refused"
@@ -487,3 +487,105 @@ def _insert(
     if cursor.lastrowid is None:
         raise sqlite3.DatabaseError("insert returned no row id")
     return cursor.lastrowid
+
+
+REPLY_TYPE = "reply"
+SUPPRESSED_TYPE = "suppressed"
+REPLY_SOURCE = "log-reply"
+REPLY_TYPES = (
+    "interested",
+    "not_now",
+    "not_relevant",
+    "referral",
+    "opt_out",
+    "bounce",
+    "other",
+)
+
+
+@dataclass(frozen=True)
+class Reply:
+    """A recorded reply and what it changed on the lead's contact."""
+
+    lead_id: int
+    reply_type: str
+    activity_id: int
+    suppressed_contact: int | None = None
+    eligibility: eligibility.EligibilityChange | None = None
+
+    def lines(self) -> list[str]:
+        """What log-reply prints on stdout."""
+        lines = [
+            f"reply recorded: lead {self.lead_id} {self.reply_type} (activity {self.activity_id})"
+        ]
+        if self.suppressed_contact is not None:
+            lines.append(f"suppressed: contact {self.suppressed_contact}")
+        if self.eligibility is not None:
+            lines.append(self.eligibility.line())
+        return lines
+
+
+def log_reply(
+    conn: sqlite3.Connection,
+    lead_id: int,
+    reply_type: str,
+    received_on: str | None,
+    note: str | None,
+    today: date,
+    actor: str,
+    now: str,
+) -> Reply:
+    """Record a reply; opt_out suppresses the contact's address and bounce makes it ineligible."""
+    if reply_type not in REPLY_TYPES:
+        raise SendError("type", f"must be one of {', '.join(REPLY_TYPES)}, got {reply_type!r}")
+    if received_on is None:
+        day = today
+    else:
+        try:
+            day = events._parse_entry_date(received_on, today)
+        except events.EventError as exc:
+            raise SendError("date", str(exc).removeprefix("date: ")) from None
+    lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if lead is None:
+        raise SendError("lead", f"no lead {lead_id}")
+    contact_id = lead["contact_id"]
+    email_norm = _contact_email_norm(conn, contact_id)
+    if reply_type in ("opt_out", "bounce") and (contact_id is None or email_norm is None):
+        raise SendError("contact", f"lead {lead_id} has no contact with an email address")
+    text = (note or "").strip() or None
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        reply_id = _insert(
+            conn,
+            lead_id,
+            contact_id,
+            REPLY_TYPE,
+            {"type": reply_type, "received_on": day.isoformat(), "note": text},
+            actor,
+            events._day_start(day),
+            now,
+        )
+        suppressed_contact = None
+        change = None
+        if reply_type == "opt_out" and email_norm is not None:
+            result = gate._insert_suppression(
+                conn, email_norm, f"opt-out reply to lead {lead_id}", REPLY_SOURCE, now
+            )
+            _insert(
+                conn,
+                lead_id,
+                contact_id,
+                SUPPRESSED_TYPE,
+                {"reply_activity_id": reply_id, "source": REPLY_SOURCE, "added": result.added},
+                actor,
+                now,
+                now,
+            )
+            suppressed_contact = contact_id
+        elif reply_type == "bounce" and contact_id is not None:
+            change = eligibility._apply(conn, contact_id, eligibility.INELIGIBLE, None, actor, now)
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return Reply(lead_id, reply_type, reply_id, suppressed_contact, change)
