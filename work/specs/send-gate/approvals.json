@@ -1,0 +1,20 @@
+{
+  "feature": "send-gate",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-16T01:52:01.716Z",
+      "sha256": "b9cc726adf90fc9cb7d8a62c7543dfece6f55771b326e43819854c9bb55bd3c2",
+      "head": "e6672de42662c7433ca3fa843aa29452596ab28b"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-16T01:52:40.590Z",
+      "sha256": "d90acb4eb25f66462d2a9332008bc27eeed922afb19a4def61463eb941a91490",
+      "head": "e6672de42662c7433ca3fa843aa29452596ab28b",
+      "spec_sha256": "b9cc726adf90fc9cb7d8a62c7543dfece6f55771b326e43819854c9bb55bd3c2"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-130",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran load_config on the full four-key sending file. config.sending came back with exactly those four values. A file with only opt_out_line loaded the other three as ''. An empty mapping with no sending section loaded all four as ''. _sending returns SendingConfig() for a missing section and maps a missing or None key to ''. tests/test_sending_config.py passed (7/7).",
+          "file": "cottonwood/config.py",
+          "line": 137,
+          "quote": "def _sending(value: object, config_path: Path) -> SendingConfig:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran load_config in the worktree. 'sending: [1]' raised ConfigError 'sending must be a mapping in ...a.yaml'. 'sending: {postal_address: 12}' raised ConfigError 'sending.postal_address must be a string in ...b.yaml'. config/pilot.yaml loads and returns SendingConfig with all four values ''. A grep for '^sending' in config/pilot.yaml found nothing, and the diff shows the sending section only as '# sending:' comment lines.",
+          "file": "cottonwood/config.py",
+          "line": 136,
+          "quote": "raise ConfigError(f\"sending.{key} must be a string in {config_path}\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The schema file exists. I ran load_draft_claims on a file holding the two-claim list and it returned ('service-area', 'licensed'). It returned () for []. tests/test_draft_claims.py passed (11/11). The schema is draft 2020-12, type array, with required claim_id and status and the status enum.",
+          "file": "cottonwood/draft_claims.py",
+          "line": 70,
+          "quote": "return tuple(str(item[\"claim_id\"]) for item in data)"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran load_draft_claims on all seven inputs from the AC (missing file, '{not json', '{}', bad claim_id pattern, status 'maybe', missing status, extra property). Each raised DraftClaimsError, and each message starts with the file path. Examples: '.../claims0.json: claims list not found' and '.../claims6.json: claims list is invalid at 0: Additional properties are not allowed (\\'extra\\' was unexpected)'. I read this as the fourth AC item, counting from 1. I did not run the fifth item (pytest, ruff, mypy).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-130/cottonwood/draft_claims.py",
+          "line": 22,
+          "quote": "super().__init__(f\"{path}: {message}\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest: 806 passed, rc=0. uv run ruff check .: All checks passed, rc=0. uv run mypy .: no issues found in 85 source files, rc=0. uv run ruff format --check .: 264 files already formatted, rc=0.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-130",
+          "line": 1,
+          "quote": "806 passed in 3.75s"
+        }
+      ],
+      "returns_through": "2026-11-16T01:56:16.974Z"
+    }
+  ]
+}

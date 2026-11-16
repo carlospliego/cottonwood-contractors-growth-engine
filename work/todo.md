@@ -101,10 +101,6 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-127` — Tests for the database-error paths of approve, claims and suppress → [CCGE-127.md](tasks/CCGE-127.md)
 - [ ] `CCGE-128` — Test standing_verification skips malformed and other-claim payloads → [CCGE-128.md](tasks/CCGE-128.md)
 - [ ] `CCGE-129` — Test that a prohibited claim stays prohibited even with an approval on record → [CCGE-129.md](tasks/CCGE-129.md)
-- [x] `CCGE-130` — Sending config and the draft claims list contract → [CCGE-130.md](tasks/CCGE-130.md)
-- [x] `CCGE-131` — prepare-send: write a sendable draft only when every R-21 check passes → [CCGE-131.md](tasks/CCGE-131.md)
-- [x] `CCGE-132` — log-outreach: record a send and flag any send that bypassed the gate → [CCGE-132.md](tasks/CCGE-132.md)
-- [x] `CCGE-133` — log-reply: record replies; opt-out suppresses and bounce makes ineligible in the same command → [CCGE-133.md](tasks/CCGE-133.md)
 - [ ] `CCGE-134` — prepare-send reads its gate checks before taking the write lock → [CCGE-134.md](tasks/CCGE-134.md)
 - [ ] `CCGE-135` — A failed sendable write can leave a partial file in the send folder → [CCGE-135.md](tasks/CCGE-135.md)
 - [ ] `CCGE-136` — send.py duplicates activity insertion and file hashing → [CCGE-136.md](tasks/CCGE-136.md)
@@ -115,6 +111,10 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Done
 
+- [x] `CCGE-133` — log-reply: record replies; opt-out suppresses and bounce makes ineligible in the same command → [CCGE-133.md](done/CCGE-133.md)
+- [x] `CCGE-132` — log-outreach: record a send and flag any send that bypassed the gate → [CCGE-132.md](done/CCGE-132.md)
+- [x] `CCGE-131` — prepare-send: write a sendable draft only when every R-21 check passes → [CCGE-131.md](done/CCGE-131.md)
+- [x] `CCGE-130` — Sending config and the draft claims list contract → [CCGE-130.md](done/CCGE-130.md)
 - [x] `CCGE-120` — suppress command: add a normalized address to suppression without a lead → [CCGE-120.md](done/CCGE-120.md)
 - [x] `CCGE-119` — claims file and claim approvals: a claim is verified only when the file and a founder claim approval agree → [CCGE-119.md](done/CCGE-119.md)
 - [x] `CCGE-118` — approve command: founder approvals of a lead, draft, audience or offer with a written-approval reference → [CCGE-118.md](done/CCGE-118.md)
