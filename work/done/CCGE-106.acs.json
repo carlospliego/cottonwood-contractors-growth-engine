@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-106",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I diffed cottonwood/review.py against a1c6aae. The old render_review body is moved verbatim into _inbound_section, which runs the same code with the same header, count line and table. The only change is that it returns the lines instead of the joined string. The new render_review calls _inbound_section first. It then loops over SECTIONS, which lists 'Direct candidates' and then 'Relationship prospects'. _candidate_section writes '## {title}' followed by ORDER_LINE, and it does this even when the section has no rows. ORDER_LINE reads exactly 'Order: most yes answers first; ties: lower founder time first (unknown last); then lowest lead id.' (string concatenation at review.py:114-117). order_key sorts by -yes, unknown founder time last, then lead id, which matches the stated rule. tests/test_review.py and tests/test_review_candidates.py passed (22 passed). I did not run the CLI end to end or compare the old and new output on a database; the inbound-identical conclusion rests on reading the code.",
+          "file": "cottonwood/review.py",
+          "line": 114,
+          "quote": "ORDER_LINE = (\n    \"Order: most yes answers first; ties: lower founder time first (unknown last);\"\n    \" then lowest lead id.\"\n)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In cottonwood/review.py, _candidate_section builds the header from CANDIDATE_LEADING_COLUMNS (Lead, Organization, Contact, Eligibility), then the configured item keys in config order, then CANDIDATE_TRAILING_COLUMNS (Yes, Evidence URL, Evidence age (days), Next action, Founder time (h), Hand review, Label). _answers returns 'unknown' for an item with no stored answer. Yes is the count of 'yes' answers. Hand review is review_result(standing) from the standing hand_review row, or '—' (EMPTY) when there is none. A test lead gets TEST_LABEL ('TEST') in Label. tests/test_review_candidates.py::test_direct_table_columns_answers_and_labels asserts the exact header, the 'unknown' cells, Yes=2 and 0, Hand review 'relevant' and '—', and 'TEST'. test_review_candidates.py and test_review.py passed (22/22).",
+          "file": "cottonwood/review.py",
+          "line": 186,
+          "quote": "*(row.answers[item.key] for item in items),\n            str(row.yes),"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "CandidateRow.order_key sorts by (-yes, founder_time unknown, founder_time, lead_id). Candidates are returned sorted with it. The test test_order_by_yes_then_founder_time_unknown_last_then_id builds leads with yes counts 2, 3, 2 and founder times 1.5, 4, 0.5, plus a fourth lead with 2 yes answers and no founder time. It asserts the order 3-yes, 2-yes at 0.5, 2-yes at 1.5, then the 2-yes lead with no time. It passed when I ran it.",
+          "file": "cottonwood/review.py",
+          "line": 156,
+          "quote": "return (-self.yes, unknown, self.founder_time_h or 0.0, self.lead_id)"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_evidence_age returns 'N (over MAX)' only when days > max and a plain count otherwise. _candidate_section prints 'Max evidence age: N days' or 'Max evidence age: not configured'. The tests in tests/test_review_candidates.py cover each case, and all 14 pass. test_newest_evidence_and_age_over_the_max has a stale lead with evidence on 2026-10-01 and 2026-10-30, and it expects the new URL with '31 (over 30)'. The same test expects '30' for the lead observed 2026-10-31. test_without_max_age_plain_days expects 'not configured' in both the Direct candidates and Relationship prospects sections, and the plain count '31'. I did not read how the tests pin utc_now. The values are consistent with 2026-12-01T00:00Z being 2026-11-30 in Denver: 31 days after Oct 30 and 30 days after Oct 31.",
+          "file": "cottonwood/review.py",
+          "line": 229,
+          "quote": "    if max_age is not None and days > max_age:\n        return f\"{days} (over {max_age})\"\n    return str(days)"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Each candidate section writes '- {item.key}: {item.label}' for every configured item of its queue, and writes the 'No direct candidates.' or 'No relationship prospects.' line when the queue has no rows. `--out` writes the same rendered text that stdout prints, and the CLI only adds a separate 'review written' status line. The tests that cover these three points are test_legend_and_empty_queues, test_relationship_queue_uses_its_own_items and test_out_file_equals_the_printed_review. All 22 tests in tests/test_review_candidates.py and tests/test_review.py pass. I did not check how the tests fix the clock. If it were not fixed, the printed and `--out` text could differ by timestamp, but the `--out` code path writes the same string it would print.",
+          "file": "cottonwood/review.py",
+          "line": 261,
+          "quote": "lines.extend(f\"- {item.key}: {item.label}\" for item in items)"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. uv run pytest: 641 passed, exit 0. uv run ruff check .: All checks passed!. uv run mypy .: Success, no issues found in 66 source files. uv run ruff format --check .: 208 files already formatted.",
+          "file": "cottonwood/review.py",
+          "line": 1,
+          "quote": "641 passed in 2.89s"
+        }
+      ],
+      "returns_through": "2026-11-16T00:37:09.687Z"
+    }
+  ]
+}

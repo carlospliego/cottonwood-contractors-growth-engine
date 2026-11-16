@@ -54,7 +54,7 @@ BASIC = (
 def test_migrate_adds_nullable_project_scope(db_path: Path) -> None:
     conn = db.connect(db_path)
     try:
-        assert db.user_version(conn) == 4
+        assert db.user_version(conn) == 5
         columns = {row["name"]: row for row in conn.execute("PRAGMA table_info(leads)")}
     finally:
         conn.close()

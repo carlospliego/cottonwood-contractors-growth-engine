@@ -6,6 +6,7 @@ Exit codes: 0 = done, 1 = refused (a gate or validation failure), 2 = usage erro
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 from collections.abc import Callable, Sequence
@@ -17,7 +18,9 @@ from cottonwood import (
     backup,
     config,
     db,
+    eligibility,
     events,
+    hand_review,
     inbound,
     prospects,
     report,
@@ -224,6 +227,15 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
         help="write the Markdown to this file (e.g. out/review.md; out/ is git-ignored)",
     )
     parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            f"config file with the review checklists (default: ${config.CONFIG_ENV_VAR}, else"
+            f" {config.DEFAULT_CONFIG_PATH})"
+        ),
+    )
+    parser.add_argument(
         "--db",
         type=Path,
         default=None,
@@ -232,7 +244,12 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _run_review(args: argparse.Namespace) -> int:
-    """Print the review, or write it to --out for sending to the founder (R-31)."""
+    """Print the review, or write it to --out for sending to the founder (R-13, R-31)."""
+    try:
+        review_config = _import_review_config(args.config)
+    except config.ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
@@ -240,7 +257,7 @@ def _run_review(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
-        text = review.render_review(conn, timeutil.utc_now())
+        text = review.render_review(conn, timeutil.utc_now(), review_config)
     except sqlite3.Error as exc:
         print(f"error: could not read the database: {exc}", file=sys.stderr)
         return EXIT_REFUSED
@@ -658,18 +675,42 @@ def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            f"config file with the review checklists (default: ${config.CONFIG_ENV_VAR}, else"
+            f" {config.DEFAULT_CONFIG_PATH}; without one, no checklist answers are accepted)"
+        ),
+    )
+
+
+def _import_review_config(path: Path | None) -> config.ReviewConfig:
+    """The review settings (checklists, max evidence age) for prospects-import and review.
+
+    An explicit --config must load, and so must a config named by $COTTONWOOD_CONFIG. Without
+    either, a missing default config file means no checklist items are configured, so imports
+    without checklist answers keep working.
+    """
+    env_set = bool(os.environ.get(config.CONFIG_ENV_VAR))
+    if path is None and not env_set and not config.default_config_path().exists():
+        return config.ReviewConfig()
+    return config.load_config(path).review
 
 
 def _run_prospects_import(args: argparse.Namespace) -> int:
     """Validate and import research records; refuse each invalid record by name (R-5, R-6)."""
     path: Path = args.file
     try:
+        review_config = _import_review_config(args.config)
         raw_records = validate.load_records(path)
-    except validate.FileError as exc:
+    except (config.ConfigError, validate.FileError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     today = events.denver_today()
-    records = [validate.validate_record(raw, today) for raw in raw_records]
+    keys = review_config.keys()
+    records = [validate.validate_record(raw, today, keys) for raw in raw_records]
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
@@ -690,6 +731,118 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
             print(line)
     print(result.summary())
     return EXIT_REFUSED if result.rejected else EXIT_OK
+
+
+def _add_set_eligibility_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the set-eligibility command's arguments."""
+    parser.add_argument("contact", type=int, help="contact id")
+    parser.add_argument("eligibility", choices=eligibility.VALUES, help="the new eligibility")
+    parser.add_argument(
+        "--source-url",
+        default=None,
+        help="public professional page showing the address (required for eligible)",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who sets it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_set_eligibility(args: argparse.Namespace) -> int:
+    """Change a contact's eligibility, or refuse naming every failed check (R-8, R-24)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        change = eligibility.set_eligibility(
+            conn, args.contact, args.eligibility, args.source_url, args.actor, timeutil.utc_now()
+        )
+    except eligibility.ContactNotFound as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except eligibility.EligibilityError as exc:
+        for field, rule in exc.failures:
+            print(f"error: {field}: {rule}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not update the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(change.line())
+    return EXIT_OK
+
+
+def _add_mark_reviewed_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the mark-reviewed command's arguments."""
+    parser.add_argument("lead", type=int, help="lead id (a direct candidate or partner prospect)")
+    parser.add_argument("result", choices=hand_review.RESULTS, help="the hand-review result")
+    parser.add_argument("--reviewer", required=True, help="who reviewed the record")
+    parser.add_argument(
+        "--date", default=None, help="the review day, YYYY-MM-DD (Denver; default today)"
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="void the lead's earlier hand review and record this one instead",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_mark_reviewed(args: argparse.Namespace) -> int:
+    """Record one hand-review result the report counts per motion (R-11)."""
+    try:
+        day = hand_review.parse_review_date(args.date, events.denver_today())
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        recorded = hand_review.mark_reviewed(
+            conn,
+            args.lead,
+            args.result,
+            args.reviewer,
+            day,
+            args.replace,
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the review: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(recorded.line())
+    return EXIT_OK
 
 
 # Subcommands register here; build_parser() adds each one in order.
@@ -747,6 +900,18 @@ COMMANDS: list[Command] = [
         "Import researched direct candidates and relationship prospects from JSON or CSV.",
         _add_prospects_import_arguments,
         _run_prospects_import,
+    ),
+    Command(
+        "set-eligibility",
+        "Set a contact's eligibility: eligible needs a public source URL and a clear identity.",
+        _add_set_eligibility_arguments,
+        _run_set_eligibility,
+    ),
+    Command(
+        "mark-reviewed",
+        "Record the hand-review result of a researched lead: relevant, irrelevant or fabricated.",
+        _add_mark_reviewed_arguments,
+        _run_mark_reviewed,
     ),
 ]
 

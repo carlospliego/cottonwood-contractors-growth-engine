@@ -1,0 +1,20 @@
+{
+  "feature": "prospect-review",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-16T00:12:22.645Z",
+      "sha256": "6df6beb93ab4f3eed52a6cd341a55df58f3ac42e6ba8c00a65ce51ab3734102b",
+      "head": "789165857ce85516833e8ec9a7a2b56b739cbad0"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-16T00:13:13.547Z",
+      "sha256": "1ca1127048cb7d0068fa8921b89a1f0cf1802a9e9ebbc01114d5ddaf00406454",
+      "head": "789165857ce85516833e8ec9a7a2b56b739cbad0",
+      "spec_sha256": "6df6beb93ab4f3eed52a6cd341a55df58f3ac42e6ba8c00a65ce51ab3734102b"
+    }
+  }
+}

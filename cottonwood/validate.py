@@ -11,6 +11,7 @@ import io
 import json
 import re
 from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import date
 from functools import cache
@@ -39,6 +40,7 @@ RULE_DOMAIN = "domain"
 RULE_NAME = "name"
 RULE_DECIMAL = "decimal"
 RULE_REQUIRED = "required"
+RULE_CHECKLIST_ITEM = "checklist-item"
 
 CSV_COLUMNS = (
     "record_id",
@@ -77,6 +79,8 @@ CSV_REQUIRED = (
     "evidence_observed_at",
 )
 CSV_TEXT_EVIDENCE = ("evidence_excerpt", "evidence_observation")
+# A column named checklist.KEY carries the answer to checklist item KEY (R-13).
+CSV_CHECKLIST_PREFIX = "checklist."
 # CSV column prefix → nested record key; the rest of the column name is the inner key.
 _CSV_GROUPS = {"organization_": "organization", "contact_": "contact", "value_": "value"}
 
@@ -168,6 +172,8 @@ class ProspectRecord:
     is_test: bool
     evidence: tuple[ProspectEvidence, ...]
     is_test_given: bool = False  # the record said is_test, so a stored value can differ
+    # Checklist answers as (item key, yes/no/unknown) pairs sorted by key; () when absent.
+    checklist: tuple[tuple[str, str], ...] = ()
 
     def label(self) -> str:
         """``record N`` with the record_id in parentheses when the record has one."""
@@ -235,7 +241,9 @@ def _csv_records(path: Path, text: str) -> list[RawRecord]:
     if header is None:
         raise FileError(f"{path} has no CSV header row")
     columns = [name.strip() for name in header]
-    unknown = [name for name in columns if name not in CSV_COLUMNS]
+    unknown = [
+        name for name in columns if name not in CSV_COLUMNS and not _is_checklist_column(name)
+    ]
     if unknown:
         raise FileError(f"{path}: unknown CSV column(s): {', '.join(unknown)}")
     missing = [name for name in CSV_REQUIRED if name not in columns]
@@ -279,7 +287,19 @@ def _csv_record(cells: Mapping[str, str]) -> dict[str, object]:
         record[group] = values
     if evidence:
         record["evidence"] = [evidence]
+    checklist = {
+        column.removeprefix(CSV_CHECKLIST_PREFIX): value
+        for column, value in cells.items()
+        if _is_checklist_column(column) and value.strip()
+    }
+    if checklist:
+        record["checklist"] = checklist
     return record
+
+
+def _is_checklist_column(name: str) -> bool:
+    """True for a CSV column named checklist.KEY with a non-empty KEY."""
+    return name.startswith(CSV_CHECKLIST_PREFIX) and bool(name.removeprefix(CSV_CHECKLIST_PREFIX))
 
 
 def _csv_scalar(column: str, value: str) -> object:
@@ -303,11 +323,17 @@ def _csv_scalar(column: str, value: str) -> object:
 # --- Validation --------------------------------------------------------------------------
 
 
-def validate_record(raw: RawRecord, today: date) -> ProspectRecord | Rejection:
+def validate_record(
+    raw: RawRecord,
+    today: date,
+    checklist_keys: Mapping[str, AbstractSet[str]] | None = None,
+) -> ProspectRecord | Rejection:
     """Validate one raw record against the schema, then the rules the schema cannot express.
 
     ``today`` is the current date in America/Denver; observed and published dates may not be
-    later. Only the first failure, in field-path order, is reported, so output is stable.
+    later. ``checklist_keys`` maps a record type to its configured checklist item keys; a
+    checklist answer for any other key is rejected (none are allowed when it is omitted).
+    Only the first failure, in field-path order, is reported, so output is stable.
     """
     record_id = _record_id(raw.data)
     errors = [_schema_failure(error) for error in _validator().iter_errors(raw.data)]
@@ -317,7 +343,8 @@ def validate_record(raw: RawRecord, today: date) -> ProspectRecord | Rejection:
     if not isinstance(raw.data, dict):  # the schema requires an object; this narrows the type
         return Rejection(raw.number, record_id, "record", "type")
     data: dict[str, Any] = raw.data
-    failures = list(_python_failures(data, today))
+    allowed = (checklist_keys or {}).get(data["type"], frozenset())
+    failures = list(_python_failures(data, today, allowed))
     if failures:
         field, rule = min(failures, key=_failure_order)
         return Rejection(raw.number, record_id, _render(field), rule)
@@ -365,8 +392,13 @@ def _render(path: FieldPath) -> str:
     return text or "record"
 
 
-def _python_failures(data: Mapping[str, Any], today: date) -> Iterable[tuple[FieldPath, str]]:
+def _python_failures(
+    data: Mapping[str, Any], today: date, checklist_keys: AbstractSet[str]
+) -> Iterable[tuple[FieldPath, str]]:
     """Failures of the rules the schema leaves to Python, for a schema-valid record."""
+    for key in data.get("checklist", {}):
+        if key not in checklist_keys:
+            yield ("checklist", key), RULE_CHECKLIST_ITEM
     organization = data["organization"]
     if not normalize.normalize_name(organization["name"]):
         yield ("organization", "name"), RULE_NAME
@@ -460,6 +492,7 @@ def _record(number: int, record_id: str | None, data: Mapping[str, Any]) -> Pros
         is_test=bool(data.get("is_test", False)),
         is_test_given="is_test" in data,
         evidence=tuple(_evidence(item) for item in data["evidence"]),
+        checklist=tuple(sorted(data.get("checklist", {}).items())),
     )
 
 

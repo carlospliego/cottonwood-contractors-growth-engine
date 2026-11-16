@@ -85,9 +85,16 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-100` — Test evidence dedupe key parts and CSV re-import → [CCGE-100.md](tasks/CCGE-100.md)
 - [ ] `CCGE-101` — record_id is unbounded and unfiltered, yet stored in append-only activities and echoed to the terminal → [CCGE-101.md](tasks/CCGE-101.md)
 - [ ] `CCGE-102` — Per-record SAVEPOINT rollback and the prospects-import sqlite3.Error exit path are untested → [CCGE-102.md](tasks/CCGE-102.md)
+- [ ] `CCGE-107` — Rename _import_review_config to _load_review_config (used by review too) → [CCGE-107.md](tasks/CCGE-107.md)
+- [ ] `CCGE-108` — Test --actor, blank actor and sqlite3.Error refusal for set-eligibility and mark-reviewed → [CCGE-108.md](tasks/CCGE-108.md)
+- [ ] `CCGE-109` — Test the review queue fallbacks: unreadable checklist, non-date evidence, unreadable hand-review payload → [CCGE-109.md](tasks/CCGE-109.md)
 
 ## Done
 
+- [x] `CCGE-106` — review: direct-candidate and relationship-prospect queues with checklist, evidence age and order → [CCGE-106.md](done/CCGE-106.md)
+- [x] `CCGE-105` — mark-reviewed command: hand-review results with reviewer, date and replace → [CCGE-105.md](done/CCGE-105.md)
+- [x] `CCGE-104` — set-eligibility command with source, identity and suppression checks → [CCGE-104.md](done/CCGE-104.md)
+- [x] `CCGE-103` — Review checklists in config, migration 005 and checklist answers in research records → [CCGE-103.md](done/CCGE-103.md)
 - [x] `CCGE-090` — Re-import matching: no duplicates, new evidence only, differing fields printed → [CCGE-090.md](done/CCGE-090.md)
 - [x] `CCGE-089` — prospects-import command: create leads, record rejections, suppression, referrals and test labels → [CCGE-089.md](done/CCGE-089.md)
 - [x] `CCGE-088` — Research-record schema, file loading and record validation → [CCGE-088.md](done/CCGE-088.md)

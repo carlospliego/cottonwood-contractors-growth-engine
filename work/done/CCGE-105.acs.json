@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-105",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The mark-reviewed command is implemented in cottonwood/cli.py (_run_mark_reviewed). It prints recorded.line(), which is 'lead N: hand review <result>', and returns EXIT_OK. The test test_relevant_review_is_recorded_and_counted runs the exact scenario: direct_candidate lead, relevant, --reviewer founder, --date 2026-11-30, with utc_now pinned. It asserts exit 0, stdout 'lead 1: hand review relevant', one activity of type hand_review, payload == {\"result\": \"relevant\", \"reviewer\": \"founder\"}, and occurred_at falling on 2026-11-30 in Denver. It also asserts that 'cottonwood report --from 2026-11-30 --to 2026-11-30' contains '- Hand review direct_candidate relevant: 1' and '- Hand review direct_candidate total: 1'. I ran tests/test_mark_reviewed.py and all 17 tests passed.",
+          "file": "tests/test_mark_reviewed.py",
+          "line": 80,
+          "quote": "assert json.loads(activity[\"payload\"]) == {\"result\": \"relevant\", \"reviewer\": \"founder\"}"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Without --date, the CLI calls hand_review.parse_review_date(None, events.denver_today()). denver_today() is timeutil.local_date(timeutil.utc_now()), and it looks utc_now up at call time, so a pin works. The day is stored as events._day_start(day), the start of that Denver day. test_date_defaults_to_today_in_denver pins utc_now to 2026-12-01T00:00:00Z, runs mark-reviewed without --date, and asserts local_date(occurred_at) == 2026-11-30. All 17 tests in tests/test_mark_reviewed.py pass.",
+          "file": "tests/test_mark_reviewed.py",
+          "line": 108,
+          "quote": "def test_date_defaults_to_today_in_denver(db_path: Path) -> None:\n    lead = _lead(db_path)\n    assert _mark(db_path, lead, \"irrelevant\") == EXIT_OK\n    occurred = _activities(db_path)[0][\"occurred_at\"]\n    assert timeutil.local_date(occurred).isoformat() == DAY"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_fabricated_partner_counts_as_a_data_quality_failure creates a relationship_prospect lead and runs mark-reviewed <id> fabricated --reviewer founder --date 2026-11-30. It then runs the report for 2026-11-30 to 2026-11-30 and asserts both required lines are present. The test's lead id comes from lastrowid, not a hard-coded 2, but it is the first lead inserted in a fresh DB, so the id is 1 rather than 2. The id has no bearing on the result. All 17 tests in tests/test_mark_reviewed.py passed.",
+          "file": "tests/test_mark_reviewed.py",
+          "line": 125,
+          "quote": "    lead = _lead(db_path, \"relationship_prospect\")\n\n    assert _mark(db_path, lead, \"fabricated\", \"--date\", DAY) == EXIT_OK\n\n    lines = _report(db_path, capsys)\n    assert \"- Hand review relationship_prospect fabricated: 1\" in lines\n    assert \"- Data-quality failures: 1\" in lines"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran tests/test_mark_reviewed.py: 17 passed. The _refused helper (tests/test_mark_reviewed.py:135-145) asserts exit code 1 (EXIT_REFUSED), stderr starting 'error:', and no activities written. It is used for the five cases: inbound_inquiry lead (stderr contains 'lead: type'), lead 99 (stderr contains 'no lead 99'), reviewer '   ', and --date 2026-02-30 and 2026-12-01 (parametrized; Denver today is 2026-11-30 with utc_now pinned to 2026-12-01T00:00:00Z). A result 'maybe' returns EXIT_USAGE (2), because cli.py:772 gives the result argument argparse choices=hand_review.RESULTS, and no activities are written. The date check goes through events._parse_entry_date, which the future-date test exercises. I did not run the CLI by hand; the verdict rests on the tests and the code.",
+          "file": "tests/test_mark_reviewed.py",
+          "line": 135,
+          "quote": "    args = [\"mark-reviewed\", str(lead), \"relevant\", *extra, \"--db\", str(db_path)]\n    assert main(args) == EXIT_REFUSED\n    err = capsys.readouterr().err\n    assert err.startswith(\"error:\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Two tests in tests/test_mark_reviewed.py cover this AC, and all 17 tests in the file pass. The first test checks that a second mark-reviewed without --replace exits with the refused code, writes an 'error:' stderr line that contains 'relevant' and 'activity <first_id>', and leaves one activity row. The second test checks that with --replace the exit code is OK, activities are [hand_review, correction, hand_review], the correction's voids_activity_id is the first review's id, the new payload result is irrelevant, and the report shows relevant 0, irrelevant 1 and total 1. Caveats: I did not run the CLI by hand. The test uses the constant EXIT_REFUSED, and I did not confirm that its value is 1. The test also asserts the lead id from the _lead helper, not necessarily id 1.",
+          "file": "tests/test_mark_reviewed.py",
+          "line": 210,
+          "quote": "assert \"- Hand review direct_candidate irrelevant: 1\" in lines"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest: exit 0, 627 passed. uv run ruff check .: All checks passed!. uv run mypy .: Success, no issues found in 65 source files. uv run ruff format --check .: 207 files already formatted.",
+          "file": "tests/test_mark_reviewed.py",
+          "line": 1,
+          "quote": "627 passed in 2.84s"
+        }
+      ],
+      "returns_through": "2026-11-16T00:32:12.088Z"
+    }
+  ]
+}
