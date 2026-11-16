@@ -12,7 +12,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date
 
-from cottonwood import config, hand_review, inbound, timeutil
+from cottonwood import claims, config, hand_review, inbound, timeutil
 
 # SQL condition for leads that count. Test inquiries are listed but never counted (R-3);
 # the report reuses this so both outputs agree on what a test is.
@@ -349,3 +349,138 @@ def _inbound_section(conn: sqlite3.Connection, generated_at: str) -> list[str]:
             ]
             lines.append("| " + " | ".join(cells) + " |")
     return lines
+
+
+# Why a lead export is not draftable (R-20): no address to write to, or a suppressed one.
+BLOCKED_NO_CONTACT_EMAIL = "no_contact_email"
+BLOCKED_SUPPRESSED = "suppressed"
+
+
+class LeadExportError(ValueError):
+    """The lead cannot be exported; ``field`` names what is wrong."""
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(f"{field}: {message}")
+        self.field = field
+        self.message = message
+
+
+def lead_export(
+    conn: sqlite3.Connection,
+    lead_id: int,
+    settings: config.Config,
+    library: tuple[claims.Claim, ...],
+) -> dict[str, object]:
+    """Everything the drafting skill may use about one lead, and never an email address.
+
+    The contact's address decides ``draftable`` but is not exported: the skill writes the
+    message body and the founder addresses it in their own client (R-20, R-27, R-35).
+    """
+    lead = conn.execute(
+        "SELECT leads.id, leads.type, leads.stage, leads.contact_id, leads.hypothesis,"
+        " leads.verified_facts, leads.checklist, organizations.name AS organization,"
+        " organizations.domain_norm AS domain"
+        " FROM leads LEFT JOIN organizations ON organizations.id = leads.organization_id"
+        " WHERE leads.id = ?",
+        (lead_id,),
+    ).fetchone()
+    if lead is None:
+        raise LeadExportError("lead", f"no lead {lead_id}")
+    contact, blocked_by = _export_contact(conn, lead["contact_id"])
+    items = settings.review.checklists.get(str(lead["type"]), ())
+    statuses = {status.id: status.status for status in claims.effective_statuses(conn, library)}
+    sending = settings.sending
+    return {
+        "lead_id": int(lead["id"]),
+        "type": lead["type"],
+        "stage": lead["stage"],
+        "organization": (
+            {"name": lead["organization"], "domain": lead["domain"]}
+            if lead["organization"] is not None
+            else None
+        ),
+        "contact": contact,
+        "verified_facts": _facts(lead["verified_facts"]),
+        "hypothesis": lead["hypothesis"] or "",
+        "evidence": _export_evidence(conn, lead_id),
+        "checklist": _answers(lead["checklist"], items),
+        "claims": [
+            {"id": claim.id, "text": claim.text, "status": statuses.get(claim.id, claim.status)}
+            for claim in library
+        ],
+        "sending": {
+            "sender_identity": sending.sender_identity,
+            "postal_address": sending.postal_address,
+            "opt_out_line": sending.opt_out_line,
+            "ad_identification": sending.ad_identification,
+        },
+        "draftable": not blocked_by,
+        "blocked_by": blocked_by,
+    }
+
+
+def _export_contact(
+    conn: sqlite3.Connection, contact_id: object
+) -> tuple[dict[str, object] | None, list[str]]:
+    """The contact without its address, and why no draft may be written for it."""
+    row = None
+    if contact_id is not None:
+        row = conn.execute(
+            "SELECT id, name, role, email_norm, eligibility, deleted_at FROM contacts WHERE id = ?",
+            (contact_id,),
+        ).fetchone()
+    if row is None:
+        return None, [BLOCKED_NO_CONTACT_EMAIL]
+    blocked: list[str] = []
+    suppressed = False
+    if not row["email_norm"] or row["deleted_at"] is not None:
+        blocked.append(BLOCKED_NO_CONTACT_EMAIL)
+    else:
+        suppressed = (
+            conn.execute(
+                "SELECT 1 FROM suppression WHERE email_norm = ?", (row["email_norm"],)
+            ).fetchone()
+            is not None
+        )
+        if suppressed:
+            blocked.append(BLOCKED_SUPPRESSED)
+    contact = {
+        "id": int(row["id"]),
+        "name": row["name"],
+        "role": row["role"],
+        "eligibility": row["eligibility"],
+        "suppressed": suppressed,
+    }
+    return contact, blocked
+
+
+def _export_evidence(conn: sqlite3.Connection, lead_id: int) -> list[dict[str, object]]:
+    rows = conn.execute(
+        "SELECT url, observed_at, published_at, kind, excerpt, observation FROM evidence"
+        " WHERE lead_id = ? ORDER BY observed_at DESC, id DESC",
+        (lead_id,),
+    )
+    return [
+        {
+            "url": row["url"],
+            "observed_at": row["observed_at"],
+            "published_at": row["published_at"],
+            "kind": row["kind"],
+            "excerpt": row["excerpt"],
+            "observation": row["observation"],
+        }
+        for row in rows
+    ]
+
+
+def _facts(stored: object) -> list[str]:
+    """The stored verified facts (a JSON array of strings), or [] when absent or unreadable."""
+    if not isinstance(stored, str):
+        return []
+    try:
+        value = json.loads(stored)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
