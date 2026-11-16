@@ -1,0 +1,20 @@
+{
+  "feature": "outreach-skill",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-16T02:24:31.136Z",
+      "sha256": "685d9a7ba985aa5c53b08447020142d915af624948f6e803bb32f75b610cc70d",
+      "head": "3010efc3caca28cf2e3f68d504a2e098a4feca09"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-16T02:24:51.063Z",
+      "sha256": "c1f3bc3fcaed8c951b0433daa549d773506a6f3d17ffc010193dd4256dd74a39",
+      "head": "3010efc3caca28cf2e3f68d504a2e098a4feca09",
+      "spec_sha256": "685d9a7ba985aa5c53b08447020142d915af624948f6e803bb32f75b610cc70d"
+    }
+  }
+}

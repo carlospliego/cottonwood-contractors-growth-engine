@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-143",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep of '^## ' in docs/runbook.md gives exactly Restore from backup, Re-applying suppression after a restore, Deletion requests, Inbound verification checklist, Relay, Research run and Drafting run, in that order. The Drafting run section (docs/runbook.md:212-226) contains all six required strings: 'cottonwood review --lead', 'prepare-outreach', 'cottonwood record-run --skill prepare-outreach', 'cottonwood approve draft', 'cottonwood prepare-send' and 'cottonwood log-outreach'. tests/test_runbook_drafting.py asserts the heading list (test_drafting_run_follows_research_run) and every required phrase in the section (test_drafting_run_names_every_step_command). tests/test_runbook_inbound.py also gains 'Drafting run' in its heading list. I ran both test files and 18 passed.",
+          "file": "docs/runbook.md",
+          "line": 212,
+          "quote": "## Drafting run"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest exited 0 (890 passed). uv run ruff check . printed 'All checks passed!'. uv run mypy . printed 'Success: no issues found in 96 source files'. uv run ruff format --check . printed '290 files already formatted'. I did not capture exit codes for the last three commands, because they were piped to tail. Each one printed a success message with no failures.",
+          "file": "tests/test_runbook_drafting.py",
+          "line": 1,
+          "quote": "890 passed in 4.67s"
+        }
+      ],
+      "returns_through": "2026-11-16T02:35:05.851Z"
+    }
+  ]
+}

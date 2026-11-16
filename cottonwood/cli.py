@@ -6,6 +6,7 @@ Exit codes: 0 = done, 1 = refused (a gate or validation failure), 2 = usage erro
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sqlite3
 import sys
@@ -232,6 +233,21 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
         help="write the Markdown to this file (e.g. out/review.md; out/ is git-ignored)",
     )
     parser.add_argument(
+        "--lead",
+        type=int,
+        default=None,
+        help="export one lead as JSON for the prepare-outreach skill (requires --json)",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="with --lead: print the lead export as JSON"
+    )
+    parser.add_argument(
+        "--claims",
+        type=Path,
+        default=claims.DEFAULT_CLAIMS_PATH,
+        help=f"with --lead: claims library (default: {claims.DEFAULT_CLAIMS_PATH})",
+    )
+    parser.add_argument(
         "--config",
         type=Path,
         default=None,
@@ -250,6 +266,8 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
 
 def _run_review(args: argparse.Namespace) -> int:
     """Print the review, or write it to --out for sending to the founder (R-13, R-31)."""
+    if args.lead is not None or args.json:
+        return _run_lead_export(args)
     try:
         review_config = _import_review_config(args.config)
     except config.ConfigError as exc:
@@ -279,6 +297,48 @@ def _run_review(args: argparse.Namespace) -> int:
         print(f"error: could not write {out_path}: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     print(f"review written: {out_path}")
+    return EXIT_OK
+
+
+def _run_lead_export(args: argparse.Namespace) -> int:
+    """Export one lead as JSON for the prepare-outreach skill (R-20); never an email address."""
+    if args.lead is None or not args.json:
+        print("error: --lead and --json must be given together", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        settings = config.load_config(args.config)
+        library = claims.load_claims(args.claims)
+    except (config.ConfigError, claims.ClaimsError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        export = review.lead_export(conn, args.lead, settings, library)
+    except review.LeadExportError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not read the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    text = json.dumps(export, indent=2, sort_keys=True) + "\n"
+    if args.out is None:
+        sys.stdout.write(text)
+        return EXIT_OK
+    out_path: Path = args.out
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        print(f"error: could not write {out_path}: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    print(f"lead export written: {out_path}")
     return EXIT_OK
 
 

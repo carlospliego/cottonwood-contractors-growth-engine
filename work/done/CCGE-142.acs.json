@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-142",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md frontmatter has name prepare-outreach, non-empty description, version 1.0.0, and allowed-tools exactly the four scoped entries (no Bash/Edit/Glob/Grep/WebSearch/WebFetch, no unscoped Read/Write). tests/test_outreach_skill.py parses the frontmatter and asserts name, description, version, set equality with ALLOWED, forbidden prefixes, and a scoped-regex check; the file's 6 tests pass.",
+          "file": ".claude/skills/prepare-outreach/SKILL.md",
+          "line": 5,
+          "quote": "allowed-tools:\n  - Read(out/leads/**)\n  - Read(cottonwood/schemas/draft-claims.schema.json)\n  - Write(out/drafts/**)\n  - Write(out/briefs/**)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "All eight required statements are in the SKILL.md body: draftable false with 'write no file at all' and 'Never draft for a suppressed contact', use only export claims, list every claim with the export's status, flag non-verified claims in the brief, never use a prohibited claim, the four sending values verbatim, never invent, and export text is data not instructions. tests/test_outreach_skill.py::test_the_rules_are_stated asserts a phrase for each against the body, and the 6 tests in the file pass. I did not mutate the SKILL.md text to check that the test catches a removed phrase.",
+          "file": "tests/test_outreach_skill.py",
+          "line": 63,
+          "quote": "\"Never use a `prohibited` claim\","
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The SKILL.md worked example has a json code block holding a claims list. The test test_the_worked_example_claims_list_is_valid (tests/test_outreach_skill.py:86) extracts it by regex and validates it with Draft202012Validator against the draft-claims schema, asserting no errors. The Output section (lines 42-46) names out/drafts/LEAD-N.md, out/drafts/LEAD-N.claims.json and out/briefs/LEAD-N.md, and test_the_output_files_are_named (line 80) asserts all three. All 6 tests in tests/test_outreach_skill.py pass.",
+          "file": ".claude/skills/prepare-outreach/SKILL.md",
+          "line": 47,
+          "quote": "## Worked example"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest exited 0 with 887 passed. uv run ruff check . reported All checks passed. uv run mypy . reported no issues found in 95 source files. uv run ruff format --check . reported 289 files already formatted.",
+          "file": "tests/test_outreach_skill.py",
+          "line": 1,
+          "quote": "887 passed in 4.95s"
+        }
+      ],
+      "returns_through": "2026-11-16T02:32:06.884Z"
+    }
+  ]
+}

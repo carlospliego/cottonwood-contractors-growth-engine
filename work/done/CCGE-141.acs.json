@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-141",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "lead_export returns exactly the 13 required keys. The contact dict has only id, name, role, eligibility and suppressed, and email_norm is used only to compute suppression and is never exported. Claim statuses come from claims.effective_statuses, and the sending dict holds the four configured values. draftable is `not blocked_by`. The CLI handles --lead with --json and --claims, exits 0 and prints JSON. tests/test_review_lead_export.py::test_a_draftable_lead_exports_without_an_address builds this scenario with utc_now pinned (NOW) and asserts the key set, contact keys, claims, sending, draftable true, blocked_by [] and no '@' in any string. All 6 tests in that file pass. The fixture's pinned NOW is not 2026-12-01, which is cosmetic because the export does not depend on the time.",
+          "file": "cottonwood/review.py",
+          "line": 392,
+          "quote": "\"draftable\": not blocked_by,"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The 6 tests in tests/test_review_lead_export.py pass, and the code matches each clause of the criterion. (1) After `suppress`, the export exits 0 with draftable false, 'suppressed' in blocked_by and contact.suppressed true (test_a_suppressed_contact_is_not_draftable). _export_contact looks the contact's email_norm up in the suppression table and appends BLOCKED_SUPPRESSED. (2) A lead with no contact exits 0 with contact null, draftable false and 'no_contact_email' in blocked_by (test_a_lead_without_a_contact_is_not_draftable). _export_contact returns (None, [BLOCKED_NO_CONTACT_EMAIL]). (3) With --out, _run_lead_export writes the same JSON text to the file and prints 'lead export written: {out_path}'. test_out_writes_the_same_export checks the exact stdout and that the file's JSON equals the printed object. It uses a tmp path whose directory is named OUT. The parent directory is created if missing. I did not run the literal 'OUT/lead.json' relative path.",
+          "file": "cottonwood/cli.py",
+          "line": 342,
+          "quote": "    print(f\"lead export written: {out_path}\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran the CLI against an empty db. 'review --lead 99 --json' exits 1 and prints 'error: lead: no lead 99' to stderr. 'review --lead 1' without --json exits 2. The full suite passes (881 passed), including the existing review tests, and the diff leaves the plain review path unchanged: the new branch is only taken when --lead or --json is given. Tests at tests/test_review_lead_export.py:185-190 cover both error cases.",
+          "file": "cottonwood/cli.py",
+          "line": 269,
+          "quote": "if args.lead is not None or args.json:\n        return _run_lead_export(args)"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. pytest exited 0 with 881 passed. ruff check printed 'All checks passed!'. mypy printed 'Success: no issues found in 94 source files'. ruff format --check printed '287 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-141",
+          "line": 1,
+          "quote": "881 passed in 4.58s"
+        }
+      ],
+      "returns_through": "2026-11-16T02:29:20.955Z"
+    }
+  ]
+}
