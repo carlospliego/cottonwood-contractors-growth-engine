@@ -8,9 +8,11 @@ and its age, next action, founder time and the standing hand-review result, in a
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from cottonwood import claims, config, hand_review, inbound, timeutil
 
@@ -354,6 +356,8 @@ def _inbound_section(conn: sqlite3.Connection, generated_at: str) -> list[str]:
 # Why a lead export is not draftable (R-20): no address to write to, or a suppressed one.
 BLOCKED_NO_CONTACT_EMAIL = "no_contact_email"
 BLOCKED_SUPPRESSED = "suppressed"
+# Where prepare-outreach writes LEAD-N drafts, relative to the folder cottonwood runs from.
+DRAFTS_DIR = Path("out") / "drafts"
 
 
 class LeadExportError(ValueError):
@@ -370,11 +374,14 @@ def lead_export(
     lead_id: int,
     settings: config.Config,
     library: tuple[claims.Claim, ...],
+    drafts_dir: Path = DRAFTS_DIR,
 ) -> dict[str, object]:
     """Everything the drafting skill may use about one lead, and never an email address.
 
     The contact's address decides ``draftable`` but is not exported: the skill writes the
     message body and the founder addresses it in their own client (R-20, R-27, R-35).
+    ``next_draft`` is the draft number the skill writes next, so a later run never
+    overwrites an earlier draft the skill itself cannot see.
     """
     lead = conn.execute(
         "SELECT leads.id, leads.type, leads.stage, leads.contact_id, leads.hypothesis,"
@@ -416,7 +423,24 @@ def lead_export(
         },
         "draftable": not blocked_by,
         "blocked_by": blocked_by,
+        "next_draft": next_draft_number(drafts_dir, lead_id),
     }
+
+
+def next_draft_number(drafts_dir: Path, lead_id: int) -> int:
+    """One more than the highest N among ``LEAD-N.md`` and ``LEAD-N.claims.json`` drafts.
+
+    Gaps are never reused, so a removed draft's number is not handed out again.
+    """
+    pattern = re.compile(rf"{lead_id}-([1-9][0-9]*)(?:\.md|\.claims\.json)")
+    if not drafts_dir.is_dir():
+        return 1
+    used = [
+        int(match.group(1))
+        for entry in drafts_dir.iterdir()
+        if (match := pattern.fullmatch(entry.name)) is not None
+    ]
+    return max(used, default=0) + 1
 
 
 def _export_contact(

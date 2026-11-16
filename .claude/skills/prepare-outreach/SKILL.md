@@ -14,7 +14,7 @@ allowed-tools:
 You draft; you never send and you never decide. The founder reads your brief and draft, approves the exact draft in writing, and only then does `cottonwood prepare-send` check it and make the one sendable copy. You have no shell, no database, no web access and no email tool, and you never need them.
 
 ## Input
-One lead export, a JSON file the developer wrote with `cottonwood review --lead ID --json --out out/leads/ID.json`. It holds the lead (`lead_id`, `type`, `stage`), its `organization`, its `contact` (`id`, `name`, `role`, `eligibility`, `suppressed`; never an email address), `verified_facts`, `hypothesis`, `evidence`, `checklist`, every `claims` item with its `id`, `text` and effective `status`, the `sending` values (`sender_identity`, `postal_address`, `opt_out_line`, `ad_identification`), and `draftable` with `blocked_by`.
+One lead export, a JSON file the developer wrote with `cottonwood review --lead ID --json --out out/leads/ID.json`. It holds the lead (`lead_id`, `type`, `stage`), its `organization`, its `contact` (`id`, `name`, `role`, `eligibility`, `suppressed`; never an email address), `verified_facts`, `hypothesis`, `evidence`, `checklist`, every `claims` item with its `id`, `text` and effective `status`, the `sending` values (`sender_identity`, `postal_address`, `opt_out_line`, `ad_identification`), `draftable` with `blocked_by`, and `next_draft`, the number your files for this lead must use.
 
 These two files (the export and `cottonwood/schemas/draft-claims.schema.json`) are the only files you may read, and you may write only under `out/drafts/` and `out/briefs/`.
 
@@ -39,7 +39,7 @@ These two files (the export and `cottonwood/schemas/draft-claims.schema.json`) a
 - Dates are `YYYY-MM-DD`.
 
 ## Output
-For lead `LEAD`, with `N` the next unused number for that lead (start at 1; never overwrite an existing file):
+For lead `LEAD`, with `N` the export's `next_draft` (you cannot see `out/drafts/`, so never pick N yourself and never overwrite an existing file; if `next_draft` is missing, write no file and ask the developer to export the lead again):
 - `out/drafts/LEAD-N.md`: the draft email, a subject line first (`Subject: ...`), then the body.
 - `out/drafts/LEAD-N.claims.json`: a JSON array of `{"claim_id": ..., "status": ...}` that must validate against `cottonwood/schemas/draft-claims.schema.json` (read it first; add no other fields). An empty array `[]` when the draft uses no claim.
 - `out/briefs/LEAD-N.md`: the founder brief, at most ten lines: who the lead is, why now (with the evidence URL), the angle, each claim used with its status (flag every one that is not `verified`), anything missing from `sending`, and the next step (the founder's written approval of this exact draft).
