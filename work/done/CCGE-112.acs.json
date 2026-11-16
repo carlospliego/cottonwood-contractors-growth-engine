@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-112",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The file starts with '---'. yaml.safe_load parses the frontmatter to a mapping: name 'research-prospects', a non-empty description, version '1.0.0' (a str that matches ^[0-9]+\\.[0-9]+\\.[0-9]+$), and allowed-tools [WebSearch, WebFetch, Read, Write, Glob, Grep]. Every entry is in the permitted set, and WebSearch, WebFetch and Write are all present. There is no Bash, Edit, NotebookEdit, mcp__ or email tool.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-112/.claude/skills/research-prospects/SKILL.md",
+          "line": 4,
+          "quote": "version: 1.0.0\nallowed-tools:\n  - WebSearch\n  - WebFetch\n  - Read\n  - Write\n  - Glob\n  - Grep"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md contains 'out/research/YYYY-MM-DD-SLUG.json' (4 matches) and 'cottonwood/schemas/research-record.schema.json' (line 48). That schema file exists in the worktree. A fixed-string grep -cF found each of the five rule sentences exactly once, at lines 36-40, so they are verbatim.",
+          "file": ".claude/skills/research-prospects/SKILL.md",
+          "line": 36,
+          "quote": "- Never invent a prospect, a contact name, an email address or a phone number."
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md has exactly one json-fence opener (grep count 1). The tests in tests/test_research_skill.py extract that block, check it is a non-empty JSON array, and write it to a file. They run with config/pilot.yaml (pilot_config fixture, line 66) and timeutil.utc_now pinned to 2026-12-01T00:00:00Z (line 62). test_worked_example_passes_the_check asserts prospects-import FILE --check exits 0 with exactly 'check: N valid, 0 rejected'. test_worked_example_imports_one_lead_per_record asserts a plain import into a fresh migrated db exits 0 and the leads count equals N. All 13 tests in the file passed (PYTHONPATH=. uv run pytest tests/test_research_skill.py).",
+          "file": "tests/test_research_skill.py",
+          "line": 123,
+          "quote": "def test_worked_example_passes_the_check("
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The '## After the run (the developer)' section (SKILL.md lines 119-126) contains every required string. 'cottonwood prospects-import' and '--check' are in step 2 (line 122). The plain import is step 3 (line 123). '/cost' is in step 4 (line 124). 'cottonwood record-run', '--skill research-prospects', '--validation' and '--cost-source claude-code-cost' are all in step 5 (line 125). The order is check (step 2), then import (step 3), then record-run (step 5). The record-run flags match the CLI's own --help output.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-112/.claude/skills/research-prospects/SKILL.md",
+          "line": 122,
+          "quote": "2. Check the file without writing anything: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json --check`."
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree with UV_OFFLINE=1 UV_NO_SYNC=1. uv run pytest exited 0 with 686 passed. uv run ruff check . printed 'All checks passed!'. uv run mypy . printed 'Success: no issues found in 71 source files'. uv run ruff format --check . printed '224 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-112",
+          "line": 1,
+          "quote": "686 passed in 3.07s"
+        }
+      ],
+      "returns_through": "2026-11-16T01:04:13.426Z"
+    }
+  ]
+}

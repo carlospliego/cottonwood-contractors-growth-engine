@@ -1,0 +1,20 @@
+{
+  "feature": "research-skill",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-16T00:52:22.663Z",
+      "sha256": "a0bcde7194855fb293844c8fb69f44bccd4842cb46787e167463cd6602e64c9a",
+      "head": "a8bae878be19f96eb0c5f446475564038bcdf2be"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-16T00:52:22.720Z",
+      "sha256": "9801433f88a6869b32382e1c327005930bbe85ce8b1cf830694c56dd9bcda187",
+      "head": "a8bae878be19f96eb0c5f446475564038bcdf2be",
+      "spec_sha256": "a0bcde7194855fb293844c8fb69f44bccd4842cb46787e167463cd6602e64c9a"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-110",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the exact AC invocation through cottonwood.cli.main with utc_now pinned to 2026-12-01T00:00:00Z against a freshly migrated temp db. It returned rc 0 and printed 'run 1 recorded: research-prospects 1.0.0, 3.25 USD (claude-code-cost)'. The single agent_runs row was (1, research-prospects, 1.0.0, claude-opus-5-5, 2026-11-30T16:00:00Z, 2026-11-30T16:40:00Z, 'brief: GC firms in Salt Lake County', out/research/2026-11-30-gc.json, passed, 120000, '3.25', claude-code-cost, 0). Every field matches the AC. The test test_run_is_stored_with_every_field also passes.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-110/cottonwood/runs.py",
+          "line": 47,
+          "quote": "f\"run {run_id} recorded: {self.skill} {self.skill_version},\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran tests/test_record_run.py and all 24 tests passed. Three of them cover this AC through the real CLI entry point `main`. test_estimated_cost_is_marked checks that --estimated gives cost_estimated 1 and a line ending '(claude-code-cost, estimated)'. test_billing_console_source_is_stored checks that billing-console is accepted and stored. test_recorded_runs_feed_the_report records a 3.25 observed run and a 1.1 estimated run, then runs `report --from 2026-11-30 --to 2026-11-30`. It asserts the exact lines '- Model cost: 4.35', '- Model cost observed: 3.25' and '- Model cost estimated: 1.10'. The implementation matches: cottonwood/cli.py has an --estimated store_true flag and COST_SOURCES includes billing-console. RunRecord.line appends ', estimated' when the flag is set, and record_run stores int(cost_estimated). cottonwood/report.py sums observed and estimated costs separately in _model_cost, with the labels at lines 58-60. I tried a manual end-to-end probe with a scratch database, but the sandbox policy blocked it. The verdict therefore rests on the passing tests plus reading the code.",
+          "file": "tests/test_record_run.py",
+          "line": 125,
+          "quote": "    assert \"- Model cost: 4.35\" in lines\n    assert \"- Model cost observed: 3.25\" in lines\n    assert \"- Model cost estimated: 1.10\" in lines"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I read the criterion at /Users/carlos/src/cottonwood-contractors-growth-engine/work/tasks/CCGE-110.md:21. The worktree's own copy of the task file is missing, so I used the main checkout's. tests/test_record_run.py:139-168 parametrizes all 14 listed refusals: blank skill, skill-version, model, input and output; started 'yesterday'; ended 25:00; ended before started; started 2026-12-01 00:00 Denver; tokens -1 and 1.5; cost -1, 1e3 and 1.23456. Each case asserts exit == EXIT_REFUSED (1), stderr starts with 'error: <field>:', and no agent_runs rows. `uv run pytest tests/test_record_run.py` passed (24 passed). In the code, runs.build_record (cottonwood/runs.py:~95-125) raises RunError(field, ...) before any DB write. cli._run_record_run (cottonwood/cli.py, diff hunk ~880) prints 'error: {exc}' to stderr and returns EXIT_REFUSED. The 'later than now' check compares started against the pinned utc_now: 2026-12-01 00:00 Denver is 07:00Z, which is after 00:00Z. I did not run the CLI by hand: a scratch-directory cleanup command was blocked by the read-only policy.",
+          "file": "tests/test_record_run.py",
+          "line": 164,
+          "quote": "    capsys.readouterr()\n    assert _record(db_path, **changes) == EXIT_REFUSED\n    err = capsys.readouterr().err\n    assert err.startswith(f\"error: {field}:\")\n    assert _rows(db_path) == []"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The CLI declares --validation with choices=runs.VALIDATIONS (cottonwood/cli.py:865), and --cost-source is declared as a choice option at cli.py:870. Argparse rejects values outside the choices with exit 2. tests/test_record_run.py:171-174 runs 'validation=maybe' and 'cost_source=guess' through the CLI, asserts the exit code equals EXIT_USAGE, and asserts _rows(db_path)==[] (no agent_runs row). The test file passed (24 passed). My own direct CLI run was blocked by the read-only policy hook, so the verdict rests on the passing test and the source.",
+          "file": "tests/test_record_run.py",
+          "line": 171,
+          "quote": "@pytest.mark.parametrize(\"changes\", [{\"validation\": \"maybe\"}, {\"cost_source\": \"guess\"}])\ndef test_choices_are_usage_errors(db_path: Path, changes: dict[str, str]) -> None:\n    assert _record(db_path, **changes) == EXIT_USAGE\n    assert _rows(db_path) == []"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest: 667 passed. uv run ruff check .: All checks passed! uv run mypy .: Success, no issues found in 69 source files. uv run ruff format --check .: 221 files already formatted.",
+          "file": "tests/test_record_run.py",
+          "line": 1,
+          "quote": "667 passed in 3.48s"
+        }
+      ],
+      "returns_through": "2026-11-16T00:56:37.431Z"
+    }
+  ]
+}
