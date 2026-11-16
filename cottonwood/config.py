@@ -50,6 +50,23 @@ class ReviewConfig:
 
 
 @dataclass(frozen=True)
+class SendingConfig:
+    """What every sendable draft must carry (R-21). Empty means not configured.
+
+    prepare-send refuses while sender_identity or postal_address is empty, and checks that a
+    draft contains each configured value verbatim; ad_identification is checked only when set.
+    """
+
+    sender_identity: str = ""
+    postal_address: str = ""
+    opt_out_line: str = ""
+    ad_identification: str = ""
+
+
+SENDING_KEYS = ("sender_identity", "postal_address", "opt_out_line", "ad_identification")
+
+
+@dataclass(frozen=True)
 class Config:
     """Typed pilot settings. Relative paths resolve against the current directory.
 
@@ -63,6 +80,7 @@ class Config:
     model_cost_cap_usd: Decimal | None = None
     sending_blocked_by: str | None = None
     review: ReviewConfig = field(default_factory=ReviewConfig)
+    sending: SendingConfig = field(default_factory=SendingConfig)
 
 
 def default_config_path() -> Path:
@@ -109,7 +127,26 @@ def load_config(path: Path | None = None) -> Config:
         model_cost_cap_usd=_cost_cap(report.get("model_cost_cap_usd"), config_path),
         sending_blocked_by=_blocked_by(report.get("sending_blocked_by"), config_path),
         review=_review(data.get("review"), config_path),
+        sending=_sending(data.get("sending"), config_path),
     )
+
+
+def _sending(value: object, config_path: Path) -> SendingConfig:
+    """The sending block (R-21); a missing section or key is empty (not configured)."""
+    if value is None:
+        return SendingConfig()
+    if not isinstance(value, dict):
+        raise ConfigError(f"sending must be a mapping in {config_path}")
+    values: dict[str, str] = {}
+    for key in SENDING_KEYS:
+        item = value.get(key)
+        if item is None:
+            values[key] = ""
+        elif isinstance(item, str):
+            values[key] = item.strip()
+        else:
+            raise ConfigError(f"sending.{key} must be a string in {config_path}")
+    return SendingConfig(**values)
 
 
 def _review(value: object, config_path: Path) -> ReviewConfig:

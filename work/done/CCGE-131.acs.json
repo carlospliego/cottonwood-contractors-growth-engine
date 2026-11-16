@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-131",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test test_a_ready_draft_is_copied_and_recorded (tests/test_prepare_send.py:182) uses the `ready` fixture. That fixture pins utc_now to 2026-12-01T00:00:00Z. It sets all four sending values and max_evidence_age_days 30. It gives lead 1 an eligible, unsuppressed contact and evidence observed 2026-11-20. It records the lead, draft and claim approvals with the real `cottonwood approve` commands. The draft contains all four configured values, and the claims list holds one verified claim. The test calls `prepare-send 1 DRAFT --claims CLAIMS --out OUT` through main() and asserts three things. The exit is 0. OUT/1-1.md is byte-identical to the draft. stdout is exactly 'sendable draft written: <OUT/NAME> (prepared N)'. It then asserts exactly one draft_prepared activity with lead_id 1, contact_id equal to the contact's id, and payload keys exactly {draft, sha256, sendable, claim_ids, lead_approval_id, draft_approval_id}. All 22 tests in the file pass. cottonwood/send.py implements this path: it inserts the draft_prepared activity, writes the sendable bytes, and Prepared.line() prints the required message. cottonwood/cli.py:_run_prepare_send returns EXIT_OK after printing it. events.denver_today() reads timeutil.utc_now(), so the pinned time applies.",
+          "file": "cottonwood/send.py",
+          "line": 73,
+          "quote": "return f\"sendable draft written: {self.sendable.as_posix()} (prepared {self.activity_id})\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_prepare_send.py runs prepare-send through cli main() and covers every single-failure case in the AC. Each case goes through _assert_refused. That helper asserts exit code 1 (EXIT_REFUSED=1 in cottonwood/cli.py:38), no OUT/NAME file, exactly one prepare_refused activity whose payload checks equals [CHECK], and no draft_prepared activity. Each test also asserts the first stderr line starts with 'refused: CHECK:'. The cases covered are: a voided lead approval (approval), an edited draft with a different sha256 (approval), an ineligible contact, a suppressed address, a missing claims list, claims that are unverified, prohibited or not in the claims file, evidence that is stale, absent or has max_age unset, and a draft missing each of the sender identity, postal address, opt-out line and ad identification. All 22 tests in the file pass. cottonwood/send.py implements the checks (_approvals, _contact_checks, _claim_checks, _evidence_check, _content_checks) and _check_names lists each failed check once. One gap: the AC pairs 'no lead approval' with 'a draft approval whose sha256 differs' as one case. The tests split them into two separate cases. Both yield ['approval'], so the combined case follows from the code and I judged this acceptable.",
+          "file": "tests/test_prepare_send.py",
+          "line": 189,
+          "quote": "    assert setup.prepare() == EXIT_REFUSED\n    lines = _refused(capsys)\n    assert not (setup.out / setup.draft.name).exists()\n    [refused] = setup.activities(\"prepare_refused\")\n    assert _payload(refused)[\"checks\"] == checks"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "prepare_send gathers every failure in a fixed sequence: approvals, then contact (eligibility, suppression), claims, evidence, then content checks in the order sender_identity, postal_address, opt_out, ad_identification. The prepare_refused payload uses _check_names, which lists checks in CHECKS order, and CHECKS matches the required order. In _content_checks an empty sender_identity, postal_address or opt_out_line gives 'not configured (<key> is empty)'. An empty ad_identification is skipped because it is not mandatory, so a draft without one passes that check. The tests test_every_failed_check_is_named_in_order, test_an_unconfigured_sender_or_address_says_not_configured and test_without_ad_identification_configured_none_is_required cover the three clauses. A run of the 15 selected tests in tests/test_prepare_send.py passed.",
+          "file": "cottonwood/send.py",
+          "line": 293,
+          "quote": "def _content_checks(text: str, sending: config.SendingConfig, refusals: list[Refusal]) -> None:"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "prepare_send looks up the lead first and raises SendError('lead', 'no lead 99') before any insert. The CLI prints 'error: lead: ...' for SendError and returns EXIT_REFUSED. test_an_unknown_lead_records_nothing (tests/test_prepare_send.py:351) asserts exit 1, stderr starting 'error: lead:', and an unchanged activity count. Voided approval: _standing_approvals filters with NOT events._voided_sql, so a voided lead approval counts as missing and 'approval' is refused. test_no_lead_approval_fails_approval (line 218) inserts a correction activity that voids the lead approval and asserts a refusal of ['approval'] only. All 22 tests in tests/test_prepare_send.py pass. I did not run the full suite, ruff or mypy, which belong to AC 5.",
+          "file": "cottonwood/send.py",
+          "line": 98,
+          "quote": "        raise SendError(\"lead\", f\"no lead {lead_id}\")"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest exited 0 with 828 passed. uv run ruff check . printed 'All checks passed!'. uv run mypy . printed 'Success: no issues found in 87 source files'. uv run ruff format --check . printed '266 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-131",
+          "line": 1,
+          "quote": "828 passed in 4.57s"
+        }
+      ],
+      "returns_through": "2026-11-16T02:02:06.607Z"
+    }
+  ]
+}

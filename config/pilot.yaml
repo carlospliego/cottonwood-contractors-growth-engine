@@ -49,3 +49,16 @@ review:
         label: "Professional contact valid"
       - key: introduction_angle
         label: "Specific introduction angle"
+
+# What every sendable draft must carry; `cottonwood prepare-send` checks each draft for these
+# values verbatim (R-21). Open founder questions: leave them unset until decided. While
+# sender_identity or postal_address is unset, prepare-send refuses every draft.
+# sending:
+#   # The sender's name and business as it must appear in the message.
+#   sender_identity: "Cottonwood Contractors"
+#   # A valid business postal address (CAN-SPAM).
+#   postal_address: "PO Box 0, City, UT 00000"
+#   # The working opt-out line, word for word.
+#   opt_out_line: "Reply STOP and we will not contact you again."
+#   # Ad identification, only where required; leave unset when not needed.
+#   ad_identification: "Advertisement"

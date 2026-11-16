@@ -1,0 +1,113 @@
+{
+  "feature": "send-gate",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "Sending config and the draft claims list contract",
+      "goal": "Let the pilot config hold the sender identity, postal address, opt-out line and ad identification every sendable draft must carry, shipped unset, and define and validate the claims list that accompanies a draft (R-21).",
+      "story_refs": [
+        "US-1"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-5.1"
+      ],
+      "plan": "1. cottonwood/config.py: SendingConfig frozen dataclass (sender_identity, postal_address, opt_out_line, ad_identification: str, default ''); _sending(value, path) accepting None/missing as empty, refusing a non-mapping section ('sending must be a mapping') and a non-string value ('sending.KEY must be a string'); Config.sending with a default factory; values stripped.\n2. config/pilot.yaml: a commented 'sending:' section describing each key and that prepare-send refuses while sender_identity or postal_address is empty.\n3. cottonwood/schemas/draft-claims.schema.json: draft 2020-12, type array, items object with required claim_id (string, pattern ^[a-z0-9]+(-[a-z0-9]+)*$) and status (enum verified/unverified/prohibited), additionalProperties false.\n4. cottonwood/draft_claims.py: DraftClaimsError(path, message) str 'PATH: MESSAGE'; load_draft_claims(path) -> tuple of claim ids, refusing a missing file, invalid JSON and schema errors (first error's path and message).\n5. tests/test_sending_config.py and tests/test_draft_claims.py.",
+      "acceptance_criteria": [
+        "config.load_config on a file with 'sending: {sender_identity: \"Cottonwood Contractors\", postal_address: \"1 Main St, Sandy, UT 84070\", opt_out_line: \"Reply STOP to opt out.\", ad_identification: \"Advertisement\"}' returns config.sending with those four values; a file with no sending section, or with only some keys, loads the missing ones as ''.",
+        "config.load_config raises ConfigError whose message contains 'sending' for 'sending: [1]' and contains 'sending.postal_address' for 'sending: {postal_address: 12}'; config/pilot.yaml still loads, has a 'sending' section only in comments, and load_config of it returns four empty sending values.",
+        "cottonwood/schemas/draft-claims.schema.json exists; draft_claims.load_draft_claims returns ('service-area', 'licensed') for a file holding [{\"claim_id\": \"service-area\", \"status\": \"verified\"}, {\"claim_id\": \"licensed\", \"status\": \"unverified\"}] and returns () for [].",
+        "draft_claims.load_draft_claims raises DraftClaimsError whose message names the file for each of: a missing file, '{not json', '{}' (not an array), [{\"claim_id\": \"Service_Area\", \"status\": \"verified\"}], [{\"claim_id\": \"a\", \"status\": \"maybe\"}], [{\"claim_id\": \"a\"}] and [{\"claim_id\": \"a\", \"status\": \"verified\", \"extra\": 1}].",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "S",
+      "imported_as": "CCGE-130"
+    },
+    {
+      "id": "T-02",
+      "title": "prepare-send: write a sendable draft only when every R-21 check passes",
+      "goal": "Make prepare-send the only producer of a sendable draft: copy the approved draft to out/send only when the lead and draft approvals, eligibility, suppression, claims, evidence age and the configured sender identity, postal address, opt-out line and ad identification all check out, and otherwise refuse naming every failed check (R-21).",
+      "story_refs": [
+        "US-2"
+      ],
+      "covers": [
+        "AC-2.1",
+        "AC-2.2",
+        "AC-2.3",
+        "AC-5.1"
+      ],
+      "plan": "1. cottonwood/send.py (new): CHECKS order ('approval','eligibility','suppression','claims','evidence','sender_identity','postal_address','opt_out','ad_identification'); Refusal(check, detail) with line() 'refused: CHECK: detail'; SendError(field, message); PrepareResult(activity_id, sendable) with line(); prepare_send(conn, lead_id, draft, out_dir, claims_path, claims_list_path, settings, today, actor, now) -> PrepareResult or raises PrepareRefused(refusals, activity_id). Checks: latest unvoided approval scope lead for the lead; latest unvoided approval scope draft for the lead whose sha256 equals the draft file's; lead contact exists with an email, eligibility 'eligible'; contact email_norm not in suppression; draft_claims.load_draft_claims, claims.load_claims, and every id effectively verified per claims.effective_statuses (unknown id, unverified or prohibited fail); newest evidence observed_at within review.max_evidence_age_days of today (unset, none, or older fail); draft text contains sending.sender_identity, postal_address, opt_out_line and (if set) ad_identification, an empty sender_identity/postal_address failing as 'not configured'. Pass: in BEGIN IMMEDIATE insert draft_prepared (lead_id, contact_id) then write OUT/NAME bytes, removing it if commit fails. Fail: insert prepare_refused {draft, checks}.\n2. cottonwood/cli.py: prepare-send Command (lead int, draft path, --claims default config/claims.yaml, --claims-file default DRAFT with .md -> .claims.json, --out default out/send, --actor, --db, --config); unknown lead -> 'error: lead:'.\n3. tests/test_prepare_send.py with a _ready fixture and one test per check plus all-fail ordering.",
+      "acceptance_criteria": [
+        "With utc_now pinned to 2026-12-01T00:00:00Z and every R-21 condition met (all four sending values configured, review.max_evidence_age_days 30, lead 1's contact eligible and unsuppressed, evidence observed 2026-11-20, unvoided lead approval and draft approval with matching sha256 recorded with cottonwood approve, the draft containing the four configured values, and a claims list whose one claim is verified by the claims file and a matching approve claim), 'cottonwood prepare-send 1 DRAFT --claims CLAIMS --out OUT' exits 0, writes OUT/NAME byte-identical to DRAFT (NAME the draft's file name), prints 'sendable draft written: OUT/NAME (prepared N)', and appends one draft_prepared activity with lead_id 1, the contact's id, and payload keys draft, sha256, sendable, claim_ids, lead_approval_id and draft_approval_id.",
+        "Each single failure makes prepare-send exit 1, leave OUT without NAME, print a stderr line starting 'refused: CHECK:' and append one prepare_refused activity whose payload checks list is [CHECK]: no lead approval and a draft approval whose sha256 differs (approval); contact ineligible (eligibility); contact address suppressed (suppression); claims list missing, and a claim not in the claims file, unverified, or prohibited (claims); newest evidence observed 2026-10-01, no evidence, and max_evidence_age_days unset (evidence); draft missing the sender identity (sender_identity), the postal address (postal_address), the opt-out line (opt_out), or the configured ad identification (ad_identification).",
+        "With approvals missing, the contact ineligible, evidence stale and the draft lacking every configured value, prepare-send prints the refused lines in the order approval, eligibility, evidence, sender_identity, postal_address, opt_out, ad_identification and the prepare_refused payload lists them in that order; with sending.sender_identity or sending.postal_address empty in config the detail says 'not configured'; with no ad_identification configured a draft without one passes that check.",
+        "'cottonwood prepare-send 99 DRAFT' with no lead 99 exits 1 with a stderr line starting 'error: lead:' and appends no activity; a voided lead approval (a correction voiding it) counts as no approval.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [],
+      "complexity": "L",
+      "imported_as": "CCGE-131"
+    },
+    {
+      "id": "T-03",
+      "title": "log-outreach: record a send and flag any send that bypassed the gate",
+      "goal": "Record each send the founder performed with its prepared-draft reference, source, message digest, sender, date and provider ID, and record and report a gate violation when the send had no matching prepared draft, a different message, a different recipient, or a recipient suppressed since preparation (R-22).",
+      "story_refs": [
+        "US-3"
+      ],
+      "covers": [
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-5.1"
+      ],
+      "plan": "1. cottonwood/send.py: OutreachResult(sent_id, violation_id, reasons) with line(); log_outreach(conn, lead_id, prepared, recipient, source_url, message, sender, day, provider_message_id, actor, now): refuse (SendError) blank sender, non-http(s) source URL, unreadable message, unknown lead, bad recipient address; reasons: prepared missing or not a draft_prepared of this lead ('no prepared draft'), message sha256 != prepared sha256 ('message differs from the prepared draft'), normalized recipient != prepared contact's email_norm ('recipient differs from the prepared contact'), recipient in suppression with added_at after the prepared activity's recorded_at ('recipient suppressed since preparation'). One transaction: insert sent (lead_id, contact_id = prepared contact or lead contact) with payload incl. recipient_matches, then gate_violation {sent_activity_id, reasons} if any.\n2. cottonwood/cli.py: log-outreach Command (lead, --prepared int, --recipient, --source-url, --message, --sender, --date default today, --provider-message-id, --actor, --db); prints 'send recorded: lead L (activity N)' then one 'gate violation: REASON' stderr line per reason, exit 1 when any.\n3. tests/test_log_outreach.py reusing a prepared-draft fixture.",
+      "acceptance_criteria": [
+        "After a successful prepare-send recorded as activity P for lead 1, 'cottonwood log-outreach 1 --prepared P --recipient CONTACT_EMAIL --source-url https://firm.example.com/team --message SENDABLE --sender Founder --date 2026-11-30 --provider-message-id abc123' exits 0, prints 'send recorded: lead 1 (activity N)', appends exactly one new activity of type sent with lead_id 1 and the contact's id whose payload has prepared P, source_url, message_sha256 equal to the sendable file's sha256, sender Founder, sent_on 2026-11-30, provider_message_id abc123 and recipient_matches true, and no payload value contains '@'.",
+        "Each of these appends a sent activity and a gate_violation activity whose payload has sent_activity_id equal to the sent id and reasons [REASON], prints a stderr line 'gate violation: REASON' and exits 1: no --prepared ('no prepared draft'); --prepared naming a prepare_refused activity or another lead's draft_prepared ('no prepared draft'); --message a file with different bytes ('message differs from the prepared draft'); --recipient another address ('recipient differs from the prepared contact'); the contact's address suppressed with cottonwood suppress after the prepare-send ('recipient suppressed since preparation').",
+        "Each of these exits 1 with a stderr line starting 'error: FIELD:' and appends no activity: blank --sender (sender), --source-url ftp://x (source_url), a missing --message file (message), --date 2026-12-01 and --date 30/11/2026 (date), --recipient not-an-email (recipient), lead 99 (lead).",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-02"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-132"
+    },
+    {
+      "id": "T-04",
+      "title": "log-reply: record replies; opt-out suppresses and bounce makes ineligible in the same command",
+      "goal": "Record each reply by type, and for an opt-out add the contact's address to suppression, and for a bounce set the contact ineligible, in the same transaction, so no later send can reach them (R-23, R-24).",
+      "story_refs": [
+        "US-4"
+      ],
+      "covers": [
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3",
+        "AC-5.1"
+      ],
+      "plan": "1. cottonwood/gate.py: extract _insert_suppression(conn, email_norm, reason, source, now) -> existing row or None (no transaction) used by suppress.\n2. cottonwood/send.py: REPLY_TYPES; ReplyResult with lines(); log_reply(conn, lead_id, reply_type, day, note, actor, now): unknown lead 'lead'; opt_out/bounce need the lead's contact with an email ('contact'); BEGIN IMMEDIATE: insert reply {type, received_on, note}; opt_out: _insert_suppression(email_norm, 'opt-out reply to lead L', 'log-reply', now) and insert suppressed {source: 'log-reply'} with contact_id; bounce: eligibility._apply(conn, contact_id, 'ineligible', None, actor, now).\n3. cottonwood/cli.py: log-reply Command (lead, type choices REPLY_TYPES, --date, --note, --actor, --db) printing 'reply recorded: lead L TYPE (activity N)' and the side-effect line.\n4. tests/test_log_reply.py.",
+      "acceptance_criteria": [
+        "With utc_now pinned to 2026-12-01T00:00:00Z, 'cottonwood log-reply 1 interested --date 2026-11-30 --note \"wants a call\"' exits 0, prints 'reply recorded: lead 1 interested (activity N)' and appends one reply activity with lead_id 1 and payload {type: interested, received_on: 2026-11-30, note: wants a call}; each of interested, not_now, not_relevant, referral, opt_out, bounce and other exits 0, and 'log-reply 1 maybe' exits 2.",
+        "'cottonwood log-reply 1 opt_out' for a lead whose contact C has email Pat@Firm.example.com exits 0, prints 'suppressed: contact C' as a second line, stores a suppression row with email_norm pat@firm.example.com, reason 'opt-out reply to lead 1' and source 'log-reply', and appends a reply and a suppressed activity (contact_id C, payload without '@'); when the address is already suppressed the row is unchanged; afterwards prepare-send for lead 1 fails the suppression check.",
+        "'cottonwood log-reply 1 bounce' for a lead whose contact C is eligible exits 0, prints 'contact C: eligibility eligible -> ineligible', sets contacts.eligibility to ineligible and appends a reply and an eligibility_set activity; 'log-reply 2 opt_out' and 'log-reply 2 bounce' for a lead without a contact email exit 1 with a stderr line starting 'error: contact:' and append nothing; 'log-reply 99 other' exits 1 with 'error: lead:'.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-02"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-133"
+    }
+  ]
+}

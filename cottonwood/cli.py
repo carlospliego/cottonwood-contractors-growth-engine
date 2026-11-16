@@ -19,6 +19,7 @@ from cottonwood import (
     claims,
     config,
     db,
+    draft_claims,
     eligibility,
     events,
     gate,
@@ -28,6 +29,7 @@ from cottonwood import (
     report,
     review,
     runs,
+    send,
     timeutil,
     validate,
 )
@@ -1072,6 +1074,217 @@ def _run_claims(args: argparse.Namespace) -> int:
     return EXIT_REFUSED if any(status.note for status in statuses) else EXIT_OK
 
 
+def _add_prepare_send_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the prepare-send command's arguments."""
+    parser.add_argument("lead", type=int, help="the lead the draft is for")
+    parser.add_argument("draft", type=Path, help="the approved draft file")
+    parser.add_argument(
+        "--claims",
+        type=Path,
+        default=claims.DEFAULT_CLAIMS_PATH,
+        help=f"claims library (default: {claims.DEFAULT_CLAIMS_PATH})",
+    )
+    parser.add_argument(
+        "--claims-file",
+        type=Path,
+        default=None,
+        help="the draft's claims list (default: the draft path with .claims.json)",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=send.DEFAULT_OUT_DIR,
+        help=f"folder for the sendable draft (default: {send.DEFAULT_OUT_DIR})",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=f"config file (default: ${config.CONFIG_ENV_VAR}, else {config.DEFAULT_CONFIG_PATH})",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_prepare_send(args: argparse.Namespace) -> int:
+    """Write a sendable draft only when every R-21 check passes; name each failed check."""
+    try:
+        cfg = config.load_config(args.config)
+    except config.ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    draft: Path = args.draft
+    claims_list: Path = (
+        args.claims_file if args.claims_file is not None else draft_claims.claims_list_path(draft)
+    )
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        prepared = send.prepare_send(
+            conn,
+            args.lead,
+            draft,
+            args.out,
+            args.claims,
+            claims_list,
+            cfg,
+            events.denver_today(),
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except send.PrepareRefused as exc:
+        for refusal in exc.refusals:
+            print(refusal.line(), file=sys.stderr)
+        return EXIT_REFUSED
+    except send.SendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except (sqlite3.Error, OSError) as exc:
+        print(f"error: could not prepare the draft: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(prepared.line())
+    return EXIT_OK
+
+
+def _add_log_outreach_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-outreach command's arguments."""
+    parser.add_argument("lead", type=int, help="the lead the message went to")
+    parser.add_argument(
+        "--prepared",
+        type=int,
+        default=None,
+        help="the draft_prepared activity id prepare-send printed (omit only for a bypass)",
+    )
+    parser.add_argument("--recipient", required=True, help="the address the message went to")
+    parser.add_argument(
+        "--source-url", required=True, help="public URL where the recipient's address was found"
+    )
+    parser.add_argument("--message", type=Path, required=True, help="the message file sent")
+    parser.add_argument("--sender", required=True, help="who sent it (the founder)")
+    parser.add_argument("--date", required=True, help="the day it was sent (YYYY-MM-DD, Denver)")
+    parser.add_argument(
+        "--provider-message-id", default=None, help="the mail client's message id, if known"
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_log_outreach(args: argparse.Namespace) -> int:
+    """Record a founder send; a send that bypassed the gate is also a gate violation (R-22)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        outreach = send.log_outreach(
+            conn,
+            args.lead,
+            args.prepared,
+            args.recipient,
+            args.source_url,
+            args.message,
+            args.sender,
+            args.date,
+            events.denver_today(),
+            args.provider_message_id,
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except send.SendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the send: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(outreach.line())
+    if outreach.reasons:
+        for line in outreach.violation_lines():
+            print(line, file=sys.stderr)
+        return EXIT_REFUSED
+    return EXIT_OK
+
+
+def _add_log_reply_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-reply command's arguments."""
+    parser.add_argument("lead", type=int, help="the lead that replied")
+    parser.add_argument("type", choices=send.REPLY_TYPES, help="what kind of reply it was")
+    parser.add_argument(
+        "--date", default=None, help="the day it arrived (YYYY-MM-DD, Denver; default: today)"
+    )
+    parser.add_argument("--note", default=None, help="a short note about the reply")
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_log_reply(args: argparse.Namespace) -> int:
+    """Record a reply; opt_out suppresses the address and bounce makes the contact ineligible."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        reply = send.log_reply(
+            conn,
+            args.lead,
+            args.type,
+            args.date,
+            args.note,
+            events.denver_today(),
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except send.SendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the reply: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    for line in reply.lines():
+        print(line)
+    return EXIT_OK
+
+
 def _add_suppress_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the suppress command's arguments."""
     parser.add_argument("email", help="the address to suppress (trimmed and lower-cased)")
@@ -1202,6 +1415,24 @@ COMMANDS: list[Command] = [
         "Add an email address to suppression without a lead; existing entries never change.",
         _add_suppress_arguments,
         _run_suppress,
+    ),
+    Command(
+        "prepare-send",
+        "Write a sendable copy of an approved draft only when every send-gate check passes.",
+        _add_prepare_send_arguments,
+        _run_prepare_send,
+    ),
+    Command(
+        "log-outreach",
+        "Record a message the founder sent; a send that bypassed prepare-send is a violation.",
+        _add_log_outreach_arguments,
+        _run_log_outreach,
+    ),
+    Command(
+        "log-reply",
+        "Record a reply; opt_out suppresses the address and bounce makes it ineligible.",
+        _add_log_reply_arguments,
+        _run_log_reply,
     ),
 ]
 

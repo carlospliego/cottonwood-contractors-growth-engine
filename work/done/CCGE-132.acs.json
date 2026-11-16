@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-132",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test tests/test_log_outreach.py::test_a_gated_send_is_recorded exercises the AC through the CLI. After a successful prepare-send it runs log-outreach with the AC's arguments. It asserts exit 0 and stdout 'send recorded: lead 1 (activity N)'. It asserts exactly one new activity, of type sent, with lead_id 1 and contact_id 1. It asserts the payload's prepared, source_url, message_sha256 (equal to the sendable file's sha256), sender, sent_on 2026-11-30, provider_message_id abc123 and recipient_matches True. It asserts no payload value contains '@', and that no gate_violation was recorded. All 14 tests in the file pass. In cottonwood/send.py log_outreach inserts the sent payload with exactly these fields. The payload holds no email address; the message field is the file path. The date check accepts 2026-11-30 because the test pins Denver today to 2026-11-30. I did not run the CLI by hand outside the test.",
+          "file": "cottonwood/send.py",
+          "line": 399,
+          "quote": "\"recipient_matches\": matches,"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I read the diff in cottonwood/send.py and cottonwood/cli.py. log_outreach always inserts a `sent` activity. When `reasons` is non-empty it also inserts a `gate_violation` activity with {sent_activity_id, reasons}. The CLI prints 'gate violation: REASON' to stderr and returns EXIT_REFUSED (1). Each bypass produces exactly one reason. _prepared() returns None for a non-draft_prepared type or a draft_prepared on another lead, which gives 'no prepared draft'. A digest mismatch gives 'message differs from the prepared draft'. A recipient mismatch gives 'recipient differs from the prepared contact'. A suppression with added_at >= the preparation's recorded_at gives 'recipient suppressed since preparation'. tests/test_log_outreach.py covers all five cases, including the prepare_refused activity and lead 2 with lead 1's draft. Its _assert_violation helper checks exit 1, exactly one sent row, exactly one gate_violation row, sent_activity_id equal to the sent id, reasons equal to [reason], and the stderr line. All 14 tests in the file pass.",
+          "file": "cottonwood/send.py",
+          "line": 417,
+          "quote": "violation_id = _insert(\n                conn,\n                lead_id,\n                contact_id,\n                VIOLATION_TYPE,\n                {\"sent_activity_id\": sent_id, \"reasons\": reasons},"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "log_outreach validates sender, date, source_url, recipient, message file and lead, and raises SendError(field, ...) for each failure. All of this happens before conn.execute('BEGIN IMMEDIATE') and before any insert, so a refused call appends no activity. The CLI catches SendError, prints 'error: {exc}' to stderr and returns EXIT_REFUSED (1). The parametrized test test_bad_input_is_refused_and_records_nothing in tests/test_log_outreach.py:210-233 covers all 7 cases: blank sender, ftp://x, a missing message file, 2026-12-01, 30/11/2026, not-an-email and lead 99. For each it asserts exit 1, stderr starting 'error: FIELD:' and an unchanged activity count. The date check rejects dates after today (events.py:581). Today is 2026-11-15, so 2026-12-01 is rejected. I ran tests/test_log_outreach.py: 14 passed. I did not separately check that the SendError message text starts with 'FIELD:'. The test assertion passing is my evidence for it.",
+          "file": "cottonwood/send.py",
+          "line": 372,
+          "quote": "    who = sender.strip()\n    if not who:\n        raise SendError(\"sender\", \"must not be empty\")"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest exited 0 with 842 passed. uv run ruff check . printed 'All checks passed!'. uv run mypy . printed 'Success: no issues found in 88 source files'. uv run ruff format --check . printed '267 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-132/tests/test_log_outreach.py",
+          "line": 1,
+          "quote": "842 passed in 4.41s"
+        }
+      ],
+      "returns_through": "2026-11-16T02:06:02.775Z"
+    }
+  ]
+}

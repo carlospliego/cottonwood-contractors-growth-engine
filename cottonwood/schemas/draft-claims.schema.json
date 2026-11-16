@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cottonwood.example/schemas/draft-claims.schema.json",
+  "title": "Draft claims list",
+  "description": "The claims an outreach draft uses, written next to the draft as <draft stem>.claims.json. prepare-send recomputes each claim's effective status from config/claims.yaml and the recorded claim approvals; the status here is informational.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["claim_id", "status"],
+    "additionalProperties": false,
+    "properties": {
+      "claim_id": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+      "status": {"enum": ["verified", "unverified", "prohibited"]}
+    }
+  }
+}

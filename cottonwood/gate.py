@@ -94,21 +94,28 @@ def suppress(
     origin = (source or "").strip() or SUPPRESS_SOURCE
     conn.execute("BEGIN IMMEDIATE")
     try:
-        row = conn.execute(
-            "SELECT reason, added_at FROM suppression WHERE email_norm = ?", (email_norm,)
-        ).fetchone()
-        if row is not None:
-            conn.rollback()
-            return SuppressResult(email_norm, False, str(row["reason"]), str(row["added_at"]))
-        conn.execute(
-            "INSERT INTO suppression (email_norm, reason, source, added_at) VALUES (?, ?, ?, ?)",
-            (email_norm, why, origin, now),
-        )
+        result = _insert_suppression(conn, email_norm, why, origin, now)
         conn.commit()
     except BaseException:
         conn.rollback()
         raise
-    return SuppressResult(email_norm, True, why, now)
+    return result
+
+
+def _insert_suppression(
+    conn: sqlite3.Connection, email_norm: str, reason: str, source: str, now: str
+) -> SuppressResult:
+    """Inside the caller's transaction: add the entry, or report the one it already has."""
+    row = conn.execute(
+        "SELECT reason, added_at FROM suppression WHERE email_norm = ?", (email_norm,)
+    ).fetchone()
+    if row is not None:
+        return SuppressResult(email_norm, False, str(row["reason"]), str(row["added_at"]))
+    conn.execute(
+        "INSERT INTO suppression (email_norm, reason, source, added_at) VALUES (?, ?, ?, ?)",
+        (email_norm, reason, source, now),
+    )
+    return SuppressResult(email_norm, True, reason, now)
 
 
 def approve(
