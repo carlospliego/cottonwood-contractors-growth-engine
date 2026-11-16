@@ -247,10 +247,10 @@ def test_cap_values_accepted(tmp_path: Path, value: str, expected: Decimal) -> N
     assert config.load_config(path).model_cost_cap_usd == expected
 
 
-def test_shipped_pilot_config_loads_with_keys_unset() -> None:
+def test_shipped_pilot_config_has_no_cap_and_names_the_blocker() -> None:
     cfg = config.load_config(Path(__file__).resolve().parents[1] / "config" / "pilot.yaml")
     assert cfg.model_cost_cap_usd is None
-    assert cfg.sending_blocked_by is None
+    assert cfg.sending_blocked_by == "Founder: sender identity and business postal address"
 
 
 def test_blocked_by_is_stripped(tmp_path: Path) -> None:
