@@ -17,6 +17,7 @@ from cottonwood import (
     backup,
     config,
     db,
+    eligibility,
     events,
     inbound,
     prospects,
@@ -714,6 +715,56 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
     return EXIT_REFUSED if result.rejected else EXIT_OK
 
 
+def _add_set_eligibility_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the set-eligibility command's arguments."""
+    parser.add_argument("contact", type=int, help="contact id")
+    parser.add_argument("eligibility", choices=eligibility.VALUES, help="the new eligibility")
+    parser.add_argument(
+        "--source-url",
+        default=None,
+        help="public professional page showing the address (required for eligible)",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who sets it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_set_eligibility(args: argparse.Namespace) -> int:
+    """Change a contact's eligibility, or refuse naming every failed check (R-8, R-24)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        change = eligibility.set_eligibility(
+            conn, args.contact, args.eligibility, args.source_url, args.actor, timeutil.utc_now()
+        )
+    except eligibility.ContactNotFound as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except eligibility.EligibilityError as exc:
+        for field, rule in exc.failures:
+            print(f"error: {field}: {rule}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not update the database: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(change.line())
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -769,6 +820,12 @@ COMMANDS: list[Command] = [
         "Import researched direct candidates and relationship prospects from JSON or CSV.",
         _add_prospects_import_arguments,
         _run_prospects_import,
+    ),
+    Command(
+        "set-eligibility",
+        "Set a contact's eligibility: eligible needs a public source URL and a clear identity.",
+        _add_set_eligibility_arguments,
+        _run_set_eligibility,
     ),
 ]
 
