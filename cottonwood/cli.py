@@ -25,6 +25,7 @@ from cottonwood import (
     prospects,
     report,
     review,
+    runs,
     timeutil,
     validate,
 )
@@ -845,6 +846,81 @@ def _run_mark_reviewed(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_record_run_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the record-run command's arguments."""
+    parser.add_argument("--skill", required=True, help="skill name, e.g. research-prospects")
+    parser.add_argument(
+        "--skill-version", required=True, help="the version in the skill's frontmatter"
+    )
+    parser.add_argument("--model", required=True, help="model id the run used")
+    parser.add_argument(
+        "--started",
+        required=True,
+        help="start: 'YYYY-MM-DD HH:MM' (America/Denver) or a UTC time ending in Z",
+    )
+    parser.add_argument("--ended", required=True, help="end, in the same forms as --started")
+    parser.add_argument("--input", required=True, help="what the run was given (brief, file)")
+    parser.add_argument("--output", required=True, help="the file the run wrote")
+    parser.add_argument(
+        "--validation", required=True, choices=runs.VALIDATIONS, help="the output's check result"
+    )
+    parser.add_argument("--tokens", required=True, help="total tokens, a whole number")
+    parser.add_argument("--cost", required=True, help="cost in USD, e.g. 3.25 (at most 4 places)")
+    parser.add_argument(
+        "--cost-source",
+        required=True,
+        choices=runs.COST_SOURCES,
+        help="where the cost figure came from: Claude Code's /cost or the billing console",
+    )
+    parser.add_argument(
+        "--estimated", action="store_true", help="mark the cost as estimated (not exact)"
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_record_run(args: argparse.Namespace) -> int:
+    """Record one skill run in agent_runs, or refuse naming the field (R-26)."""
+    try:
+        record = runs.build_record(
+            skill=args.skill,
+            skill_version=args.skill_version,
+            model=args.model,
+            started=args.started,
+            ended=args.ended,
+            input_ref=args.input,
+            output_ref=args.output,
+            validation=args.validation,
+            tokens=args.tokens,
+            cost=args.cost,
+            cost_source=args.cost_source,
+            estimated=args.estimated,
+            now=timeutil.utc_now(),
+        )
+    except runs.RunError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        run_id = runs.record_run(conn, record)
+    except sqlite3.Error as exc:
+        print(f"error: could not record the run: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(record.line(run_id))
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -912,6 +988,12 @@ COMMANDS: list[Command] = [
         "Record the hand-review result of a researched lead: relevant, irrelevant or fabricated.",
         _add_mark_reviewed_arguments,
         _run_mark_reviewed,
+    ),
+    Command(
+        "record-run",
+        "Record one Claude skill run with its version, model, times, files and cost source.",
+        _add_record_run_arguments,
+        _run_record_run,
     ),
 ]
 
