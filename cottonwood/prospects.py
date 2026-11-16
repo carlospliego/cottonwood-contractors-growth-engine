@@ -336,6 +336,24 @@ def _stored_facts(value: object) -> list[str] | None:
     return [str(fact) for fact in facts] if isinstance(facts, list) else None
 
 
+def _stored_checklist(value: object) -> dict[str, str]:
+    """A lead's stored checklist answers by item key ({} when none or unreadable)."""
+    if not isinstance(value, str):
+        return {}
+    try:
+        answers = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(answers, dict):
+        return {}
+    return {str(key): str(answer) for key, answer in answers.items()}
+
+
+def checklist_json(checklist: tuple[tuple[str, str], ...]) -> str | None:
+    """The leads.checklist text for a record's answers: a key-sorted JSON object, or NULL."""
+    return json.dumps(dict(checklist), sort_keys=True) if checklist else None
+
+
 def _column(row: sqlite3.Row | None, key: str) -> object:
     """A column of an optional row (None when there is no row)."""
     return None if row is None else row[key]
@@ -385,6 +403,10 @@ def _differences(
     ]
     if not record.is_test_given:
         pairs = [pair for pair in pairs if pair[0] != "is_test"]
+    stored_checklist = _stored_checklist(lead["checklist"])
+    pairs += [
+        (f"checklist.{key}", stored_checklist.get(key), answer) for key, answer in record.checklist
+    ]
     return tuple(
         Difference(field, _shown(stored), _shown(incoming))
         for field, stored, incoming in pairs
@@ -451,7 +473,7 @@ def _insert_lead(
         conn.execute(
             "INSERT INTO leads (type, organization_id, contact_id, stage, property_location,"
             " hypothesis, verified_facts, next_action, founder_time_h, value_amount, value_basis,"
-            " referred_by, is_test) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " referred_by, is_test, checklist) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 record.type,
                 org_id,
@@ -466,6 +488,7 @@ def _insert_lead(
                 record.value_basis,
                 record.referred_by,
                 1 if record.is_test else 0,
+                checklist_json(record.checklist),
             ),
         )
     )

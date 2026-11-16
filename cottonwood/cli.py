@@ -658,18 +658,40 @@ def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            f"config file with the review checklists (default: ${config.CONFIG_ENV_VAR}, else"
+            f" {config.DEFAULT_CONFIG_PATH}; without one, no checklist answers are accepted)"
+        ),
+    )
+
+
+def _import_review_config(path: Path | None) -> config.ReviewConfig:
+    """The review settings prospects-import checks checklist answers against.
+
+    An explicit --config must load. Without one, a missing default config file means no
+    checklist items are configured, so imports without checklist answers keep working.
+    """
+    if path is None and not config.default_config_path().exists():
+        return config.ReviewConfig()
+    return config.load_config(path).review
 
 
 def _run_prospects_import(args: argparse.Namespace) -> int:
     """Validate and import research records; refuse each invalid record by name (R-5, R-6)."""
     path: Path = args.file
     try:
+        review_config = _import_review_config(args.config)
         raw_records = validate.load_records(path)
-    except validate.FileError as exc:
+    except (config.ConfigError, validate.FileError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     today = events.denver_today()
-    records = [validate.validate_record(raw, today) for raw in raw_records]
+    keys = review_config.keys()
+    records = [validate.validate_record(raw, today, keys) for raw in raw_records]
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)

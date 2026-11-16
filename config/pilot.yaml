@@ -15,3 +15,37 @@ paths:
 #   # The open question that blocks sending outreach. When set, the report says sending is
 #   # blocked and quotes this text. Unset or blank: nothing is blocked.
 #   sending_blocked_by: "Q3: which domain sends outreach"
+
+# Settings `cottonwood review` and `cottonwood prospects-import` read (R-10, R-13).
+review:
+  # Newest-evidence age, in days, past which review flags a lead (and prepare-send will refuse
+  # it). Open founder question: leave unset until decided; review then says "not configured".
+  # max_evidence_age_days: 90
+  # Yes/no/unknown questions per candidate queue (SPEC.md section 9). Research records answer
+  # them in their `checklist` object by key; founder time is its own column, not an item.
+  # Keys are lower_snake_case and unique per queue; renaming a key orphans stored answers.
+  checklists:
+    direct_candidate:
+      - key: direct_signal
+        label: "Current, directly sourced signal (not just a directory listing)"
+      - key: territory_fit
+        label: "Property in the target territory and plausible for Cottonwood's verified capability"
+      - key: buyer_identified
+        label: "Buyer, decision-maker or procurement process identifiable"
+      - key: timing_known
+        label: "Timing known (not a speculative future project)"
+      - key: accessible_to_new_gc
+        label: "Evidence the project is still accessible to a new GC"
+      - key: legal_contact_route
+        label: "Respectful, legal way to reach the person"
+    relationship_prospect:
+      - key: firm_relevance
+        label: "Firm relevant to Cottonwood's work"
+      - key: portfolio_geography
+        label: "Portfolio and geography overlap the target territory"
+      - key: repeat_referral_potential
+        label: "Repeat referral potential"
+      - key: contact_valid
+        label: "Professional contact valid"
+      - key: introduction_angle
+        label: "Specific introduction angle"
