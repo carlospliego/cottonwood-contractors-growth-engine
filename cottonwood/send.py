@@ -129,6 +129,10 @@ def prepare_send(
             conn.commit()
             raise PrepareRefused(tuple(refusals), refused_id)
         sendable = out_dir / draft.name
+        if sendable.exists() and sendable.read_bytes() != data:
+            raise SendError(
+                "out", f"{sendable.as_posix()} already holds a different sendable draft"
+            )
         activity_id = _insert_prepared(
             conn,
             lead_id,
