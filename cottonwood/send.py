@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
-from cottonwood import claims, config, draft_claims, events
+from cottonwood import claims, config, draft_claims, events, normalize
 
 PREPARED_TYPE = "draft_prepared"
 REFUSED_TYPE = "prepare_refused"
@@ -318,3 +318,172 @@ def _payload(text: object) -> dict[str, object]:
     except json.JSONDecodeError:
         return {}
     return value if isinstance(value, dict) else {}
+
+
+SENT_TYPE = "sent"
+VIOLATION_TYPE = "gate_violation"
+NO_PREPARED = "no prepared draft"
+MESSAGE_DIFFERS = "message differs from the prepared draft"
+RECIPIENT_DIFFERS = "recipient differs from the prepared contact"
+RECIPIENT_SUPPRESSED = "recipient suppressed since preparation"
+
+
+@dataclass(frozen=True)
+class Outreach:
+    """A recorded send and, when it bypassed the gate, the violation."""
+
+    lead_id: int
+    sent_id: int
+    violation_id: int | None
+    reasons: tuple[str, ...]
+
+    def line(self) -> str:
+        """What log-outreach prints on stdout."""
+        return f"send recorded: lead {self.lead_id} (activity {self.sent_id})"
+
+    def violation_lines(self) -> list[str]:
+        """What log-outreach prints on stderr, one line per reason."""
+        return [f"gate violation: {reason}" for reason in self.reasons]
+
+
+def log_outreach(
+    conn: sqlite3.Connection,
+    lead_id: int,
+    prepared_id: int | None,
+    recipient: str,
+    source_url: str,
+    message: Path,
+    sender: str,
+    sent_on: str,
+    today: date,
+    provider_message_id: str | None,
+    actor: str,
+    now: str,
+) -> Outreach:
+    """Record a send the founder performed, and a gate violation when it bypassed the gate."""
+    who = sender.strip()
+    if not who:
+        raise SendError("sender", "must not be empty")
+    try:
+        day = events._parse_entry_date(sent_on, today)
+    except events.EventError as exc:
+        raise SendError("date", str(exc).removeprefix("date: ")) from None
+    url = source_url.strip()
+    if not events._is_http_url(url):
+        raise SendError("source_url", f"must be an http(s) URL, got {source_url!r}")
+    try:
+        recipient_norm = normalize.normalize_email(recipient)
+    except ValueError as exc:
+        raise SendError("recipient", str(exc).removeprefix("email ")) from None
+    try:
+        message_digest = sha256_file(message)
+    except FileNotFoundError:
+        raise SendError("message", f"no such file: {message}") from None
+    except OSError as exc:
+        raise SendError("message", f"cannot read {message}: {exc.strerror or exc}") from None
+    lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if lead is None:
+        raise SendError("lead", f"no lead {lead_id}")
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        prepared = _prepared(conn, lead_id, prepared_id)
+        reasons: list[str] = []
+        contact_id = lead["contact_id"]
+        if prepared is None:
+            reasons.append(NO_PREPARED)
+        else:
+            contact_id = prepared["contact_id"]
+            payload = _payload(prepared["payload"])
+            if payload.get("sha256") != message_digest:
+                reasons.append(MESSAGE_DIFFERS)
+        contact_norm = _contact_email_norm(conn, contact_id)
+        matches = contact_norm is not None and contact_norm == recipient_norm
+        if prepared is not None:
+            if not matches:
+                reasons.append(RECIPIENT_DIFFERS)
+            if _suppressed_since(conn, recipient_norm, prepared["recorded_at"]):
+                reasons.append(RECIPIENT_SUPPRESSED)
+        sent_id = _insert(
+            conn,
+            lead_id,
+            contact_id,
+            SENT_TYPE,
+            {
+                "prepared": prepared_id,
+                "source_url": url,
+                "message": message.as_posix(),
+                "message_sha256": message_digest,
+                "sender": who,
+                "sent_on": day.isoformat(),
+                "provider_message_id": (provider_message_id or "").strip() or None,
+                "recipient_matches": matches,
+            },
+            actor,
+            events._day_start(day),
+            now,
+        )
+        violation_id = None
+        if reasons:
+            violation_id = _insert(
+                conn,
+                lead_id,
+                contact_id,
+                VIOLATION_TYPE,
+                {"sent_activity_id": sent_id, "reasons": reasons},
+                actor,
+                now,
+                now,
+            )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return Outreach(lead_id, sent_id, violation_id, tuple(reasons))
+
+
+def _prepared(
+    conn: sqlite3.Connection, lead_id: int, prepared_id: int | None
+) -> sqlite3.Row | None:
+    """The draft_prepared activity named by --prepared when it belongs to this lead."""
+    if prepared_id is None:
+        return None
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT id, contact_id, payload, recorded_at FROM activities"
+        " WHERE id = ? AND lead_id = ? AND type = ?",
+        (prepared_id, lead_id, PREPARED_TYPE),
+    ).fetchone()
+    return row
+
+
+def _contact_email_norm(conn: sqlite3.Connection, contact_id: int | None) -> str | None:
+    if contact_id is None:
+        return None
+    row = conn.execute("SELECT email_norm FROM contacts WHERE id = ?", (contact_id,)).fetchone()
+    return str(row["email_norm"]) if row is not None and row["email_norm"] else None
+
+
+def _suppressed_since(conn: sqlite3.Connection, email_norm: str, since: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM suppression WHERE email_norm = ? AND added_at >= ?", (email_norm, since)
+    ).fetchone()
+    return row is not None
+
+
+def _insert(
+    conn: sqlite3.Connection,
+    lead_id: int | None,
+    contact_id: int | None,
+    activity_type: str,
+    payload: dict[str, object],
+    actor: str,
+    occurred_at: str,
+    recorded_at: str,
+) -> int:
+    cursor = conn.execute(
+        "INSERT INTO activities (lead_id, contact_id, type, payload, actor, occurred_at,"
+        " recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (lead_id, contact_id, activity_type, json.dumps(payload), actor, occurred_at, recorded_at),
+    )
+    if cursor.lastrowid is None:
+        raise sqlite3.DatabaseError("insert returned no row id")
+    return cursor.lastrowid

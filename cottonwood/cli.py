@@ -1161,6 +1161,77 @@ def _run_prepare_send(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_log_outreach_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the log-outreach command's arguments."""
+    parser.add_argument("lead", type=int, help="the lead the message went to")
+    parser.add_argument(
+        "--prepared",
+        type=int,
+        default=None,
+        help="the draft_prepared activity id prepare-send printed (omit only for a bypass)",
+    )
+    parser.add_argument("--recipient", required=True, help="the address the message went to")
+    parser.add_argument(
+        "--source-url", required=True, help="public URL where the recipient's address was found"
+    )
+    parser.add_argument("--message", type=Path, required=True, help="the message file sent")
+    parser.add_argument("--sender", required=True, help="who sent it (the founder)")
+    parser.add_argument("--date", required=True, help="the day it was sent (YYYY-MM-DD, Denver)")
+    parser.add_argument(
+        "--provider-message-id", default=None, help="the mail client's message id, if known"
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_log_outreach(args: argparse.Namespace) -> int:
+    """Record a founder send; a send that bypassed the gate is also a gate violation (R-22)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        outreach = send.log_outreach(
+            conn,
+            args.lead,
+            args.prepared,
+            args.recipient,
+            args.source_url,
+            args.message,
+            args.sender,
+            args.date,
+            events.denver_today(),
+            args.provider_message_id,
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except send.SendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the send: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(outreach.line())
+    if outreach.reasons:
+        for line in outreach.violation_lines():
+            print(line, file=sys.stderr)
+        return EXIT_REFUSED
+    return EXIT_OK
+
+
 def _add_suppress_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the suppress command's arguments."""
     parser.add_argument("email", help="the address to suppress (trimmed and lower-cased)")
@@ -1297,6 +1368,12 @@ COMMANDS: list[Command] = [
         "Write a sendable copy of an approved draft only when every send-gate check passes.",
         _add_prepare_send_arguments,
         _run_prepare_send,
+    ),
+    Command(
+        "log-outreach",
+        "Record a message the founder sent; a send that bypassed prepare-send is a violation.",
+        _add_log_outreach_arguments,
+        _run_log_outreach,
     ),
 ]
 
