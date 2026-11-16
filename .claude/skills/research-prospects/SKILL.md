@@ -5,10 +5,9 @@ version: 1.0.0
 allowed-tools:
   - WebSearch
   - WebFetch
-  - Read
-  - Write
-  - Glob
-  - Grep
+  - Read(config/pilot.yaml)
+  - Read(cottonwood/schemas/research-record.schema.json)
+  - Write(out/research/**)
 ---
 
 # research-prospects
@@ -21,7 +20,7 @@ A research brief from the developer, for example: "6 direct candidates: dental a
 - the geography and firm types;
 - how many records to aim for. Fewer, well-sourced records beat more, weak ones.
 
-Before you start, read `config/pilot.yaml` for the checklist items of the brief's motion (`review.checklists.direct_candidate` or `review.checklists.relationship_prospect`). Use only those keys.
+Before you start, read `config/pilot.yaml` for the checklist items of the brief's motion (`review.checklists.direct_candidate` or `review.checklists.relationship_prospect`). Use only those keys. These two files (`config/pilot.yaml` and the schema) are the only local files you may read, and you may write only under `out/research/`.
 
 ## Procedure
 1. Search public professional sources: company sites, press releases, local business news, permit or planning notices, professional directories, LinkedIn company pages. Skip anything behind a login.

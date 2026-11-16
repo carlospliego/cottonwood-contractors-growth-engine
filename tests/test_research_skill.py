@@ -20,8 +20,14 @@ SKILL = ROOT / ".claude" / "skills" / "research-prospects" / "SKILL.md"
 PILOT_CONFIG = ROOT / "config" / "pilot.yaml"
 SCHEMA = "cottonwood/schemas/research-record.schema.json"
 NOW = "2026-12-01T00:00:00Z"  # Denver today: 2026-11-30
-ALLOWED_TOOLS = {"WebSearch", "WebFetch", "Read", "Write", "Glob", "Grep"}
-REQUIRED_TOOLS = {"WebSearch", "WebFetch", "Write"}
+ALLOWED_TOOLS = {
+    "WebSearch",
+    "WebFetch",
+    "Read(config/pilot.yaml)",
+    "Read(cottonwood/schemas/research-record.schema.json)",
+    "Write(out/research/**)",
+}
+REQUIRED_TOOLS = {"WebSearch", "WebFetch", "Write(out/research/**)"}
 RULES = (
     "Never invent a prospect, a contact name, an email address or a phone number.",
     "Every record has at least one evidence item with the exact page URL, the date you observed"
@@ -82,7 +88,7 @@ def test_only_web_research_and_file_tools_are_allowed() -> None:
     tools = _frontmatter()["allowed-tools"]
     if isinstance(tools, str):
         tools = [part.strip() for part in tools.split(",")]
-    assert set(tools) <= ALLOWED_TOOLS
+    assert set(tools) == ALLOWED_TOOLS
     assert REQUIRED_TOOLS <= set(tools)
     for tool in tools:
         assert "Bash" not in tool
