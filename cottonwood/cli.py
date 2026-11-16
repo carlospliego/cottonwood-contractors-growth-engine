@@ -19,6 +19,7 @@ from cottonwood import (
     db,
     eligibility,
     events,
+    hand_review,
     inbound,
     prospects,
     report,
@@ -765,6 +766,68 @@ def _run_set_eligibility(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_mark_reviewed_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the mark-reviewed command's arguments."""
+    parser.add_argument("lead", type=int, help="lead id (a direct candidate or partner prospect)")
+    parser.add_argument("result", choices=hand_review.RESULTS, help="the hand-review result")
+    parser.add_argument("--reviewer", required=True, help="who reviewed the record")
+    parser.add_argument(
+        "--date", default=None, help="the review day, YYYY-MM-DD (Denver; default today)"
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="void the lead's earlier hand review and record this one instead",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_mark_reviewed(args: argparse.Namespace) -> int:
+    """Record one hand-review result the report counts per motion (R-11)."""
+    try:
+        day = hand_review.parse_review_date(args.date, events.denver_today())
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        recorded = hand_review.mark_reviewed(
+            conn,
+            args.lead,
+            args.result,
+            args.reviewer,
+            day,
+            args.replace,
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except events.EventError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not record the review: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(recorded.line())
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -826,6 +889,12 @@ COMMANDS: list[Command] = [
         "Set a contact's eligibility: eligible needs a public source URL and a clear identity.",
         _add_set_eligibility_arguments,
         _run_set_eligibility,
+    ),
+    Command(
+        "mark-reviewed",
+        "Record the hand-review result of a researched lead: relevant, irrelevant or fabricated.",
+        _add_mark_reviewed_arguments,
+        _run_mark_reviewed,
     ),
 ]
 
