@@ -98,7 +98,10 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Env:
         " VALUES (1, 'Pat Lee (TEST)', 'Pat@Firm.example.com', 'pat@firm.example.com',"
         " 'eligible')"
     )
-    e.sql("INSERT INTO leads (id, type, stage, contact_id) VALUES (1, 'direct_candidate', 'researched', 1)")
+    e.sql(
+        "INSERT INTO leads (id, type, stage, contact_id)"
+        " VALUES (1, 'direct_candidate', 'researched', 1)"
+    )
     e.sql(
         "INSERT INTO evidence (lead_id, url, observed_at, kind)"
         " VALUES (1, 'https://firm.example.com/news', '2026-11-20', 'fact')"

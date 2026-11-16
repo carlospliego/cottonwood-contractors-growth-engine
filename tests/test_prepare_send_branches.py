@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
@@ -34,7 +35,7 @@ def _settings() -> config.Config:
 
 
 @pytest.fixture
-def conn(tmp_path: Path) -> sqlite3.Connection:
+def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     path = tmp_path / "cottonwood.db"
     db.migrate(path)
     connection = db.connect(path)
@@ -51,7 +52,7 @@ def conn(tmp_path: Path) -> sqlite3.Connection:
         " VALUES (1, 'https://firm.example.com/n', '2026-11-20', 'fact')"
     )
     connection.commit()
-    yield connection  # type: ignore[misc]
+    yield connection
     connection.close()
 
 
@@ -156,6 +157,4 @@ def test_non_date_evidence_is_refused(conn: sqlite3.Connection, tmp_path: Path) 
     conn.execute("UPDATE evidence SET observed_at = 'sometime last week'")
     conn.commit()
     refused = _prepare(conn, tmp_path)
-    assert any(
-        r.check == "evidence" and "is not a date" in r.detail for r in refused.refusals
-    )
+    assert any(r.check == "evidence" and "is not a date" in r.detail for r in refused.refusals)
