@@ -1,0 +1,105 @@
+{
+  "feature": "prospect-import",
+  "spec": "spec.md",
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "Research-record schema, file loading and record validation",
+      "goal": "Turn a JSON or CSV research file into validated prospect records or per-record rejections that name the record, field and rule, with no database access.",
+      "story_refs": [
+        "US-1",
+        "US-2"
+      ],
+      "covers": [
+        "AC-1.3",
+        "AC-2.2",
+        "AC-2.3"
+      ],
+      "plan": "1. Add jsonschema>=4.23 to pyproject.toml dependencies and refresh uv.lock (uv add, outside the sandbox).\n2. Write cottonwood/schemas/research-record.schema.json (draft 2020-12, additionalProperties false) for the record shape in plan.md Data & interfaces; make sure the package build includes it.\n3. cottonwood/validate.py: FileError; RawRecord (number, data); load_records(path) for .json (top-level array) and .csv (header columns from plan.md, empty cell = absent, verified_facts split on newlines, numeric and boolean coercion that leaves bad text for the schema); Rejection(number, record_id, field, rule) with line() -> 'rejected record N[ (ID)]: FIELD: RULE'; ProspectRecord (frozen, normalized values); validate_record(raw, today) mapping the first jsonschema error by path (required reported at the missing key) and then the Python checks: url (http/https with host), date (real YYYY-MM-DD), not-future (after the Denver date today), email and phone through cottonwood.normalize, decimal (plain non-negative digits with optional fraction).\n4. tests/test_prospects_validate.py.",
+      "acceptance_criteria": [
+        "cottonwood/schemas/research-record.schema.json loads through importlib.resources from the cottonwood package and passes jsonschema.Draft202012Validator.check_schema; a valid record with type, organization.name, verified_facts, hypothesis and one evidence item with url, observed_at and excerpt validates, and the same record without any one of type, organization.name, verified_facts, hypothesis, evidence, evidence[0].url or evidence[0].observed_at is rejected with rule required at that field; an evidence item with neither excerpt nor observation is rejected.",
+        "validate_record with Denver today 2026-11-30 returns a Rejection whose line() is exactly 'rejected record 2: type: enum' for type 'prospect', 'rejected record 2: evidence: minItems' for an empty evidence list, 'rejected record 2: evidence[0].url: url' for 'ftp://acme.com/x' and for 'https://', 'rejected record 2: evidence[0].observed_at: date' for '2026-02-30', 'rejected record 2: evidence[0].observed_at: not-future' for '2026-12-01', 'rejected record 2: contact.email: email' for 'not-an-email', and 'rejected record 2: contact.phone: phone' for 'call me'; with record_id 'acme-1' the prefix is 'rejected record 2 (acme-1):'; observed_at '2026-11-30' is accepted.",
+        "A value of amount '250000.00' with basis 'founder-estimated' validates and keeps the amount text '250000.00'; an amount without a basis gives 'value.basis: required'; basis 'guess' gives 'value.basis: enum'; amounts '2.5e5', '-1', 'abc' and '1,000' each give 'value.amount: decimal'.",
+        "load_records on a CSV with a header and two data rows returns records numbered 1 and 2 whose data equals the equivalent JSON records (verified_facts split on newlines, empty cells absent); load_records raises FileError naming the path for a .txt file, a missing file, invalid JSON, a JSON object at the top level, and a CSV header without evidence_url.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-088"
+    },
+    {
+      "id": "T-02",
+      "title": "prospects-import command: create leads, record rejections, suppression, referrals and test labels",
+      "goal": "Import validated research records as new organizations, contacts, leads and evidence, one savepoint per record, with imported and import_rejected activities the weekly report already counts.",
+      "story_refs": [
+        "US-1",
+        "US-2",
+        "US-4"
+      ],
+      "covers": [
+        "AC-1.1",
+        "AC-1.2",
+        "AC-1.4",
+        "AC-2.1",
+        "AC-2.4",
+        "AC-4.1",
+        "AC-4.2",
+        "AC-4.3",
+        "AC-4.4"
+      ],
+      "plan": "1. cottonwood/migrations/004_prospects.sql: leads.verified_facts TEXT, evidence.observation TEXT; update the tests that pin the schema version to 4.\n2. cottonwood/prospects.py: ImportResult; import_records(conn, file_name, records, actor) where records are ProspectRecord or Rejection in file order; per record a SAVEPOINT: referrer check (existing relationship_prospect lead, else Rejection referred_by: referrer), organization insert (name_norm, domain_norm), optional contact insert (eligibility ineligible when email_norm is in suppression, else unknown), lead insert at stage researched, evidence inserts, one imported activity {file, record, record_id, created, new_evidence}; each Rejection writes one import_rejected activity {file, record, record_id, field, rule}.\n3. cottonwood/cli.py: prospects-import FILE [--db] [--actor]; missing/unmigrated database as other commands; FileError -> exit 1 'error: ...' with nothing written; per-record stdout lines, rejected lines on stderr, summary 'imported I, matched M, rejected R'; exit 1 when R > 0.\n4. tests/test_prospects_import.py.",
+      "acceptance_criteria": [
+        "Importing a JSON file of one valid direct_candidate and one valid relationship_prospect record exits 0, stores two leads of those types at stage researched with their organizations, one evidence row each and verified_facts as a JSON array, writes one counted imported activity per lead, and prints 'imported 2, matched 0, rejected 0' as the last stdout line; importing the same two records as a CSV into a fresh database stores leads, organizations, contacts and evidence with equal values apart from ids.",
+        "For a .txt file, a missing file, invalid JSON, a JSON object top level and a CSV without the evidence_url column, prospects-import exits 1 with stderr starting 'error:' and containing the file path, and the row counts of organizations, contacts, leads, evidence and activities are unchanged.",
+        "In a three-record file whose record 2 has no evidence[0].url, stderr contains 'rejected record 2: evidence[0].url: required', records 1 and 3 become leads, no organization, contact, lead or evidence row comes from record 2, exactly one counted import_rejected activity is written whose payload has keys file, record, record_id, field and rule and contains none of record 2's excerpt, contact name or email text, stdout ends 'imported 2, matched 0, rejected 1', and the exit code is 1.",
+        "A record whose contact email normalizes to an address in suppression stores the contact with eligibility ineligible, every other imported contact has eligibility unknown, and no contact row has eligibility eligible after the import.",
+        "referred_by naming an existing relationship_prospect lead id is stored on the new lead; referred_by naming a lead id that does not exist, or a direct_candidate lead, rejects the record with 'referred_by: referrer' and writes nothing from it.",
+        "After importing one non-test direct record, one non-test relationship record, one record with is_test true (stored is_test 1) and one rejected record, cottonwood report for a period containing today shows 'Researched direct candidates: 1', 'Researched partner firms: 1' and 'Data-quality failures: 1'.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "tests_to_change": [
+        "tests/test_backup.py",
+        "tests/test_inbound.py",
+        "tests/test_migrate.py",
+        "tests/test_runbook_restore.py",
+        "tests/test_schema.py"
+      ],
+      "complexity": "M",
+      "imported_as": "CCGE-089"
+    },
+    {
+      "id": "T-03",
+      "title": "Re-import matching: no duplicates, new evidence only, differing fields printed",
+      "goal": "Make re-importing the same or overlapping research create no duplicate organizations, contacts, leads or evidence, add only new evidence, keep stored values and print what differs (R-7).",
+      "story_refs": [
+        "US-3"
+      ],
+      "covers": [
+        "AC-3.1",
+        "AC-3.2",
+        "AC-3.3",
+        "AC-3.4",
+        "AC-3.5"
+      ],
+      "plan": "1. prospects.py: organization match by domain_norm when the record has a domain, else by name_norm; contact match on email_norm among not-deleted contacts, else normalized name within the organization; lead match on organization_id, type and property location (trimmed, casefolded, both empty match); evidence dedupe on lead, url, observed_at and excerpt/observation.\n2. Matched rows are never updated; build the differing-field list (plan.md Diff fields) and print 'record N: FIELD differs: stored 'X', incoming 'Y' (kept stored)'.\n3. A matched lead that gains evidence gets one imported activity (created false, new_evidence K); a fully matched record with nothing new writes no row and prints 'record N: matched lead L'.\n4. tests/test_prospects_reimport.py.",
+      "acceptance_criteria": [
+        "Importing the same valid two-record file twice: the second run exits 0, prints 'imported 0, matched 2, rejected 0', and the row counts of organizations, contacts, leads, evidence and activities are the same after it as before it.",
+        "With a stored organization whose domain_norm is acme.com, a record with organization.domain 'WWW.Acme.com' and a different name matches it; a record with no domain matches a stored organization with the same normalized name; a record whose domain no stored organization has creates a new organization even when its name matches a stored one.",
+        "A record matches a stored not-deleted contact on normalized email, or without an email on normalized name within the same organization, and does not match a contact with deleted_at set; a record matches a stored lead with the same organization and type when property locations are ' 12 Main St ' and '12 main st', or both empty, and creates a new lead when they differ.",
+        "Re-importing a matched record with one additional evidence item and a different organization.category adds exactly one evidence row and one imported activity, leaves the stored organization, contact and lead values unchanged, and prints a line containing 'organization.category differs' with the stored and incoming values and 'kept stored'.",
+        "A file with two records describing the same lead reports the first as created and the second as matched, and ends 'imported 1, matched 1, rejected 0'.",
+        "uv run pytest, uv run ruff check ., uv run mypy . and uv run ruff format --check . all pass."
+      ],
+      "depends_on": [
+        "T-02"
+      ],
+      "tests_to_change": [],
+      "complexity": "M",
+      "imported_as": "CCGE-090"
+    }
+  ]
+}

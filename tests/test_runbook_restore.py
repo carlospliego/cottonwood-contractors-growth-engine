@@ -111,7 +111,7 @@ def test_documented_restore_recovers_backup_and_newer_suppression(
 
     # Step 6: cottonwood migrate on the restored file.
     assert main(["migrate", "--db", str(live)]) == EXIT_OK
-    assert "at version 3" in capsys.readouterr().out
+    assert "at version 4" in capsys.readouterr().out
 
     # Step 7: the runbook's own re-apply SQL, run against the restored database.
     conn = db.connect(live)

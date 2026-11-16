@@ -1,0 +1,20 @@
+{
+  "feature": "prospect-import",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-15T23:24:54.927Z",
+      "sha256": "48224aed324c04629ef7ea7472d99cb46aca5bc06544dcf24804f961ecb2c0d0",
+      "head": "e8683c33cf0b2d5fc295783f3a4da9288f336bf2"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-15T23:25:51.080Z",
+      "sha256": "4c2db26b63cdc69f14020a2a69f2c19dab51d5c17a94188af9780de7960cb9f6",
+      "head": "e8683c33cf0b2d5fc295783f3a4da9288f336bf2",
+      "spec_sha256": "48224aed324c04629ef7ea7472d99cb46aca5bc06544dcf24804f961ecb2c0d0"
+    }
+  }
+}
