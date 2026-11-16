@@ -6,6 +6,7 @@ Exit codes: 0 = done, 1 = refused (a gate or validation failure), 2 = usage erro
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 from collections.abc import Callable, Sequence
@@ -688,10 +689,12 @@ def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
 def _import_review_config(path: Path | None) -> config.ReviewConfig:
     """The review settings (checklists, max evidence age) for prospects-import and review.
 
-    An explicit --config must load. Without one, a missing default config file means no
-    checklist items are configured, so imports without checklist answers keep working.
+    An explicit --config must load, and so must a config named by $COTTONWOOD_CONFIG. Without
+    either, a missing default config file means no checklist items are configured, so imports
+    without checklist answers keep working.
     """
-    if path is None and not config.default_config_path().exists():
+    env_set = bool(os.environ.get(config.CONFIG_ENV_VAR))
+    if path is None and not env_set and not config.default_config_path().exists():
         return config.ReviewConfig()
     return config.load_config(path).review
 

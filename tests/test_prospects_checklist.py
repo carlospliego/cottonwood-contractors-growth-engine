@@ -173,7 +173,8 @@ def test_missing_default_config_accepts_records_without_answers_only(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setenv(config.CONFIG_ENV_VAR, str(tmp_path / "no-such.yaml"))
+    monkeypatch.delenv(config.CONFIG_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)  # no config/pilot.yaml here: the default config is missing
     plain = _direct()
     answered = _direct(organization={"name": "Other Co (TEST)"}, checklist={"direct_signal": "yes"})
     assert _import(db_path, _write_json(tmp_path, [plain, answered])) == EXIT_REFUSED
