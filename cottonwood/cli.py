@@ -19,6 +19,7 @@ from cottonwood import (
     claims,
     config,
     db,
+    draft_claims,
     eligibility,
     events,
     gate,
@@ -28,6 +29,7 @@ from cottonwood import (
     report,
     review,
     runs,
+    send,
     timeutil,
     validate,
 )
@@ -1072,6 +1074,93 @@ def _run_claims(args: argparse.Namespace) -> int:
     return EXIT_REFUSED if any(status.note for status in statuses) else EXIT_OK
 
 
+def _add_prepare_send_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the prepare-send command's arguments."""
+    parser.add_argument("lead", type=int, help="the lead the draft is for")
+    parser.add_argument("draft", type=Path, help="the approved draft file")
+    parser.add_argument(
+        "--claims",
+        type=Path,
+        default=claims.DEFAULT_CLAIMS_PATH,
+        help=f"claims library (default: {claims.DEFAULT_CLAIMS_PATH})",
+    )
+    parser.add_argument(
+        "--claims-file",
+        type=Path,
+        default=None,
+        help="the draft's claims list (default: the draft path with .claims.json)",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=send.DEFAULT_OUT_DIR,
+        help=f"folder for the sendable draft (default: {send.DEFAULT_OUT_DIR})",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=f"config file (default: ${config.CONFIG_ENV_VAR}, else {config.DEFAULT_CONFIG_PATH})",
+    )
+    parser.add_argument(
+        "--actor",
+        default=events.DEFAULT_ACTOR,
+        help=f"who logs it (default: {events.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_prepare_send(args: argparse.Namespace) -> int:
+    """Write a sendable draft only when every R-21 check passes; name each failed check."""
+    try:
+        cfg = config.load_config(args.config)
+    except config.ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    draft: Path = args.draft
+    claims_list: Path = (
+        args.claims_file if args.claims_file is not None else draft_claims.claims_list_path(draft)
+    )
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        prepared = send.prepare_send(
+            conn,
+            args.lead,
+            draft,
+            args.out,
+            args.claims,
+            claims_list,
+            cfg,
+            events.denver_today(),
+            args.actor,
+            timeutil.utc_now(),
+        )
+    except send.PrepareRefused as exc:
+        for refusal in exc.refusals:
+            print(refusal.line(), file=sys.stderr)
+        return EXIT_REFUSED
+    except send.SendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except (sqlite3.Error, OSError) as exc:
+        print(f"error: could not prepare the draft: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(prepared.line())
+    return EXIT_OK
+
+
 def _add_suppress_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the suppress command's arguments."""
     parser.add_argument("email", help="the address to suppress (trimmed and lower-cased)")
@@ -1202,6 +1291,12 @@ COMMANDS: list[Command] = [
         "Add an email address to suppression without a lead; existing entries never change.",
         _add_suppress_arguments,
         _run_suppress,
+    ),
+    Command(
+        "prepare-send",
+        "Write a sendable copy of an approved draft only when every send-gate check passes.",
+        _add_prepare_send_arguments,
+        _run_prepare_send,
     ),
 ]
 
