@@ -6,10 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from cottonwood import db, review, timeutil
+from cottonwood import config, db, review, timeutil
 from cottonwood.cli import EXIT_OK, EXIT_REFUSED, main
 
 FIXED_NOW = "2026-11-18T17:00:00Z"
+
+
+@pytest.fixture(autouse=True)
+def pinned_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # An absolute config path, so a test that changes directory reads the same checklists.
+    path = tmp_path / "pilot.yaml"
+    path.write_text("paths:\n  backup_dir: data/backups\n", encoding="utf-8")
+    monkeypatch.setenv(config.CONFIG_ENV_VAR, str(path))
 
 
 @pytest.fixture

@@ -226,6 +226,15 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
         help="write the Markdown to this file (e.g. out/review.md; out/ is git-ignored)",
     )
     parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            f"config file with the review checklists (default: ${config.CONFIG_ENV_VAR}, else"
+            f" {config.DEFAULT_CONFIG_PATH})"
+        ),
+    )
+    parser.add_argument(
         "--db",
         type=Path,
         default=None,
@@ -234,7 +243,12 @@ def _add_review_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _run_review(args: argparse.Namespace) -> int:
-    """Print the review, or write it to --out for sending to the founder (R-31)."""
+    """Print the review, or write it to --out for sending to the founder (R-13, R-31)."""
+    try:
+        review_config = _import_review_config(args.config)
+    except config.ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
@@ -242,7 +256,7 @@ def _run_review(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
-        text = review.render_review(conn, timeutil.utc_now())
+        text = review.render_review(conn, timeutil.utc_now(), review_config)
     except sqlite3.Error as exc:
         print(f"error: could not read the database: {exc}", file=sys.stderr)
         return EXIT_REFUSED
@@ -672,7 +686,7 @@ def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _import_review_config(path: Path | None) -> config.ReviewConfig:
-    """The review settings prospects-import checks checklist answers against.
+    """The review settings (checklists, max evidence age) for prospects-import and review.
 
     An explicit --config must load. Without one, a missing default config file means no
     checklist items are configured, so imports without checklist answers keep working.
