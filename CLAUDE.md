@@ -12,6 +12,7 @@ cottonwood-contractors-growth-engine — one or two sentences: what it does and 
 
 ## Commands
 - No checks configured yet; add them to `.sir/config.yaml` under `checks:`.
+- `sir` CLI calls, `git worktree add/remove`, `uv sync` and `git push` need the sandbox disabled (they write `.git/worktrees` or use the network).
 
 ## Rules
 - Plan before building anything non-trivial: `/sir:plan` for features, `/sir:task add` for single changes.
