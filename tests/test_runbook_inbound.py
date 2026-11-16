@@ -88,4 +88,5 @@ def test_placeholder_line_is_gone_and_sections_keep_their_order() -> None:
         "Inbound verification checklist",
         "Relay",
         "Research run",
+        "Drafting run",
     ]
