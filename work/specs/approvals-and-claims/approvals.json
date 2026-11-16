@@ -1,0 +1,20 @@
+{
+  "feature": "approvals-and-claims",
+  "gates": {
+    "spec": {
+      "gate": "spec",
+      "artifact": "spec.md",
+      "approved_at": "2026-11-16T01:20:35.694Z",
+      "sha256": "2ca0d3561c21cea0260dfe1349ab9717aece4fdca98315d0ecc1badcef71b6ed",
+      "head": "a774d6b2c8c698a8d55e4e2e5d0c5396bda7ca26"
+    },
+    "plan": {
+      "gate": "plan",
+      "artifact": "plan.md",
+      "approved_at": "2026-11-16T01:21:02.461Z",
+      "sha256": "5797429bfa479fdd032932b621c9fcab7c90b935ac24e31a98b3876c9e529c4d",
+      "head": "a774d6b2c8c698a8d55e4e2e5d0c5396bda7ca26",
+      "spec_sha256": "2ca0d3561c21cea0260dfe1349ab9717aece4fdca98315d0ecc1badcef71b6ed"
+    }
+  }
+}

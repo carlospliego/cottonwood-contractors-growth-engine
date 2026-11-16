@@ -1,0 +1,72 @@
+{
+  "task_id": "CCGE-119",
+  "runs": [
+    {
+      "date": "2026-11-15",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "claims.load_claims(claims.DEFAULT_CLAIMS_PATH) loads config/claims.yaml without error and returns exactly 5 claims, in this order: fashion-place-attribution, service-area, license-classification, insurance-bonding, prior-company-experience. Each has non-blank text and non-blank evidence, status 'unverified', and verified_by and verified_at both None. I confirmed this by running the loader and printing each field.",
+          "file": "config/claims.yaml",
+          "line": 16,
+          "quote": "  - id: fashion-place-attribution"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I read AC 2 as the second criterion in work/tasks/CCGE-119.md: 'cottonwood claims --claims FILE' must exit 1 with a stderr line starting 'error:' that names FILE, the claim and the field, for ten bad files. I could not write scratch files (the sandbox blocked it), so I did not run the CLI by hand on my own files. Instead I relied on the parametrized test test_a_bad_claims_file_is_refused_naming_file_claim_and_field (tests/test_claims.py:140-176). It covers all ten cases: no id, duplicate id, 'Service_Area', blank text, blank evidence, status 'maybe', verified with no verified_by, verified_at '30/11/2026', unverified with verified_by, and prohibited with verified_at. Each case calls main(['claims','--claims',path,...]). It asserts exit 1 (EXIT_REFUSED) and exactly one stderr line starting 'error:' that contains the file path, the claim location and '<field>:'. The 25 tests in tests/test_claims.py pass. In the source, cottonwood/claims.py raises ClaimsError(path, where, '<field>: ...') for every case, with where as 'claims[N] (id)' (or 'claims[N]' when the id is missing or invalid). cottonwood/cli.py:1054-1056 prints 'error: {exc}' to stderr and returns EXIT_REFUSED. The error message reads '<path>: <where>: <field>: ...'.",
+          "file": "cottonwood/cli.py",
+          "line": 1054,
+          "quote": "    except claims.ClaimsError as exc:\n        print(f\"error: {exc}\", file=sys.stderr)\n        return EXIT_REFUSED"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_claims.py passed (25/25). test_a_claim_approval_records_the_approval_and_the_verification asserts exit 0, the exact stdout line, an approval activity with scope claim and item service-area, and a claim_verified activity whose payload has claim_id, approval_activity_id equal to the approval's id, verified_by Founder and verified_at 2026-11-30. The unknown-id and prohibited cases assert exit 1, a stderr line starting 'error: claim:' and no activities appended. The already-verified case asserts the same refusal with no new rows, and a voided verification allows a new approval. In cottonwood/gate.py, _apply_claim raises GateError('claim', ...) for an unknown id, a prohibited claim and a standing verification, all before any insert. standing_verification skips voided activities. The approval and claim_verified activities are written in one BEGIN IMMEDIATE transaction that rolls back on error. I did not run the CLI by hand, because the sandbox policy blocked my first scratch-directory attempt. I did not check the test's date pinning (utc_now at 2026-12-01 giving approved_on 2026-11-30).",
+          "file": "cottonwood/gate.py",
+          "line": 159,
+          "quote": "def _apply_claim("
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The AC text is the fourth item under Acceptance Criteria in work/tasks/CCGE-119.md, which sits in the main checkout, not the worktree. The `claims` command is _run_claims in cottonwood/cli.py. It prints one status.line() per claim, in file order. It returns EXIT_OK unless some status carries a mismatch note. tests/test_claims.py::test_claims_agreeing_with_the_approvals_exit_0 builds the exact scenario. It approves service-area, then writes a file where service-area is verified with Founder and 2026-11-30, never-cheapest is prohibited, and licensed is unverified. It asserts exit 0 and stdout lines 'service-area: verified', 'never-cheapest: prohibited' and 'licensed: unverified'. All 25 tests in tests/test_claims.py passed when I ran them. I could not run a manual CLI scenario because the read-only policy blocked the write steps it needed (creating a temp database and claims file).",
+          "file": "tests/test_claims.py",
+          "line": 265,
+          "quote": "    assert _claims(db_path, path) == EXIT_OK\n    assert capsys.readouterr().out.splitlines() == [\n        \"service-area: verified\",\n        \"never-cheapest: prohibited\",\n        \"licensed: unverified\",\n    ]"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I read the AC from work/tasks/CCGE-119.md. `_run_claims` in cottonwood/cli.py returns EXIT_REFUSED (1) when any status has a note and prints each status line. `effective_statuses` in cottonwood/claims.py produces the two notes. A claim marked verified with no matching, unvoided approval gets 'marked verified but no matching claim approval'. A claim with a claim_verified activity but marked unverified in the file gets 'approved on DATE by WHO; mark it verified in the claims file'. `--claims` defaults to claims.DEFAULT_CLAIMS_PATH, which is Path('config/claims.yaml') (claims.py:25). I ran `pytest tests/test_claims.py -k 'claims or exit or note or default'` and all 25 selected tests passed. They include the parametrized mismatch cases (verifier differs, date differs, approval voided by a correction), the approved-but-unverified case, and test_claims_reads_config_claims_yaml_by_default. Those tests assert exit 1 and the exact output lines. I could not run the CLI by hand because the sandbox blocked scratch writes, so the check rests on the tests and the code.",
+          "file": "cottonwood/claims.py",
+          "line": 146,
+          "quote": "f\"approved on {verification.verified_at} by {verification.verified_by};\""
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran with UV_OFFLINE=1 UV_NO_SYNC=1 in the worktree. uv run pytest: 763 passed, exit 0. uv run ruff check .: All checks passed. uv run mypy .: Success, no issues found in 79 source files. uv run ruff format --check .: 243 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-119/tests/test_claims.py",
+          "line": 1,
+          "quote": "763 passed in 3.64s"
+        }
+      ],
+      "returns_through": "2026-11-16T01:32:46.971Z"
+    }
+  ]
+}
