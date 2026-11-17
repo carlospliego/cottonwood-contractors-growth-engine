@@ -1,0 +1,538 @@
+<title>Cottonwood Growth Engine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a field manual. Left index rail on wide screens, one reading column, swimlane and gate diagrams built from grid. */
+:root {
+  --bg: #f4f6f2;
+  --surface: #ffffff;
+  --sunken: #e9ede6;
+  --fg: #1c2420;
+  --muted: #5a6660;
+  --line: #d3dad3;
+  --accent: #2c6a4c;        /* cottonwood leaf */
+  --accent-soft: #dcebe2;
+  --claude: #6a4fb0;
+  --claude-soft: #ebe5f7;
+  --founder: #9a5b12;
+  --founder-soft: #f6e9d6;
+  --ok: #2f7a43;
+  --warn: #a8680a;
+  --warn-soft: #fbefd9;
+  --bad: #b23a2e;
+  --bad-soft: #f8e1dd;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111513; --surface: #181d1a; --sunken: #1f2522; --fg: #e3e9e5; --muted: #9aa69f; --line: #2d3530;
+    --accent: #72c497; --accent-soft: #1d3428; --claude: #b39cf0; --claude-soft: #2a2340;
+    --founder: #e7a65a; --founder-soft: #3a2a17; --ok: #6cc785; --warn: #e6ac4a; --warn-soft: #3a2c12;
+    --bad: #f08b7e; --bad-soft: #3d1f1b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111513; --surface: #181d1a; --sunken: #1f2522; --fg: #e3e9e5; --muted: #9aa69f; --line: #2d3530;
+  --accent: #72c497; --accent-soft: #1d3428; --claude: #b39cf0; --claude-soft: #2a2340;
+  --founder: #e7a65a; --founder-soft: #3a2a17; --ok: #6cc785; --warn: #e6ac4a; --warn-soft: #3a2c12;
+  --bad: #f08b7e; --bad-soft: #3d1f1b; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--sunken); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h2 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.1rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+.shell { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 40px; }
+@media (min-width: 1040px) { .shell { grid-template-columns: 200px minmax(0, 1fr); gap: 56px; } }
+
+/* Index rail */
+.rail { display: none; }
+@media (min-width: 1040px) {
+  .rail { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 32px); align-self: start; padding-top: 40px; }
+  .rail ol { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 2px; counter-reset: s; }
+  .rail a { display: block; padding: 5px 10px; border-left: 2px solid var(--line); color: var(--muted); text-decoration: none; font-size: 0.88rem; }
+  .rail a:hover { color: var(--fg); border-left-color: var(--accent); }
+}
+
+main { min-width: 0; display: grid; gap: 72px; }
+
+/* Header */
+header.top { padding-top: 40px; display: grid; gap: 20px; border-bottom: 3px solid var(--fg); padding-bottom: 28px; }
+header.top h1 { font-size: clamp(2.2rem, 5.5vw, 3.6rem); font-weight: 800; letter-spacing: -0.02em; }
+header.top .lede { font-size: 1.15rem; color: var(--fg); max-width: 62ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 600; }
+
+/* Status strip */
+.status { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.status > div { background: var(--surface); padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.status .k { font-size: 0.78rem; color: var(--muted); }
+.status .v { font-family: var(--f-display); font-weight: 700; font-size: 1.05rem; }
+.status .v.warn { color: var(--warn); }
+
+section { display: grid; gap: 22px; scroll-margin-top: 24px; }
+section > header { display: grid; gap: 8px; }
+
+/* Rule callout */
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: grid; gap: 18px; }
+.rule .big { font-family: var(--f-display); font-size: clamp(1.25rem, 2.6vw, 1.6rem); font-weight: 700; line-height: 1.3; text-wrap: balance; }
+.who { font-weight: 700; }
+.who.claude { color: var(--claude); } .who.cli { color: var(--accent); } .who.founder { color: var(--founder); }
+
+/* Trust lanes */
+.lanes { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 760px) { .lanes { grid-template-columns: 1fr 1.15fr 1fr; } }
+.lane { border-radius: 10px; padding: 18px; display: grid; gap: 10px; align-content: start; border: 1px solid var(--line); background: var(--surface); }
+.lane h3 { display: flex; align-items: center; gap: 8px; }
+.lane .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.lane.claude { border-top: 4px solid var(--claude); } .lane.claude .dot { background: var(--claude); }
+.lane.cli { border-top: 4px solid var(--accent); } .lane.cli .dot { background: var(--accent); }
+.lane.founder { border-top: 4px solid var(--founder); } .lane.founder .dot { background: var(--founder); }
+.lane ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.93rem; }
+.lane .cannot { font-size: 0.85rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 10px; }
+
+/* Swimlane */
+.swim-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.swim { display: grid; grid-template-columns: 44px repeat(3, minmax(180px, 1fr)); min-width: 660px; }
+.swim .hd { position: sticky; top: 0; padding: 10px 12px; font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid var(--line); background: var(--sunken); }
+.swim .hd.c1 { color: var(--claude); } .swim .hd.c2 { color: var(--accent); } .swim .hd.c3 { color: var(--founder); }
+.swim .n { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); padding: 12px 0 12px 12px; border-bottom: 1px solid var(--line); }
+.swim .cell { padding: 10px 12px; border-bottom: 1px solid var(--line); border-left: 1px dashed var(--line); min-width: 0; }
+.swim .step { border-radius: 6px; padding: 8px 10px; font-size: 0.88rem; line-height: 1.45; display: grid; gap: 4px; }
+.swim .step code { font-size: 0.78rem; background: transparent; padding: 0; }
+.swim .step.c1 { background: var(--claude-soft); } .swim .step.c2 { background: var(--accent-soft); } .swim .step.c3 { background: var(--founder-soft); }
+.swim .step .file { font-family: var(--f-mono); font-size: 0.74rem; color: var(--muted); }
+.swim .step.gate { outline: 2px solid var(--accent); }
+
+/* Pipelines */
+.flows { display: grid; gap: 14px; }
+.flow { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
+.flow .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.flow .head .tag { font-family: var(--f-mono); font-size: 0.75rem; color: var(--muted); }
+.stages { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; list-style: none; margin: 0; padding: 0; }
+.stages li { font-family: var(--f-mono); font-size: 0.78rem; padding: 4px 9px; border-radius: 999px; background: var(--sunken); border: 1px solid var(--line); }
+.stages li.arrow { background: none; border: none; padding: 0; color: var(--muted); }
+.stages li.key { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
+.stages li.end { border-style: dashed; color: var(--muted); }
+.flow p { font-size: 0.93rem; color: var(--muted); }
+
+/* Gate */
+.gate { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.gate .row { display: grid; grid-template-columns: 1fr; gap: 6px 18px; padding: 14px 18px; border-top: 1px solid var(--line); }
+.gate .row:first-child { border-top: none; }
+@media (min-width: 720px) { .gate .row { grid-template-columns: 150px minmax(0, 1fr) 210px; align-items: start; } }
+.gate .name { font-family: var(--f-mono); font-weight: 600; font-size: 0.85rem; }
+.gate .what { font-size: 0.93rem; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; justify-self: start; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok); background: var(--accent-soft); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); }
+.pill.bad { color: var(--bad); background: var(--bad-soft); }
+.pill.neutral { color: var(--muted); background: var(--sunken); }
+
+.terminal { background: #161b18; color: #d9e2dc; border-radius: 8px; padding: 14px 16px; font-family: var(--f-mono); font-size: 0.8rem; line-height: 1.6; overflow-x: auto; white-space: pre; }
+.terminal .r { color: #f2988b; } .terminal .p { color: #8fd3aa; } .terminal .c { color: #8a968f; }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
+thead th { border-top: none; background: var(--sunken); font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td:first-child { font-family: var(--f-mono); font-size: 0.82rem; white-space: nowrap; font-weight: 600; }
+td .lock { color: var(--bad); font-weight: 600; font-family: var(--f-body); font-size: 0.82rem; }
+
+/* Commands */
+.cmds { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.cmdgroup { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+.cmdgroup dl { margin: 0; display: grid; gap: 8px; }
+.cmdgroup dt { font-family: var(--f-mono); font-size: 0.82rem; font-weight: 600; color: var(--accent); }
+.cmdgroup dd { margin: 0; font-size: 0.87rem; color: var(--muted); }
+.note { font-size: 0.88rem; color: var(--muted); }
+
+/* KPI */
+.kpi { display: grid; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
+.formula { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; font-family: var(--f-display); font-weight: 700; font-size: clamp(1rem, 2.4vw, 1.3rem); }
+.frac { display: inline-grid; text-align: center; }
+.frac span:first-child { border-bottom: 2px solid var(--fg); padding: 0 6px 4px; }
+.frac span:last-child { padding: 4px 6px 0; }
+
+/* Code map */
+.map { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.map > div { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; align-content: start; }
+.map .f { font-family: var(--f-mono); font-size: 0.82rem; font-weight: 600; }
+.map .d { font-size: 0.85rem; color: var(--muted); }
+
+.two { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.panel ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.92rem; }
+
+footer { border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.85rem; color: var(--muted); display: grid; gap: 6px; }
+
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="eyebrow">Contents</div>
+    <ol>
+      <li><a href="#rule">The one rule</a></li>
+      <li><a href="#lanes">Who does what</a></li>
+      <li><a href="#outreach">An outreach run</a></li>
+      <li><a href="#flows">Lead flows</a></li>
+      <li><a href="#gate">The send gate</a></li>
+      <li><a href="#data">Data model</a></li>
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#report">The report</a></li>
+      <li><a href="#code">Code map</a></li>
+      <li><a href="#limits">Guardrails</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="top">
+      <div class="eyebrow">System guide · cottonwood-contractors-growth-engine</div>
+      <h1>Cottonwood Growth Engine</h1>
+      <p class="lede">A local Python CLI, one SQLite file and two Claude Code skills that help Cottonwood Contractors, an early-stage Utah general contractor, capture every inquiry, research commercial prospects with evidence, and send founder-approved outreach that has passed deterministic checks.</p>
+      <div class="meta">
+        <span>Last updated <b>2026-11-16</b></span>
+        <span>As of commit <b>317631a</b></span>
+        <span>Spec <b>docs/cottonwood-growth-engine.md</b></span>
+      </div>
+    </header>
+
+    <div class="status" aria-label="Current state">
+      <div><span class="k">Roadmap</span><span class="v">Phases 1–5 built</span></div>
+      <div><span class="k">CLI</span><span class="v">18 commands</span></div>
+      <div><span class="k">Tasks</span><span class="v">41 done · 107 open</span></div>
+      <div><span class="k">Sending</span><span class="v warn">Blocked: sender identity &amp; postal address</span></div>
+      <div><span class="k">Claims library</span><span class="v warn">6 of 6 unverified</span></div>
+    </div>
+
+    <section id="rule">
+      <header>
+        <div class="eyebrow">Design principle</div>
+        <h2>The one rule</h2>
+      </header>
+      <div class="rule">
+        <p class="big"><span class="who claude">Claude</span> only writes files. The <span class="who cli">CLI</span> decides what enters the database and what is sendable. The <span class="who founder">founder</span> approves in writing and sends by hand.</p>
+        <p>Every other design choice follows from this. The skills have no shell, no database access and no email tool. The CLI makes no network calls. No email-sending credentials exist anywhere in the repo (R-27). An email can only become sendable through <code>prepare-send</code>, and a send that skipped it is recorded as a gate violation.</p>
+      </div>
+    </section>
+
+    <section id="lanes">
+      <header>
+        <div class="eyebrow">Trust boundary</div>
+        <h2>Who does what</h2>
+      </header>
+      <div class="lanes">
+        <div class="lane claude">
+          <h3><span class="dot"></span>Claude skills</h3>
+          <ul>
+            <li><b>research-prospects</b> searches public professional sources and writes <code>out/research/DATE-SLUG.json</code></li>
+            <li><b>prepare-outreach</b> reads one lead export and writes a draft, its claims list and a founder brief</li>
+            <li>Separates verified facts from hypotheses; answers checklist items yes / no / unknown</li>
+          </ul>
+          <p class="cannot">Cannot: run commands, read the database, see email addresses, send anything. Web text is treated as data, never as instructions.</p>
+        </div>
+        <div class="lane cli">
+          <h3><span class="dot"></span><code>cottonwood</code> CLI + SQLite</h3>
+          <ul>
+            <li>Validates research files against a JSON Schema; rejects bad records, never repairs them</li>
+            <li>Deduplicates organizations, contacts and leads on re-import</li>
+            <li>Records approvals, events, sends and replies as append-only activities</li>
+            <li>Runs every send check in <code>prepare-send</code> and writes the only sendable copy</li>
+            <li>Writes the review queue and the weekly report as Markdown</li>
+          </ul>
+          <p class="cannot">Cannot: reach the network. Operated by the developer on their own Mac.</p>
+        </div>
+        <div class="lane founder">
+          <h3><span class="dot"></span>Founder</h3>
+          <ul>
+            <li>Gets form notifications and calls; acknowledges inquiries</li>
+            <li>Approves leads, drafts, claims, audiences and offers in writing</li>
+            <li>Sends prepared drafts from Cottonwood's own mailbox</li>
+            <li>Runs remote screens, walkthroughs and proposals</li>
+            <li>Sends the developer a daily note of calls and outcomes</li>
+          </ul>
+          <p class="cannot">Never runs the CLI. Receives the review, briefs and reports as files.</p>
+        </div>
+      </div>
+      <p class="note">The developer sits between the lanes: they relay what the founder receives (forwarded Formspark notifications and mailbox replies, the daily call note), run the skills, and run every CLI command, logging everything the same working day.</p>
+    </section>
+
+    <section id="outreach">
+      <header>
+        <div class="eyebrow">End to end · runbook “Research run” and “Drafting run”</div>
+        <h2>An outreach run, step by step</h2>
+        <p>From a research brief to a logged reply. Each step happens in exactly one lane, and each handoff is a file.</p>
+      </header>
+      <div class="swim-wrap">
+        <div class="swim" role="table" aria-label="Outreach run swimlane">
+          <div class="hd" role="columnheader"></div>
+          <div class="hd c1" role="columnheader">Claude skill</div>
+          <div class="hd c2" role="columnheader">CLI (developer)</div>
+          <div class="hd c3" role="columnheader">Founder</div>
+
+          <div class="n">1</div>
+          <div class="cell"><div class="step c1"><b>Research</b> a brief: motion, geography, firm types, how many<span class="file">→ out/research/2026-11-16-slug.json</span></div></div>
+          <div class="cell"></div><div class="cell"></div>
+
+          <div class="n">2</div>
+          <div class="cell"></div>
+          <div class="cell"><div class="step c2"><code>prospects-import FILE --check</code>, then import. Rejected records name record, field and rule.<span class="file">+ record-run with /cost tokens and USD</span></div></div>
+          <div class="cell"></div>
+
+          <div class="n">3</div>
+          <div class="cell"></div>
+          <div class="cell"><div class="step c2"><code>review</code> builds the queues; <code>mark-reviewed</code> stores the hand-review result</div></div>
+          <div class="cell"><div class="step c3"><b>Hand-reviews</b> a sample: relevant, irrelevant or fabricated (Gate 1)</div></div>
+
+          <div class="n">4</div>
+          <div class="cell"></div>
+          <div class="cell"><div class="step c2"><code>review --lead ID --json</code> exports one lead, with no email address<span class="file">→ out/leads/ID.json</span></div></div>
+          <div class="cell"></div>
+
+          <div class="n">5</div>
+          <div class="cell"><div class="step c1"><b>Draft</b> from verified facts only, ending with the sending values verbatim<span class="file">→ out/drafts/ID-N.md, ID-N.claims.json, out/briefs/ID-N.md</span></div></div>
+          <div class="cell"></div><div class="cell"></div>
+
+          <div class="n">6</div>
+          <div class="cell"></div>
+          <div class="cell"><div class="step c2"><code>approve lead</code> / <code>approve draft</code> records the approval with its written reference and the draft's SHA-256</div></div>
+          <div class="cell"><div class="step c3"><b>Approves</b> the exact draft in writing (email date and subject)</div></div>
+
+          <div class="n">7</div>
+          <div class="cell"></div>
+          <div class="cell"><div class="step c2 gate"><code>prepare-send ID DRAFT</code> runs every check. Pass: writes the sendable copy. Fail: names each failed check.<span class="file">→ out/send/ID-N.md</span></div></div>
+          <div class="cell"></div>
+
+          <div class="n">8</div>
+          <div class="cell"></div><div class="cell"></div>
+          <div class="cell"><div class="step c3"><b>Sends</b> it from Cottonwood's mailbox</div></div>
+
+          <div class="n">9</div>
+          <div class="cell"></div>
+          <div class="cell"><div class="step c2"><code>log-outreach</code>, then <code>log-reply TYPE</code>. An opt-out suppresses the address; a bounce makes the contact ineligible.</div></div>
+          <div class="cell"><div class="step c3">Receives each reply as a brief; books a 10–15 min remote screen</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="flows">
+      <header>
+        <div class="eyebrow">Lead types and stages · R-14</div>
+        <h2>Three ways a lead enters</h2>
+        <p>Stages are enforced by a CHECK constraint per lead type. A stage moves only through <code>log-event</code>, and every stage change is an activity naming the event that caused it.</p>
+      </header>
+      <div class="flows">
+        <div class="flow">
+          <div class="head"><h3>Inbound inquiry</h3><span class="tag">inbound_inquiry · log-inbound</span></div>
+          <ul class="stages">
+            <li>candidate</li><li class="arrow">→</li><li>contacted_or_replied</li><li class="arrow">→</li><li class="key">buyer_need_confirmed</li><li class="arrow">→</li><li>walkthrough</li><li class="arrow">→</li><li>proposal</li><li class="arrow">→</li><li>won</li><li class="end">lost</li><li class="end">closed_no_fit</li>
+          </ul>
+          <p>A website-form or phone inquiry, logged by hand from the forwarded notification or the founder's call note. Only fields the inquirer gave are stored. A same-day match on email or phone (America/Denver date) stops with a duplicate warning until <code>--confirm-duplicate</code>. Test inquiries carry a <code>TEST</code> label and are excluded from every count.</p>
+        </div>
+        <div class="flow">
+          <div class="head"><h3>Motion A · Direct candidate</h3><span class="tag">direct_candidate · prospects-import</span></div>
+          <ul class="stages">
+            <li>candidate</li><li class="arrow">→</li><li>researched</li><li class="arrow">→</li><li>contacted_or_replied</li><li class="arrow">→</li><li class="key">buyer_need_confirmed</li><li class="arrow">→</li><li>walkthrough</li><li class="arrow">→</li><li>proposal</li><li class="arrow">→</li><li>won</li><li class="end">lost</li><li class="end">closed_no_fit</li>
+          </ul>
+          <p>A property owner or tenant who may need a contractor. The highlighted stage counts as a qualified conversation, and a lead enters it only through an event stating the prospect's confirmed need or the URL of an accessible active procurement (R-16). A permit, vacancy, listing or email open never qualifies a lead.</p>
+        </div>
+        <div class="flow">
+          <div class="head"><h3>Motion B · Relationship prospect</h3><span class="tag">relationship_prospect · prospects-import</span></div>
+          <ul class="stages">
+            <li>identified</li><li class="arrow">→</li><li>researched</li><li class="arrow">→</li><li>introduced</li><li class="arrow">→</li><li>responded</li><li class="arrow">→</li><li class="key">active_relationship</li><li class="end">closed_no_fit</li>
+          </ul>
+          <p>A broker, property manager, landlord, tenant rep or designer who can refer work. Any job they send is logged as a new lead with <code>referred_by</code> pointing at them, and the report counts referrals per partner.</p>
+        </div>
+      </div>
+      <p class="note">Candidate queues in <code>review</code> are ranked by the number of <code>yes</code> checklist answers, ties broken by lower estimated founder time. The checklist items live in <code>config/pilot.yaml</code>: six for direct candidates, five for relationship prospects. No score, no ML.</p>
+    </section>
+
+    <section id="gate">
+      <header>
+        <div class="eyebrow">cottonwood/send.py · R-21</div>
+        <h2>The send gate</h2>
+        <p><code>prepare-send</code> runs every check and collects every failure before it decides; it never stops at the first one. Passing writes <code>out/send/ID-N.md</code> and a <code>draft_prepared</code> activity. Failing writes nothing sendable and appends a <code>prepare_refused</code> activity listing the checks. The right column shows what would happen today with the current config.</p>
+      </header>
+      <div class="gate">
+        <div class="row"><span class="name">approval</span><span class="what">An unvoided founder approval of the lead, and an approval of a draft whose SHA-256 matches this file byte for byte. Editing an approved draft breaks the match.</span><span class="pill neutral">Per lead</span></div>
+        <div class="row"><span class="name">eligibility</span><span class="what">The lead has a contact with an email address, and that contact is <code>eligible</code>. Eligibility needs a public professional source URL (<code>set-eligibility</code>).</span><span class="pill neutral">Per contact</span></div>
+        <div class="row"><span class="name">suppression</span><span class="what">The normalized address is not in the suppression table.</span><span class="pill neutral">Per contact</span></div>
+        <div class="row"><span class="name">claims</span><span class="what">Every claim in the draft's claims list exists in <code>config/claims.yaml</code> and is <code>verified</code>. A claim becomes verified only through <code>approve claim</code>.</span><span class="pill warn">All 6 unverified</span></div>
+        <div class="row"><span class="name">evidence</span><span class="what">The lead's newest evidence is no older than <code>review.max_evidence_age_days</code>.</span><span class="pill ok">90 days set</span></div>
+        <div class="row"><span class="name">sender_identity</span><span class="what">The configured sender name and business appears verbatim in the draft. Empty config refuses every draft.</span><span class="pill bad">Empty: refuses all</span></div>
+        <div class="row"><span class="name">postal_address</span><span class="what">A valid business postal address appears verbatim (CAN-SPAM). Empty config refuses every draft.</span><span class="pill bad">Empty: refuses all</span></div>
+        <div class="row"><span class="name">opt_out</span><span class="what">The working opt-out line appears word for word.</span><span class="pill ok">Configured</span></div>
+        <div class="row"><span class="name">ad_identification</span><span class="what">Ad identification appears verbatim when configured; skipped when unset.</span><span class="pill ok">Configured</span></div>
+      </div>
+      <div class="terminal" role="img" aria-label="Example prepare-send refusal output"><span class="c">$ uv run cottonwood prepare-send 12 out/drafts/12-1.md</span>
+<span class="r">refused: claims: service-area is unverified</span>
+<span class="r">refused: sender_identity: not configured (sending.sender_identity is empty)</span>
+<span class="r">refused: postal_address: not configured (sending.postal_address is empty)</span>
+<span class="c"># exit 1 · prepare_refused activity recorded · nothing written to out/send/</span></div>
+      <p class="note">After the send, <code>log-outreach</code> needs the prepared id. A send with no matching prepared draft, or to an address suppressed since preparation, is still recorded, as a <code>gate_violation</code> that appears in the report.</p>
+    </section>
+
+    <section id="data">
+      <header>
+        <div class="eyebrow">cottonwood/migrations/*.sql · SQLite</div>
+        <h2>Data model</h2>
+        <p>Seven tables in one file, <code>data/cottonwood.db</code>. Migrations are plain SQL run in order by a small runner that tracks <code>PRAGMA user_version</code>. All times are stored as UTC ISO-8601 and shown in America/Denver.</p>
+      </header>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Table</th><th>Holds</th><th>Rules</th></tr></thead>
+          <tbody>
+            <tr><td>organizations</td><td>Firms, matched on normalized domain, else normalized name</td><td>Domain unique where present</td></tr>
+            <tr><td>contacts</td><td>People: name, email, E.164 phone, role, source URL, eligibility</td><td>Fields nullable so a deletion request can clear them; row stays</td></tr>
+            <tr><td>leads</td><td>Type, stage, segment, channel, checklist, verified facts, hypothesis, value with basis, <code>referred_by</code>, <code>is_test</code></td><td>Stage CHECK per type; money is exact decimal text with a basis</td></tr>
+            <tr><td>evidence</td><td>URL, observed date, excerpt or observation, fact vs hypothesis</td><td>Newest observed date drives evidence age</td></tr>
+            <tr><td>activities</td><td>Every write: inquiries, imports, approvals, events, sends, replies, refusals, corrections</td><td><span class="lock">Append-only.</span> Triggers block UPDATE, DELETE and REPLACE. A correction is a new row that voids an old one; voided rows drop out of all counts</td></tr>
+            <tr><td>agent_runs</td><td>Each skill run: version, model, times, input/output, validation, tokens, cost and its source</td><td>Cost marked estimated when not exact</td></tr>
+            <tr><td>suppression</td><td>Opted-out or deleted addresses, keyed on normalized email</td><td><span class="lock">Never changed or deleted.</span> Re-inserting an address is silently ignored, so the original row stays</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Suppression is checked in four places: <code>prospects-import</code> (matches import as ineligible), <code>set-eligibility</code>, the lead export the drafting skill reads (<code>draftable: false</code>), and <code>prepare-send</code>.</p>
+    </section>
+
+    <section id="commands">
+      <header>
+        <div class="eyebrow">uv run cottonwood &lt;command&gt;</div>
+        <h2>Commands</h2>
+        <p>Exit codes: <code>0</code> done, <code>1</code> refused (a gate or validation failure, naming each failed check), <code>2</code> usage error.</p>
+      </header>
+      <div class="cmds">
+        <div class="cmdgroup"><h3>Inbound</h3><dl>
+          <dt>log-inbound</dt><dd>Log a form or phone inquiry; same-day duplicate check; <code>--test</code> label</dd>
+          <dt>review</dt><dd>Queues for inbound, direct and relationship leads; <code>--lead ID --json</code> exports one lead for drafting</dd>
+        </dl></div>
+        <div class="cmdgroup"><h3>Prospects</h3><dl>
+          <dt>prospects-import</dt><dd>Validate and import a research file; <code>--check</code> writes nothing</dd>
+          <dt>set-eligibility</dt><dd>Mark a contact eligible with a public source URL; refuses suppressed addresses</dd>
+          <dt>mark-reviewed</dt><dd>Hand-review result: relevant, irrelevant or fabricated</dd>
+          <dt>record-run</dt><dd>Record a skill run with model, tokens and cost source</dd>
+        </dl></div>
+        <div class="cmdgroup"><h3>Approval and sending</h3><dl>
+          <dt>approve</dt><dd>Record a written founder approval: lead, draft, claim, audience or offer</dd>
+          <dt>claims</dt><dd>Show each claim's effective status; exit 1 when the file and the approvals disagree</dd>
+          <dt>prepare-send</dt><dd>Run the send gate; write the only sendable copy</dd>
+          <dt>log-outreach</dt><dd>Record a send the founder made; flag gate violations</dd>
+          <dt>log-reply</dt><dd>interested, not_now, not_relevant, referral, opt_out, bounce, other</dd>
+          <dt>suppress</dt><dd>Suppress an address without a lead</dd>
+        </dl></div>
+        <div class="cmdgroup"><h3>Events and reporting</h3><dl>
+          <dt>log-event</dt><dd>Calls, screens, walkthroughs, proposals, partner conversations, handoffs, notes; optional stage move; <code>correction --voids ID</code></dd>
+          <dt>log-time</dt><dd>Founder hours by date and category</dd>
+          <dt>log-cost</dt><dd>Cash spend by date and category</dd>
+          <dt>report</dt><dd><code>--period 7d|30d</code> or <code>--from/--to</code>; Markdown to <code>out/</code></dd>
+        </dl></div>
+        <div class="cmdgroup"><h3>Database</h3><dl>
+          <dt>migrate</dt><dd>Apply pending SQL migrations in order</dd>
+          <dt>backup</dt><dd>Consistent copy via the SQLite backup API to <code>data/backups/</code>, timestamped in UTC</dd>
+        </dl></div>
+      </div>
+      <p class="note">Restore and deletion requests are deliberately manual procedures in <code>docs/runbook.md</code>. After any restore, suppression entries added since the backup are copied back in so no opt-out is lost.</p>
+    </section>
+
+    <section id="report">
+      <header>
+        <div class="eyebrow">cottonwood report · R-28</div>
+        <h2>The weekly report</h2>
+        <p>The developer sends it to the founder each week. It counts what actually happened in the period, prints zeros as <code>0</code>, keeps observed outcomes apart from founder estimates, and leaves out test inquiries and voided activities.</p>
+      </header>
+      <div class="kpi">
+        <div class="eyebrow">Month-one KPI</div>
+        <div class="formula">
+          <span>KPI =</span>
+          <span class="frac"><span>qualified direct conversations + partner conversations</span><span>founder hours</span></span>
+        </div>
+        <p>Qualified direct conversations are leads entering <code>buyer_need_confirmed</code>; partner conversations are <code>partner_conversation</code> events. The KPI shows <code>n/a</code> when hours are 0. It is measured, not promised: zero is a valid result.</p>
+        <p class="note">Also reported: inquiries by channel and segment, same-working-day acknowledgements, missed and returned calls, hand-review counts per motion, approvals, prepared drafts, sends, gate violations, replies by type, screens, walkthroughs, proposals, wins, referrals, founder hours, model cost against the optional monthly cap, other costs, opt-outs, data-quality failures, and the open question blocking sending when one is configured.</p>
+      </div>
+    </section>
+
+    <section id="code">
+      <header>
+        <div class="eyebrow">Repository</div>
+        <h2>Code map</h2>
+      </header>
+      <div class="map">
+        <div><span class="f">cottonwood/cli.py</span><span class="d">argparse; one function per command</span></div>
+        <div><span class="f">db.py · migrations/</span><span class="d">Connection and the user_version migration runner</span></div>
+        <div><span class="f">normalize.py</span><span class="d">Email, E.164 phone, domain and name keys</span></div>
+        <div><span class="f">validate.py · schemas/</span><span class="d">JSON Schemas shared with the skills</span></div>
+        <div><span class="f">inbound.py</span><span class="d">log-inbound and the duplicate check</span></div>
+        <div><span class="f">prospects.py · eligibility.py</span><span class="d">Import, dedupe, eligibility</span></div>
+        <div><span class="f">review.py · hand_review.py</span><span class="d">Queues, lead export, mark-reviewed</span></div>
+        <div><span class="f">events.py</span><span class="d">Activities, stages, corrections, voiding</span></div>
+        <div><span class="f">gate.py · claims.py</span><span class="d">approve, claims status, suppress</span></div>
+        <div><span class="f">send.py · draft_claims.py</span><span class="d">prepare-send, log-outreach, log-reply</span></div>
+        <div><span class="f">runs.py · report.py</span><span class="d">record-run and the Markdown report</span></div>
+        <div><span class="f">backup.py · timeutil.py · config.py</span><span class="d">Backups, UTC/Denver time, YAML config</span></div>
+        <div><span class="f">config/pilot.yaml</span><span class="d">Checklists, evidence age, sending values, report settings</span></div>
+        <div><span class="f">config/claims.yaml</span><span class="d">Claims library with status and evidence</span></div>
+        <div><span class="f">.claude/skills/</span><span class="d">research-prospects, prepare-outreach</span></div>
+        <div><span class="f">docs/runbook.md</span><span class="d">Relay, research and drafting runs, restore, deletion</span></div>
+        <div><span class="f">tests/</span><span class="d">pytest on labeled synthetic fixtures; no network</span></div>
+        <div><span class="f">work/</span><span class="d">Specs, plans and task contracts managed by sir</span></div>
+      </div>
+      <p class="note">Checks run in CI on every push and pull request: <code>pytest</code>, <code>ruff check</code>, <code>mypy</code> and <code>ruff format --check</code>. Generated files under <code>out/</code> and everything under <code>data/</code> are git-ignored because they hold contact data.</p>
+    </section>
+
+    <section id="limits">
+      <header>
+        <div class="eyebrow">Spec constraints and gates</div>
+        <h2>Guardrails</h2>
+      </header>
+      <div class="two">
+        <div class="panel">
+          <h3>Founder gates before volume</h3>
+          <ul>
+            <li><b>G0 Truth:</b> inbound checklist complete; form, phone and relay verified</li>
+            <li><b>G1 Evidence:</b> at least 5 hand-reviewed per motion, 0 fabricated</li>
+            <li><b>G2 Contact:</b> every “before first send” question answered, claims verified, sender identity and postal address set, restore rehearsed</li>
+            <li><b>G3 Repeatability:</b> two weekly reports in a row with 0 gate violations and same-day opt-outs</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Deliberately out of scope</h3>
+          <ul>
+            <li>Automated or scheduled steps, and programmatic email sending</li>
+            <li>Formspark API, webhooks or export imports</li>
+            <li>Scraping behind logins or permit portals; bought data</li>
+            <li>Scores, ML, dashboards, a CRM or a web UI</li>
+            <li>Blocking Claude runs automatically; cost caps are record-only</li>
+            <li>Presenting prior-employer projects as Cottonwood's own work</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Last updated 2026-11-16 from commit 317631a. Sources: <code>docs/cottonwood-growth-engine.md</code>, <code>work/initiatives/cottonwood-growth-engine/</code>, <code>docs/runbook.md</code>, <code>config/</code> and <code>cottonwood/</code>.</span>
+      <span>Config states shown on this page (claims, sending values) reflect the repository on that date and change as the founder answers open questions.</span>
+    </footer>
+  </main>
+</div>
