@@ -389,7 +389,7 @@ def _differences(
     contact_row = None
     if lead["contact_id"] is not None:
         contact_row = conn.execute(
-            "SELECT name, phone_e164, role, source_url FROM contacts WHERE id = ?",
+            "SELECT name, phone_e164, address, role, source_url FROM contacts WHERE id = ?",
             (lead["contact_id"],),
         ).fetchone()
     contact = record.contact
@@ -403,6 +403,7 @@ def _differences(
         pairs += [
             ("contact.name", _column(contact_row, "name"), contact.name),
             ("contact.phone", _column(contact_row, "phone_e164"), contact.phone_e164),
+            ("contact.address", _column(contact_row, "address"), contact.address),
             ("contact.role", _column(contact_row, "role"), contact.role),
             ("contact.source_url", _column(contact_row, "source_url"), contact.source_url),
         ]
@@ -469,14 +470,15 @@ def _insert_contact(conn: sqlite3.Connection, record: ProspectRecord, org_id: in
     )
     return _rowid(
         conn.execute(
-            "INSERT INTO contacts (organization_id, name, email, email_norm, phone_e164, role,"
-            " source_url, eligibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO contacts (organization_id, name, email, email_norm, phone_e164, address,"
+            " role, source_url, eligibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 org_id,
                 contact.name,
                 contact.email,
                 contact.email_norm,
                 contact.phone_e164,
+                contact.address,
                 contact.role,
                 contact.source_url,
                 eligibility,

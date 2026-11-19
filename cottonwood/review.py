@@ -123,7 +123,10 @@ SECTIONS = (
     ("direct_candidate", "Direct candidates", "No direct candidates."),
     ("relationship_prospect", "Relationship prospects", "No relationship prospects."),
 )
-CANDIDATE_LEADING_COLUMNS = ("Lead", "Organization", "Contact", "Eligibility")
+CANDIDATE_LEADING_COLUMNS = ("Lead", "Organization", "Contact", "Reach", "Eligibility")
+# How a researched lead can be reached: which contact routes are on file, never their values.
+REACH_NONE = "none"
+REACH_ROUTES = (("email", "email_norm"), ("phone", "phone_e164"), ("address", "address"))
 CANDIDATE_TRAILING_COLUMNS = (
     "Yes",
     "Evidence URL",
@@ -142,6 +145,7 @@ class CandidateRow:
     lead_id: int
     organization: str | None
     contact: str | None
+    reach: str
     eligibility: str | None
     answers: dict[str, str]
     yes: int
@@ -181,7 +185,8 @@ def candidate_rows(
     leads = conn.execute(
         "SELECT leads.id, leads.checklist, leads.next_action, leads.founder_time_h,"
         " leads.is_test, organizations.name AS organization, contacts.name AS contact,"
-        " contacts.eligibility"
+        " contacts.eligibility, contacts.email_norm, contacts.phone_e164, contacts.address,"
+        " contacts.deleted_at"
         " FROM leads"
         " LEFT JOIN contacts ON contacts.id = leads.contact_id"
         " LEFT JOIN organizations ON organizations.id = leads.organization_id"
@@ -200,6 +205,7 @@ def candidate_rows(
                 lead_id=lead_id,
                 organization=lead["organization"],
                 contact=lead["contact"],
+                reach=_reach(lead),
                 eligibility=lead["eligibility"],
                 answers=answers,
                 yes=sum(1 for value in answers.values() if value == YES_ANSWER),
@@ -214,6 +220,14 @@ def candidate_rows(
             )
         )
     return sorted(rows, key=CandidateRow.order_key)
+
+
+def _reach(lead: sqlite3.Row) -> str:
+    """The contact routes on file (email, phone, address), or 'none'; a deleted contact has none."""
+    if lead["deleted_at"] is not None:
+        return REACH_NONE
+    routes = [name for name, column in REACH_ROUTES if lead[column]]
+    return ", ".join(routes) or REACH_NONE
 
 
 def _evidence_age(observed: str | None, today: date, max_age: int | None) -> str:
@@ -272,6 +286,7 @@ def _candidate_section(
             str(row.lead_id),
             _cell(row.organization),
             _cell(row.contact),
+            row.reach,
             _cell(row.eligibility),
             *(row.answers[item.key] for item in items),
             str(row.yes),

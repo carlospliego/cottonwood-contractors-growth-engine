@@ -236,6 +236,7 @@ def test_direct_table_columns_answers_and_labels(
         "Lead",
         "Organization",
         "Contact",
+        "Reach",
         "Eligibility",
         *DIRECT_KEYS,
         "Yes",
@@ -247,15 +248,15 @@ def test_direct_table_columns_answers_and_labels(
         "Label",
     ]
     first, second = rows
-    assert first[:4] == [str(reviewed), "Acme Builders", "Pat Lee", "eligible"]
-    assert first[4:7] == ["yes", "unknown", "yes"]
-    assert first[7] == "2"
-    assert first[10:13] == ["Call the GC", "1.5", "relevant"]
-    assert first[13] == ""
-    assert second[4:7] == ["unknown", "unknown", "unknown"]
-    assert second[7] == "0"
-    assert second[12] == "—"
-    assert second[13] == "TEST"
+    assert first[:5] == [str(reviewed), "Acme Builders", "Pat Lee", "none", "eligible"]
+    assert first[5:8] == ["yes", "unknown", "yes"]
+    assert first[8] == "2"
+    assert first[11:14] == ["Call the GC", "1.5", "relevant"]
+    assert first[14] == ""
+    assert second[5:8] == ["unknown", "unknown", "unknown"]
+    assert second[8] == "0"
+    assert second[13] == "—"
+    assert second[14] == "TEST"
 
 
 def test_replaced_review_shows_the_new_result(
@@ -268,7 +269,7 @@ def test_replaced_review_shows_the_new_result(
 
     _, rows = _table(_section(_review(db_path, capsys), "Direct candidates"))
 
-    assert rows[0][12] == "fabricated"
+    assert rows[0][13] == "fabricated"
 
 
 # --- AC 3: order --------------------------------------------------------------------------
@@ -318,8 +319,8 @@ def test_newest_evidence_and_age_over_the_max(
     assert "Max evidence age: 30 days" in section
     _, rows = _table(section)
     by_lead = {row[0]: row for row in rows}
-    assert by_lead[str(stale)][8:10] == ["https://acme.example/new", "31 (over 30)"]
-    assert by_lead[str(fresh)][8:10] == ["https://beta.example/post", "30"]
+    assert by_lead[str(stale)][9:11] == ["https://acme.example/new", "31 (over 30)"]
+    assert by_lead[str(fresh)][9:11] == ["https://beta.example/post", "30"]
 
 
 def test_without_max_age_plain_days(
@@ -334,7 +335,7 @@ def test_without_max_age_plain_days(
     for title in ("Direct candidates", "Relationship prospects"):
         assert "Max evidence age: not configured" in _section(text, title)
     _, rows = _table(_section(text, "Direct candidates"))
-    assert rows[0][9] == "31"
+    assert rows[0][10] == "31"
 
 
 def test_same_day_evidence_prefers_the_highest_id(
@@ -344,13 +345,13 @@ def test_same_day_evidence_prefers_the_highest_id(
     _evidence(db_path, lead, "https://acme.example/a", "2026-11-20")
     _evidence(db_path, lead, "https://acme.example/b", "2026-11-20")
     _, rows = _table(_section(_review(db_path, capsys), "Direct candidates"))
-    assert rows[0][8:10] == ["https://acme.example/b", "10"]
+    assert rows[0][9:11] == ["https://acme.example/b", "10"]
 
 
 def test_no_evidence_shows_dashes(db_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _lead(db_path, answers=_yes(1))
     _, rows = _table(_section(_review(db_path, capsys), "Direct candidates"))
-    assert rows[0][8:10] == ["—", "—"]
+    assert rows[0][9:11] == ["—", "—"]
 
 
 # --- AC 5: legend, empty queues, --out ----------------------------------------------------
@@ -374,9 +375,9 @@ def test_relationship_queue_uses_its_own_items(
 ) -> None:
     lead = _lead(db_path, "relationship_prospect", answers={"shared_clients": "yes"})
     header, rows = _table(_section(_review(db_path, capsys), "Relationship prospects"))
-    assert header[4] == "shared_clients"
-    assert header[5] == "Yes"
-    assert rows[0][:6] == [str(lead), "—", "—", "—", "yes", "1"]
+    assert header[5] == "shared_clients"
+    assert header[6] == "Yes"
+    assert rows[0][:7] == [str(lead), "—", "—", "none", "—", "yes", "1"]
 
 
 def test_out_file_equals_the_printed_review(
@@ -400,3 +401,41 @@ def test_explicit_missing_config_is_refused(
     missing = tmp_path / "nope.yaml"
     assert main(["review", "--config", str(missing), "--db", str(db_path)]) == 1
     assert capsys.readouterr().err.startswith("error:")
+
+
+# --- reach: which contact routes a researched lead has ------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("email", "phone", "address", "deleted", "expected"),
+    [
+        ("pat@acme.example", "+18015550100", "1 Main St, Sandy, UT", None, "email, phone, address"),
+        (None, "+18015550100", None, None, "phone"),
+        (None, None, "1 Main St, Sandy, UT", None, "address"),
+        ("pat@acme.example", None, None, "2026-10-01T00:00:00Z", "none"),
+    ],
+)
+def test_reach_lists_the_routes_on_file(
+    db_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    email: str | None,
+    phone: str | None,
+    address: str | None,
+    deleted: str | None,
+    expected: str,
+) -> None:
+    lead = _lead(db_path, answers=_yes(1), contact="Pat Lee")
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "UPDATE contacts SET email = ?, email_norm = ?, phone_e164 = ?, address = ?,"
+            " deleted_at = ? WHERE id = (SELECT contact_id FROM leads WHERE id = ?)",
+            (email, email, phone, address, deleted, lead),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    _, rows = _table(_section(_review(db_path, capsys), "Direct candidates"))
+
+    assert rows[0][3] == expected
