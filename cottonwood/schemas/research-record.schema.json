@@ -27,14 +27,20 @@
       }
     },
     "contact": {
-      "description": "A verified professional contact; name or email is required.",
+      "description": "A verified professional contact; at least one of name, email, phone or address is required. address is a public postal address for the contact or their business.",
       "type": "object",
       "additionalProperties": false,
-      "anyOf": [{"required": ["name"]}, {"required": ["email"]}],
+      "anyOf": [
+        {"required": ["name"]},
+        {"required": ["email"]},
+        {"required": ["phone"]},
+        {"required": ["address"]}
+      ],
       "properties": {
         "name": {"type": "string", "pattern": "\\S"},
         "email": {"type": "string", "minLength": 1},
         "phone": {"type": "string", "minLength": 1},
+        "address": {"type": "string", "pattern": "\\S"},
         "role": {"type": "string", "minLength": 1},
         "source_url": {"type": "string", "minLength": 1}
       }

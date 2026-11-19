@@ -289,12 +289,12 @@ def test_reimport_with_the_same_answers_reports_no_checklist_difference(
 # --- migration ---------------------------------------------------------------------------
 
 
-def test_fresh_migrate_is_version_5_with_a_checklist_column(tmp_path: Path) -> None:
+def test_fresh_migrate_is_version_6_with_a_checklist_column(tmp_path: Path) -> None:
     path = tmp_path / "fresh.db"
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
     conn = sqlite3.connect(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         columns = [row[1] for row in conn.execute("PRAGMA table_info(leads)")]
     finally:
         conn.close()

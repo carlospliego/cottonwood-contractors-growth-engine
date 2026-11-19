@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
-from cottonwood import claims, config, draft_claims, eligibility, events, gate, normalize
+from cottonwood import claims, config, draft_claims, eligibility, events, evidence, gate, normalize
 
 PREPARED_TYPE = "draft_prepared"
 REFUSED_TYPE = "prepare_refused"
@@ -272,24 +272,21 @@ def _evidence_check(
             Refusal("evidence", "no maximum evidence age configured (review.max_evidence_age_days)")
         )
         return
-    row = conn.execute(
-        "SELECT MAX(substr(observed_at, 1, 10)) AS newest FROM evidence WHERE lead_id = ?",
-        (lead_id,),
-    ).fetchone()
-    newest = row["newest"] if row is not None else None
-    if newest is None:
+    found = evidence.newest(conn, lead_id)
+    if found is None:
         refusals.append(Refusal("evidence", f"lead {lead_id} has no evidence"))
         return
     try:
-        observed = date.fromisoformat(str(newest))
+        effective = date.fromisoformat(found.date)
     except ValueError:
-        refusals.append(Refusal("evidence", f"newest evidence date {newest!r} is not a date"))
+        refusals.append(Refusal("evidence", f"newest evidence date {found.date!r} is not a date"))
         return
-    if observed < today - timedelta(days=max_age):
+    if effective < today - timedelta(days=max_age):
         refusals.append(
             Refusal(
                 "evidence",
-                f"newest evidence observed {observed.isoformat()} is older than {max_age} days",
+                f"newest evidence {found.basis} {effective.isoformat()}"
+                f" is older than {max_age} days",
             )
         )
 

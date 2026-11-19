@@ -200,7 +200,7 @@ file holds contact data; `out/` is git-ignored, so keep it there.
 
 Run this each time the `research-prospects` skill researches a brief (R-25, R-26). The skill can only write a file; the CLI decides what is imported, and the founder hand-reviews a sample before Gate 1.
 
-1. In Claude Code, start the `research-prospects` skill with a research brief (motion, geography, firm types, how many). Note the start time.
+1. In Claude Code, start the `research-prospects` skill with a research brief (motion, geography, firm types, how many), or run `/research-prospects demand [COUNT]` to have it scan current demand in the territory, pick the strongest opportunity and research that. A demand run also writes `out/research/YYYY-MM-DD-SLUG.demand.md`, which explains the pick; the founder reads it before the import. Note the start time.
 2. When it has written `out/research/YYYY-MM-DD-SLUG.json`, note the end time.
 3. Check the file without writing anything: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json --check`. Note `passed` when it ends `0 rejected`, else `failed`. Never repair a rejected record by guessing: drop it or research it again.
 4. Import it: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json`.

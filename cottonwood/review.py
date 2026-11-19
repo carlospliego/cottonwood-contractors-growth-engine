@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from cottonwood import claims, config, hand_review, inbound, timeutil
+from cottonwood import claims, config, evidence, hand_review, inbound, timeutil
 
 # SQL condition for leads that count. Test inquiries are listed but never counted (R-3);
 # the report reuses this so both outputs agree on what a test is.
@@ -123,7 +123,10 @@ SECTIONS = (
     ("direct_candidate", "Direct candidates", "No direct candidates."),
     ("relationship_prospect", "Relationship prospects", "No relationship prospects."),
 )
-CANDIDATE_LEADING_COLUMNS = ("Lead", "Organization", "Contact", "Eligibility")
+CANDIDATE_LEADING_COLUMNS = ("Lead", "Organization", "Contact", "Reach", "Eligibility")
+# How a researched lead can be reached: which contact routes are on file, never their values.
+REACH_NONE = "none"
+REACH_ROUTES = (("email", "email_norm"), ("phone", "phone_e164"), ("address", "address"))
 CANDIDATE_TRAILING_COLUMNS = (
     "Yes",
     "Evidence URL",
@@ -142,11 +145,12 @@ class CandidateRow:
     lead_id: int
     organization: str | None
     contact: str | None
+    reach: str
     eligibility: str | None
     answers: dict[str, str]
     yes: int
     evidence_url: str | None
-    evidence_observed: str | None
+    evidence_date: str | None  # published date when known, else observed (evidence.newest)
     next_action: str | None
     founder_time_h: float | None
     hand_review: str | None
@@ -181,7 +185,8 @@ def candidate_rows(
     leads = conn.execute(
         "SELECT leads.id, leads.checklist, leads.next_action, leads.founder_time_h,"
         " leads.is_test, organizations.name AS organization, contacts.name AS contact,"
-        " contacts.eligibility"
+        " contacts.eligibility, contacts.email_norm, contacts.phone_e164, contacts.address,"
+        " contacts.deleted_at"
         " FROM leads"
         " LEFT JOIN contacts ON contacts.id = leads.contact_id"
         " LEFT JOIN organizations ON organizations.id = leads.organization_id"
@@ -191,11 +196,7 @@ def candidate_rows(
     rows: list[CandidateRow] = []
     for lead in leads:
         lead_id = int(lead["id"])
-        evidence = conn.execute(
-            "SELECT url, observed_at FROM evidence WHERE lead_id = ?"
-            " ORDER BY observed_at DESC, id DESC LIMIT 1",
-            (lead_id,),
-        ).fetchone()
+        newest = evidence.newest(conn, lead_id)
         standing = hand_review.standing_review(conn, lead_id)
         answers = _answers(lead["checklist"], items)
         founder_time = lead["founder_time_h"]
@@ -204,11 +205,12 @@ def candidate_rows(
                 lead_id=lead_id,
                 organization=lead["organization"],
                 contact=lead["contact"],
+                reach=_reach(lead),
                 eligibility=lead["eligibility"],
                 answers=answers,
                 yes=sum(1 for value in answers.values() if value == YES_ANSWER),
-                evidence_url=evidence["url"] if evidence is not None else None,
-                evidence_observed=evidence["observed_at"] if evidence is not None else None,
+                evidence_url=newest.url if newest is not None else None,
+                evidence_date=newest.date if newest is not None else None,
                 next_action=lead["next_action"],
                 founder_time_h=float(founder_time) if founder_time is not None else None,
                 hand_review=(
@@ -220,8 +222,16 @@ def candidate_rows(
     return sorted(rows, key=CandidateRow.order_key)
 
 
+def _reach(lead: sqlite3.Row) -> str:
+    """The contact routes on file (email, phone, address), or 'none'; a deleted contact has none."""
+    if lead["deleted_at"] is not None:
+        return REACH_NONE
+    routes = [name for name, column in REACH_ROUTES if lead[column]]
+    return ", ".join(routes) or REACH_NONE
+
+
 def _evidence_age(observed: str | None, today: date, max_age: int | None) -> str:
-    """Days from the evidence's observed date to today in Denver, flagged when over the max."""
+    """Days from the evidence's effective date to today in Denver, flagged when over the max."""
     if observed is None:
         return EMPTY
     try:
@@ -276,11 +286,12 @@ def _candidate_section(
             str(row.lead_id),
             _cell(row.organization),
             _cell(row.contact),
+            row.reach,
             _cell(row.eligibility),
             *(row.answers[item.key] for item in items),
             str(row.yes),
             _cell(row.evidence_url),
-            _evidence_age(row.evidence_observed, today, max_age),
+            _evidence_age(row.evidence_date, today, max_age),
             _cell(row.next_action),
             _hours(row.founder_time_h),
             row.hand_review or EMPTY,
