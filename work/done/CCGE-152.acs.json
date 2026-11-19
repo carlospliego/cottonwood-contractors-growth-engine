@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-152",
+  "runs": [
+    {
+      "date": "2026-11-18",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_run_without_tokens_or_cost_is_stored_as_unknown calls main(['record-run', *REQUIRED, '--db', ...]). REQUIRED has skill, skill-version, model, started, ended, input, output and validation, and none of --tokens, --cost, --cost-source or --estimated. The test asserts exit code EXIT_OK and exactly one agent_runs row. It then asserts tokens, cost_usd, cost_source and cost_estimated are all None, which reads back as NULL from SQLite. I ran the test file with .venv/bin/python -m pytest and all 7 tests passed.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-152/tests/test_record_run_optional_cost.py",
+          "line": 76,
+          "quote": "    assert _record(db_path) == EXIT_OK\n\n    rows = _rows(db_path)\n    assert len(rows) == 1\n    row = rows[0]\n    assert row[\"tokens\"] is None\n    assert row[\"cost_usd\"] is None\n    assert row[\"cost_source\"] is None\n    assert row[\"cost_estimated\"] is None"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_tokens_without_cost runs record-run with --tokens 127190 and no cost flags. It asserts exit 0 (EXIT_OK), stored tokens == 127190, cost_usd is None, and 'cost not recorded' in the printed output. I ran the test file with .venv/bin/python -m pytest: 7 passed.",
+          "file": "tests/test_record_run_optional_cost.py",
+          "line": 93,
+          "quote": "def test_tokens_without_cost(db_path: Path, capsys: pytest.CaptureFixture[str]) -> None:\n    assert _record(db_path, \"--tokens\", \"127190\") == EXIT_OK\n\n    row = _rows(db_path)[0]\n    assert row[\"tokens\"] == 127190\n    assert row[\"cost_usd\"] is None"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The parametrized test test_cost_flags_without_each_other_are_usage_errors covers all three cases: --cost-source alone, --estimated alone, and --cost alone. Each case asserts the exit code is EXIT_USAGE, that stderr starts with 'error: <flag> ', and that agent_runs has no rows. cottonwood/runs.py cost_flag_conflict returns the matching messages ('--cost-source needs --cost', '--estimated needs --cost', '--cost needs --cost-source'), and cli.py prints them to stderr and returns EXIT_USAGE before any write. I ran the test file with the project venv and all 7 tests passed.",
+          "file": "tests/test_record_run_optional_cost.py",
+          "line": 118,
+          "quote": "def test_cost_flags_without_each_other_are_usage_errors(\n    db_path: Path,\n    capsys: pytest.CaptureFixture[str],\n    flags: list[str],\n    named: str,\n) -> None:\n    capsys.readouterr()\n    assert _record(db_path, *flags) == EXIT_USAGE\n    err = capsys.readouterr().err\n    assert err.startswith(f\"error: {named} \")\n    assert _rows(db_path) == []"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_record_run_optional_cost.py::test_report_skips_a_run_with_no_cost records one run with no cost and one run with --cost 2.50 --cost-source claude-code-cost. It then runs `main(['report', ...])` and asserts the output contains '- Model cost observed: 2.50' and '- Model cost estimated: 0.00'. The estimated line prints as 0.00 rather than a bare 0, which is the same value in the report's 2-decimal format. The test file passed (7 passed) using .venv/bin/python -m pytest. I did not run the mutation probe and did not check the second run's cost source in the database.",
+          "file": "tests/test_record_run_optional_cost.py",
+          "line": 142,
+          "quote": "assert \"- Model cost observed: 2.50\" in lines\n    assert \"- Model cost estimated: 0.00\" in lines"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "docs/runbook.md step 7 of the research run and .claude/skills/research-prospects/SKILL.md step 5 of 'After the run' both say '--tokens and --cost may be left out when no figure is available'. The runbook's drafting-run step 5 says it too. I did not run the checks myself. I read the latest logs under .sir/runs/logs/ (2026-11-19T04-46 UTC, about a minute before my check, cwd = this worktree). They show: pytest 929 passed; ruff check 'All checks passed!'; mypy 'Success: no issues found in 105 source files'; ruff format --check '313 files already formatted'.",
+          "file": "docs/runbook.md",
+          "line": 209,
+          "quote": "On a subscription plan where `/cost` shows no dollar figure, leave out `--cost` and `--cost-source`, and `--tokens` too when no token count is shown: `--tokens` and `--cost` may be left out when no figure is available, and the run is recorded with them stored as unknown, never as 0."
+        }
+      ],
+      "returns_through": "2026-11-19T04:47:40.810Z"
+    }
+  ]
+}
