@@ -118,6 +118,8 @@ def build_record(
     ended_at = _time("ended", ended)
     if timeutil.parse_utc(started_at) > timeutil.parse_utc(now):
         raise RunError("started", "is later than now")
+    if timeutil.parse_utc(ended_at) > timeutil.parse_utc(now):
+        raise RunError("ended", "is later than now")
     if timeutil.parse_utc(ended_at) < timeutil.parse_utc(started_at):
         raise RunError("ended", "is earlier than --started")
     input_text = _required("input", input_ref)
