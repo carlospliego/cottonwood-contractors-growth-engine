@@ -953,16 +953,25 @@ def _add_record_run_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--validation", required=True, choices=runs.VALIDATIONS, help="the output's check result"
     )
-    parser.add_argument("--tokens", required=True, help="total tokens, a whole number")
-    parser.add_argument("--cost", required=True, help="cost in USD, e.g. 3.25 (at most 4 places)")
     parser.add_argument(
-        "--cost-source",
-        required=True,
-        choices=runs.COST_SOURCES,
-        help="where the cost figure came from: Claude Code's /cost or the billing console",
+        "--tokens", default=None, help="total tokens, a whole number (leave out if unknown)"
     )
     parser.add_argument(
-        "--estimated", action="store_true", help="mark the cost as estimated (not exact)"
+        "--cost",
+        default=None,
+        help="cost in USD, e.g. 3.25 (at most 4 places); leave out if there is no figure",
+    )
+    parser.add_argument(
+        "--cost-source",
+        default=None,
+        choices=runs.COST_SOURCES,
+        help="where the cost figure came from: Claude Code's /cost or the billing console"
+        " (needs --cost)",
+    )
+    parser.add_argument(
+        "--estimated",
+        action="store_true",
+        help="mark the cost as estimated (not exact; needs --cost)",
     )
     parser.add_argument(
         "--db",
@@ -974,6 +983,10 @@ def _add_record_run_arguments(parser: argparse.ArgumentParser) -> None:
 
 def _run_record_run(args: argparse.Namespace) -> int:
     """Record one skill run in agent_runs, or refuse naming the field (R-26)."""
+    conflict = runs.cost_flag_conflict(args.cost, args.cost_source, args.estimated)
+    if conflict is not None:
+        print(f"error: {conflict}", file=sys.stderr)
+        return EXIT_USAGE
     try:
         record = runs.build_record(
             skill=args.skill,
