@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-149",
+  "runs": [
+    {
+      "date": "2026-11-17",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_evidence_published_age.py::test_old_publication_read_today_is_refused sets max_age=90, deletes all evidence, inserts a single row with observed_at = today (2026-11-30) and published_at = 120 days earlier, then runs prepare-send. It asserts exactly one 'refused: evidence:' line, that the published date is in that line, and that the prepare_refused activity lists 'evidence' in its checks. Running .venv/bin/pytest on the file in the worktree gave 4 passed. I did not mutate the code to confirm the test fails without the fix.",
+          "file": "tests/test_evidence_published_age.py",
+          "line": 69,
+          "quote": "    assert published in line\n    assert line == f\"refused: evidence: newest evidence published {published} is older than 90 days\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_review_age_counts_from_publication sets the only evidence to published 120 days ago and observed today, with max_age=90. It runs `cottonwood review` and asserts that lead 1's row in the direct-candidate table has a cell '120 (over 90)'. The test file ran with .venv/bin/pytest in the worktree and all 4 tests passed.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-149/tests/test_evidence_published_age.py",
+          "line": 85,
+          "quote": "assert \"120 (over 90)\" in cells"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_evidence_published_age.py::test_without_publication_date_observed_date_is_used inserts evidence with published_at=NULL and observed_at=today (2026-11-30). It checks that the review row's age cell next to the URL is \"0\". It also checks that prepare-send gives no 'refused: evidence:' line, and the helper cross-checks that against the prepare_refused activity checks. I ran the file with the worktree's .venv/bin/pytest and all 4 tests passed.",
+          "file": "tests/test_evidence_published_age.py",
+          "line": 91,
+          "quote": "def test_without_publication_date_observed_date_is_used("
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_newest_publication_date_wins in tests/test_evidence_published_age.py inserts two evidence rows for lead 1 (published 200 days ago and 10 days ago, both observed today). It asserts that the review row contains the 10-day-old URL, doesn't contain the 200-day-old URL, and shows age '10' in the next cell. It then asserts prepare-send gives no 'refused: evidence:' line. The helper also checks that the prepare_refused activity's checks don't include 'evidence'. I ran the file with the worktree's .venv/bin/pytest and all 4 tests passed. The AC says 200 and 10 days, and the test uses exactly those. I did not run mutation probes, so I haven't shown the test fails when the age logic is broken.",
+          "file": "tests/test_evidence_published_age.py",
+          "line": 117,
+          "quote": "(TODAY.isoformat(), _days_ago(200), TODAY.isoformat(), _days_ago(10)),"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md diff adds a rule to record published_at when the page shows a publication date, and adds published_at to the evidence item shape. Run from the worktree's own .venv/bin, all four checks exit 0: pytest 903 passed, ruff check 'All checks passed!', mypy 'no issues found in 101 source files', ruff format --check '306 files already formatted'.",
+          "file": ".claude/skills/research-prospects/SKILL.md",
+          "line": 43,
+          "quote": "- When the page shows a publication date, record it as the evidence item's `published_at` (`YYYY-MM-DD`). Evidence age is measured from it, so an old article read today counts as old."
+        }
+      ],
+      "returns_through": "2026-11-17T15:21:17.203Z"
+    }
+  ]
+}

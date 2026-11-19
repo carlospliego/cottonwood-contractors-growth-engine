@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from cottonwood import claims, config, hand_review, inbound, timeutil
+from cottonwood import claims, config, evidence, hand_review, inbound, timeutil
 
 # SQL condition for leads that count. Test inquiries are listed but never counted (R-3);
 # the report reuses this so both outputs agree on what a test is.
@@ -150,7 +150,7 @@ class CandidateRow:
     answers: dict[str, str]
     yes: int
     evidence_url: str | None
-    evidence_observed: str | None
+    evidence_date: str | None  # published date when known, else observed (evidence.newest)
     next_action: str | None
     founder_time_h: float | None
     hand_review: str | None
@@ -196,11 +196,7 @@ def candidate_rows(
     rows: list[CandidateRow] = []
     for lead in leads:
         lead_id = int(lead["id"])
-        evidence = conn.execute(
-            "SELECT url, observed_at FROM evidence WHERE lead_id = ?"
-            " ORDER BY observed_at DESC, id DESC LIMIT 1",
-            (lead_id,),
-        ).fetchone()
+        newest = evidence.newest(conn, lead_id)
         standing = hand_review.standing_review(conn, lead_id)
         answers = _answers(lead["checklist"], items)
         founder_time = lead["founder_time_h"]
@@ -213,8 +209,8 @@ def candidate_rows(
                 eligibility=lead["eligibility"],
                 answers=answers,
                 yes=sum(1 for value in answers.values() if value == YES_ANSWER),
-                evidence_url=evidence["url"] if evidence is not None else None,
-                evidence_observed=evidence["observed_at"] if evidence is not None else None,
+                evidence_url=newest.url if newest is not None else None,
+                evidence_date=newest.date if newest is not None else None,
                 next_action=lead["next_action"],
                 founder_time_h=float(founder_time) if founder_time is not None else None,
                 hand_review=(
@@ -235,7 +231,7 @@ def _reach(lead: sqlite3.Row) -> str:
 
 
 def _evidence_age(observed: str | None, today: date, max_age: int | None) -> str:
-    """Days from the evidence's observed date to today in Denver, flagged when over the max."""
+    """Days from the evidence's effective date to today in Denver, flagged when over the max."""
     if observed is None:
         return EMPTY
     try:
@@ -295,7 +291,7 @@ def _candidate_section(
             *(row.answers[item.key] for item in items),
             str(row.yes),
             _cell(row.evidence_url),
-            _evidence_age(row.evidence_observed, today, max_age),
+            _evidence_age(row.evidence_date, today, max_age),
             _cell(row.next_action),
             _hours(row.founder_time_h),
             row.hand_review or EMPTY,
