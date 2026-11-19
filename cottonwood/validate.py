@@ -52,6 +52,7 @@ CSV_COLUMNS = (
     "contact_name",
     "contact_email",
     "contact_phone",
+    "contact_address",
     "contact_role",
     "contact_source_url",
     "property_location",
@@ -131,6 +132,7 @@ class ProspectContact:
     email_norm: str | None
     phone: str | None
     phone_e164: str | None
+    address: str | None
     role: str | None
     source_url: str | None
 
@@ -505,6 +507,7 @@ def _contact(contact: Mapping[str, Any]) -> ProspectContact:
         email_norm=None if email is None else normalize.normalize_email(email),
         phone=phone,
         phone_e164=None if phone is None else normalize.normalize_phone(phone),
+        address=_text(contact, "address"),
         role=_text(contact, "role"),
         source_url=_text(contact, "source_url"),
     )
