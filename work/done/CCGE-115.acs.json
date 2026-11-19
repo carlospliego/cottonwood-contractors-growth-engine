@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-115",
+  "runs": [
+    {
+      "date": "2026-11-17",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "cottonwood/runs.py now raises RunError('ended', 'is later than now') when the parsed ended time is after now. The new test pins timeutil.utc_now to 2026-12-01T00:00:00Z and runs record-run with --started '2026-11-30 09:00' --ended '2026-12-01 01:00'. It asserts exit code EXIT_REFUSED, a stderr line starting 'error: ended:', and 0 rows in agent_runs. I ran the tests with .venv/bin/pytest and both passed (2 passed). The second test checks that an ended time equal to now is still accepted. I did not separately confirm that EXIT_REFUSED equals 1.",
+          "file": "cottonwood/runs.py",
+          "line": 121,
+          "quote": "    if timeutil.parse_utc(ended_at) > timeutil.parse_utc(now):\n        raise RunError(\"ended\", \"is later than now\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "build_record only rejects an end time when it is strictly greater than now (cottonwood/runs.py:121). An end equal to now passes. test_ended_equal_to_now_is_accepted fixes now at 2026-12-01T00:00:00Z, which is 2026-11-30 17:00 Denver. It runs record-run with --ended '2026-11-30 17:00', gets EXIT_OK and finds 1 row in agent_runs. Both tests in tests/test_record_run_ended_future.py passed (2 passed).",
+          "file": "cottonwood/runs.py",
+          "line": 121,
+          "quote": "if timeutil.parse_utc(ended_at) > timeutil.parse_utc(now):"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran the equivalent tools from .venv/bin in the worktree. pytest gave 901 passed (exit 0). ruff check gave 'All checks passed!' (exit 0). mypy gave 'Success: no issues found in 100 source files' (exit 0). ruff format --check gave '305 files already formatted' (exit 0). The uv wrappers were not run because uv panics in the sandbox. The output is saved at $TMPDIR/o.txt.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-115/tests/test_record_run_ended_future.py",
+          "line": 1,
+          "quote": "901 passed in 4.93s"
+        }
+      ],
+      "returns_through": "2026-11-17T15:15:45.712Z"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "CCGE-150",
+  "runs": [
+    {
+      "date": "2026-11-18",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_prospects_contact_address.py has two tests that import a JSON record through `prospects-import` and read the stored contacts row. test_address_only_contact_is_imported_with_its_address uses contact {address, source_url} and asserts row['address'] == ADDRESS, name is None and email is None. test_phone_only_contact_is_imported uses {'phone': '(801) 555-0100'} and asserts phone_e164 == '+18015550100'. I ran the file with .venv/bin/python -m pytest and all 6 tests passed.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/tests/test_prospects_contact_address.py",
+          "line": 73,
+          "quote": "def test_address_only_contact_is_imported_with_its_address(db_path: Path, tmp_path: Path) -> None:\n    contact = {\"address\": ADDRESS, \"source_url\": \"https://holladay.example.com/contact\"}\n    assert _run(db_path, tmp_path, [_record(contact)]) == EXIT_OK\n    row = _contact(db_path)\n    assert row[\"address\"] == ADDRESS\n    assert row[\"name\"] is None and row[\"email\"] is None"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The parametrized test test_contact_without_a_route_or_name_is_rejected covers two cases, a contact with only role and a contact with a blank address. Each runs prospects-import --check. The test asserts that stderr contains a rejection line naming `contact` and that stdout ends with 'check: 0 valid, 1 rejected'. I ran tests/test_prospects_contact_address.py and all 6 tests passed.",
+          "file": "tests/test_prospects_contact_address.py",
+          "line": 98,
+          "quote": "    _run(db_path, tmp_path, [_record(contact)], \"--check\")\n    captured = capsys.readouterr()\n    assert \"rejected record 1 (holladay-1): contact\" in captured.err\n    assert captured.out.endswith(\"check: 0 valid, 1 rejected\\n\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_prospects_contact_address.py has two tests that match the AC. test_csv_contact_address_column_is_imported writes a CSV with a contact_address column, runs prospects-import, and asserts the stored contacts.address equals ADDRESS. test_reimport_with_a_different_address_reports_the_difference imports a record, re-imports the same contact (Pat Lee) with a different address, and asserts 'contact.address' appears in the output. All 6 tests in the file passed.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/tests/test_prospects_contact_address.py",
+          "line": 124,
+          "quote": "def test_reimport_with_a_different_address_reports_the_difference("
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Migration 006_contact_address.sql runs ALTER TABLE contacts ADD COLUMN address TEXT. tests/test_migrate.py asserts a fresh database ends at version 6 (lines 59, 61, 83, 187, 202), and I ran it with all 31 tests in test_migrate.py and test_review_candidates.py passing. test_reach_lists_the_routes_on_file in tests/test_review_candidates.py (parametrized, lines 409-445) writes contacts.address on a fresh migrated DB, so the column exists. It asserts rows[0][3] equals 'email, phone, address', 'phone', 'address' and 'none' (the deleted contact). The review header test (line 239) shows Reach is the fourth column, and CANDIDATE_LEADING_COLUMNS in review.py:126 lists it in that position. I did not run the CLI migrate command directly because the read-only gate blocked a scratch-database command. The tests exercise the same migration path.",
+          "file": "tests/test_review_candidates.py",
+          "line": 412,
+          "quote": "(\"pat@acme.example\", \"+18015550100\", \"1 Main St, Sandy, UT\", None, \"email, phone, address\"),"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md has version 1.2.0 (line 4). It documents the `demand` argument (argument-hint, an Input paragraph and a Demand mode section) and the `.demand.md` report (Output section). The Rules section requires a contact with email, phone or address on every record and forbids private home addresses. The allowed-tools list (WebSearch, WebFetch, Read(config/pilot.yaml), Read(schema), Write(out/research/**)) matches HEAD exactly, per `git show HEAD:`. I ran the checks with the .venv tools: pytest gave 909 passed, ruff check passed, mypy reported no issues in 100 source files, and ruff format --check reported 307 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/skills/research-prospects/SKILL.md",
+          "line": 4,
+          "quote": "version: 1.2.0"
+        }
+      ],
+      "returns_through": "2026-11-19T02:17:05.731Z"
+    }
+  ]
+}

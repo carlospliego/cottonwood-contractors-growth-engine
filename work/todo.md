@@ -89,7 +89,6 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-108` — Test --actor, blank actor and sqlite3.Error refusal for set-eligibility and mark-reviewed → [CCGE-108.md](tasks/CCGE-108.md)
 - [ ] `CCGE-109` — Test the review queue fallbacks: unreadable checklist, non-date evidence, unreadable hand-review payload → [CCGE-109.md](tasks/CCGE-109.md)
 - [ ] `CCGE-114` — prospects-import --check: account for leads an earlier record in the same file would create → [CCGE-114.md](tasks/CCGE-114.md)
-- [ ] `CCGE-115` — record-run: refuse an --ended time later than now → [CCGE-115.md](tasks/CCGE-115.md)
 - [ ] `CCGE-116` — Test prospects-import --check with a valid stored referrer → [CCGE-116.md](tasks/CCGE-116.md)
 - [ ] `CCGE-117` — Credential scan: cover untracked files and stop exempting its own file → [CCGE-117.md](tasks/CCGE-117.md)
 - [ ] `CCGE-121` — Claims loader: refuse a claim id that ends in a newline → [CCGE-121.md](tasks/CCGE-121.md)
@@ -111,9 +110,13 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-145` — Untested lead export branches → [CCGE-145.md](tasks/CCGE-145.md)
 - [ ] `CCGE-147` — Deletion requests remove personal details from activity records (founder decision: Option A) → [CCGE-147.md](tasks/CCGE-147.md)
 - [ ] `CCGE-148` — Website privacy page denies analytics, but Google Analytics is installed (website repo, not this one) → [CCGE-148.md](tasks/CCGE-148.md)
+- [ ] `CCGE-150` — research-prospects demand mode, and every researched prospect carries a reachable contact (phone or address allowed) → [CCGE-150.md](tasks/CCGE-150.md)
+- [ ] `CCGE-151` — research-prospects demand mode: sample-check that a segment's signal means construction work before picking it → [CCGE-151.md](tasks/CCGE-151.md)
 
 ## Done
 
+- [x] `CCGE-149` — Evidence age uses the publication date when known → [CCGE-149.md](done/CCGE-149.md)
+- [x] `CCGE-115` — record-run: refuse an --ended time later than now → [CCGE-115.md](done/CCGE-115.md)
 - [x] `CCGE-144` — prepare-outreach cannot see existing drafts, so a second run reuses draft number 1 → [CCGE-144.md](done/CCGE-144.md)
 - [x] `CCGE-146` — Apply the founder brief's answers to the pilot config and claims library → [CCGE-146.md](done/CCGE-146.md)
 - [x] `CCGE-143` — Runbook: a drafting run from export to logged send → [CCGE-143.md](done/CCGE-143.md)
