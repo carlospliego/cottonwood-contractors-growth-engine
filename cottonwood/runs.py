@@ -1,8 +1,10 @@
 """record-run: one Claude skill run with its version, model, times, files and cost (R-26).
 
-Each run is one ``agent_runs`` row. The cost comes from a named source (Claude Code's ``/cost``
-output or the billing console) and is marked estimated when it is not exact. The weekly report
-sums these costs against the monthly cap; the cap is a record, never enforced.
+Each run is one ``agent_runs`` row. A cost, when given, comes from a named source (Claude Code's
+``/cost`` output or the billing console) and is marked estimated when it is not exact. On a
+subscription plan there may be no figure at all: tokens and cost are then left out and stored as
+NULL (unknown), never as 0. The weekly report sums the known costs against the monthly cap; the
+cap is a record, never enforced.
 """
 
 from __future__ import annotations
@@ -43,18 +45,36 @@ class RunRecord:
     input_ref: str
     output_ref: str
     validation: str
-    tokens: int
-    cost_usd: str
-    cost_source: str
-    cost_estimated: bool
+    tokens: int | None
+    cost_usd: str | None
+    cost_source: str | None
+    cost_estimated: bool | None
 
     def line(self, run_id: int) -> str:
-        """What record-run prints."""
-        source = f"{self.cost_source}, estimated" if self.cost_estimated else self.cost_source
-        return (
-            f"run {run_id} recorded: {self.skill} {self.skill_version},"
-            f" {self.cost_usd} USD ({source})"
-        )
+        """What record-run prints; a missing figure is named as not recorded."""
+        if self.cost_usd is None:
+            cost = "cost not recorded"
+        else:
+            source = f"{self.cost_source}, estimated" if self.cost_estimated else self.cost_source
+            cost = f"{self.cost_usd} USD ({source})"
+        tokens = ", tokens not recorded" if self.tokens is None else ""
+        return f"run {run_id} recorded: {self.skill} {self.skill_version}, {cost}{tokens}"
+
+
+def cost_flag_conflict(cost: str | None, cost_source: str | None, estimated: bool) -> str | None:
+    """The usage error for cost flags given without each other, or None when they agree.
+
+    --cost-source and --estimated describe a cost, so they need --cost; a cost needs its source.
+    """
+    if cost is None:
+        if cost_source is not None:
+            return "--cost-source needs --cost"
+        if estimated:
+            return "--estimated needs --cost"
+        return None
+    if cost_source is None:
+        return "--cost needs --cost-source"
+    return None
 
 
 def _required(field: str, value: str) -> str:
@@ -104,13 +124,17 @@ def build_record(
     input_ref: str,
     output_ref: str,
     validation: str,
-    tokens: str,
-    cost: str,
-    cost_source: str,
+    tokens: str | None,
+    cost: str | None,
+    cost_source: str | None,
     estimated: bool,
     now: str,
 ) -> RunRecord:
-    """Check every field (in option order) and return the run, or raise RunError."""
+    """Check every field (in option order) and return the run, or raise RunError.
+
+    A missing ``tokens`` or ``cost`` stays None (unknown); with no cost, the source and the
+    estimated mark are None too. Callers check :func:`cost_flag_conflict` first.
+    """
     name = _required("skill", skill)
     version = _required("skill-version", skill_version)
     model_name = _required("model", model)
@@ -126,10 +150,16 @@ def build_record(
     output_text = _required("output", output_ref)
     if validation not in VALIDATIONS:
         raise RunError("validation", f"must be one of {', '.join(VALIDATIONS)}")
-    token_count = parse_tokens(tokens)
-    cost_text = parse_cost(cost)
-    if cost_source not in COST_SOURCES:
-        raise RunError("cost-source", f"must be one of {', '.join(COST_SOURCES)}")
+    token_count = None if tokens is None else parse_tokens(tokens)
+    cost_text: str | None = None
+    source: str | None = None
+    cost_estimated: bool | None = None
+    if cost is not None:
+        cost_text = parse_cost(cost)
+        if cost_source not in COST_SOURCES:
+            raise RunError("cost-source", f"must be one of {', '.join(COST_SOURCES)}")
+        source = cost_source
+        cost_estimated = estimated
     return RunRecord(
         skill=name,
         skill_version=version,
@@ -141,8 +171,8 @@ def build_record(
         validation=validation,
         tokens=token_count,
         cost_usd=cost_text,
-        cost_source=cost_source,
-        cost_estimated=estimated,
+        cost_source=source,
+        cost_estimated=cost_estimated,
     )
 
 
@@ -166,7 +196,7 @@ def record_run(conn: sqlite3.Connection, record: RunRecord) -> int:
                 record.tokens,
                 record.cost_usd,
                 record.cost_source,
-                int(record.cost_estimated),
+                None if record.cost_estimated is None else int(record.cost_estimated),
             ),
         )
         conn.commit()

@@ -206,7 +206,7 @@ Run this each time the `research-prospects` skill researches a brief (R-25, R-26
 4. Import it: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json`.
 5. Run `/cost` in the same Claude Code session and note the total cost and tokens.
 6. Record the run: `cottonwood record-run --skill research-prospects --skill-version VERSION --model MODEL --started "YYYY-MM-DD HH:MM" --ended "YYYY-MM-DD HH:MM" --input "brief: ..." --output out/research/YYYY-MM-DD-SLUG.json --validation passed --tokens N --cost USD --cost-source claude-code-cost`. `VERSION` is the `version` in the skill's frontmatter.
-7. When the cost is not exact (for example read from the billing console for a period), use `--cost-source billing-console --estimated` instead.
+7. When the cost is not exact (for example read from the billing console for a period), use `--cost-source billing-console --estimated` instead. On a subscription plan where `/cost` shows no dollar figure, leave out `--cost` and `--cost-source`, and `--tokens` too when no token count is shown: `--tokens` and `--cost` may be left out when no figure is available, and the run is recorded with them stored as unknown, never as 0.
 8. Hand-review a sample with `cottonwood review` and `cottonwood mark-reviewed` (Gate 1).
 
 ## Drafting run
@@ -217,7 +217,7 @@ Run this for each lead the founder wants contacted (R-20, R-21, R-22, R-26). The
 2. In Claude Code, start the `prepare-outreach` skill on `out/leads/ID.json`. Note the start time.
 3. When it has written `out/drafts/ID-N.md`, `out/drafts/ID-N.claims.json` and `out/briefs/ID-N.md`, note the end time. If it wrote nothing, it reports why; do not draft by hand around it.
 4. Run `/cost` in the same Claude Code session and note the total cost and tokens.
-5. Record the run: `cottonwood record-run --skill prepare-outreach --skill-version VERSION --model MODEL --started "YYYY-MM-DD HH:MM" --ended "YYYY-MM-DD HH:MM" --input out/leads/ID.json --output out/drafts/ID-N.md --validation passed --tokens N --cost USD --cost-source claude-code-cost`. Use `--validation failed` when the claims list does not validate or the brief flags a claim that is not verified.
+5. Record the run: `cottonwood record-run --skill prepare-outreach --skill-version VERSION --model MODEL --started "YYYY-MM-DD HH:MM" --ended "YYYY-MM-DD HH:MM" --input out/leads/ID.json --output out/drafts/ID-N.md --validation passed --tokens N --cost USD --cost-source claude-code-cost`. Use `--validation failed` when the claims list does not validate or the brief flags a claim that is not verified. On a subscription plan where `/cost` shows no dollar figure, leave out `--cost` and `--cost-source`, and `--tokens` too when no token count is shown: `--tokens` and `--cost` may be left out when no figure is available.
 6. Send the founder the brief and the draft. Any claim the brief flags must be approved first (`cottonwood approve claim CLAIM-ID ...`) or dropped from the draft.
 7. When the founder approves the exact draft in writing, record it: `cottonwood approve lead ID --approver NAME --reference "..."` (once per lead) and `cottonwood approve draft out/drafts/ID-N.md --lead ID --approver NAME --reference "email YYYY-MM-DD Re: SUBJECT"`. Any later edit to the draft needs a new approval.
 8. Make the sendable copy: `cottonwood prepare-send ID out/drafts/ID-N.md`. On a refusal, fix what each `refused:` line names; never edit `out/send/` by hand.
