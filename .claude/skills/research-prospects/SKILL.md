@@ -1,7 +1,7 @@
 ---
 name: research-prospects
 description: Research direct candidates or relationship prospects for Cottonwood Contractors from public professional sources and write a research-record JSON file under out/research/ for the developer to check and import. Use when the developer gives a research brief (motion, geography, firm types, how many), or passes `demand` to have the skill scan current demand in Cottonwood's territory, pick the strongest opportunity and research it.
-version: 1.2.0
+version: 1.3.0
 argument-hint: "[demand [COUNT]] | <research brief>"
 allowed-tools:
   - WebSearch
@@ -39,8 +39,8 @@ Steps:
 1. Read `config/pilot.yaml` (both checklists and `review.max_evidence_age_days`). Signals older than that many days do not count.
 2. Scan demand across the territory and segments. Look for current, public signals such as permit and planning-commission agendas, new-business or expansion announcements, commercial lease and sale announcements, broker market reports (vacancy, absorption, new leases by sector), hotel renovation or reflag news, healthcare and dental expansion news, and light-industrial developments with tenant space. Open each source you rely on with WebFetch.
 3. Build a shortlist of 3 to 5 candidate opportunities. Each is one motion, one segment and one geography (for example "direct candidates: dental practices opening new offices in Utah County"). Include at least one `relationship_prospect` candidate (brokers, property managers, architects): they publish their contact details and can refer more than one project. Give each candidate at least two cited sources from the scan.
-4. Rate each candidate `high`, `medium` or `low` on: volume of current signals; fit with Cottonwood's scale; accessibility to a new GC (smaller owners and tenants over institutions with standing GC programs); whether buyers are identifiable from public pages; **reachability** (in a sample of two or three organizations from the scan, did you find a published email, phone or business address?); timing (projects happening now, not speculative); founder time per prospect. Rate from evidence only; write `unknown` when you have none.
-5. Pick the strongest candidate, counting reachability twice. A candidate rated `low` on reachability never wins. When a `relationship_prospect` candidate and a `direct_candidate` candidate are close, pick the relationship prospect. Write the pick as a brief in the usual form: motion, geography and firm types, signal window, count. The count is the number after `demand`, or 6 when none is given.
+4. Rate each candidate `high`, `medium` or `low` on: volume of current signals; fit with Cottonwood's scale; accessibility to a new GC (smaller owners and tenants over institutions with standing GC programs); whether buyers are identifiable from public pages; **reachability** (in a sample of two or three organizations from the scan, did you find a published email, phone or business address?); **project conversion** (in a sample of two or three organizations from the scan, does the signal mean new space or a build-out, such as a new address or new building, "coming soon" or "ready for improvements", rather than a takeover, rebrand or move into an existing fitted-out space? Check each organization's own pages or listings); timing (projects happening now, not speculative); founder time per prospect. Rate from evidence only; write `unknown` when you have none. Rate project conversion from that sample only, never from the signal type alone: a new registration, license or entity often belongs to an office that is already open.
+5. Pick the strongest candidate, counting reachability twice. A candidate rated `low` on reachability never wins. A candidate rated `low` or `unknown` on project conversion never wins. When a `relationship_prospect` candidate and a `direct_candidate` candidate are close, pick the relationship prospect. Write the pick as a brief in the usual form: motion, geography and firm types, signal window, count. The count is the number after `demand`, or 6 when none is given.
 6. Run the Procedure below on that brief.
 7. Besides the JSON file, write the demand report described under Output.
 
@@ -63,8 +63,9 @@ Demand-mode rules:
    - the leasing broker's listing page for the property, which makes the broker a contact route.
 
    Put the values in `contact` (`name`, `role`, `email`, `phone`, `address`) and the page they came from in `source_url`. When the values come from more than one page, use the page with the most direct route as `source_url` and add each other page as an evidence item with an observation (for example "NPI Registry lists the practice phone as (801) 555-0100").
-7. Drop any prospect for which you found no email, phone or business address. Do not write it to the file; in demand mode, list it under **Dropped** in the demand report.
-8. Write the file (and, in demand mode, the demand report) and stop.
+7. Before writing a record from a signal such as a new registration, license or entity, check the organization's own site or listing for "now open", a grand opening, or a takeover of an existing practice or business at the same address. Drop any prospect that is already open in an existing fitted-out space (a takeover, rebrand or move); it has no build-out to bid. Do not write it to the file; in demand mode, list it under **Dropped** in the demand report with the reason and the page that shows it.
+8. Drop any prospect for which you found no email, phone or business address. Do not write it to the file; in demand mode, list it under **Dropped** in the demand report.
+9. Write the file (and, in demand mode, the demand report) and stop.
 
 ## Rules
 - Never invent a prospect, a contact name, an email address or a phone number.
@@ -87,10 +88,10 @@ Write one file: `out/research/YYYY-MM-DD-SLUG.json`, where `YYYY-MM-DD` is today
 In demand mode, also write `out/research/YYYY-MM-DD-SLUG.demand.md` next to the JSON file, with the same date and slug. It is for the founder, so keep it short and plain:
 - **Chosen brief:** the brief you researched, in one line.
 - **Why this one:** two to four sentences tied to the ratings.
-- **Shortlist:** a table with one row per candidate, a column per rating and the cited source URLs.
+- **Shortlist:** a table with one row per candidate, a column per rating (including a **Project conversion** column, with the sampled organizations behind it) and the cited source URLs.
 - **Market signals:** each statistic or trend with its source URL and observed date.
 - **Reach:** how many records have an email, a phone and an address, and how many prospects you dropped for having no route.
-- **Dropped:** each organization you dropped, one line each, with the reason.
+- **Dropped:** each organization you dropped, one line each, with the reason (no contact route, or already open in an existing fitted-out space).
 - **Unknowns:** what would change the pick (for example license classes, project types the founder has not confirmed, or territory beyond Salt Lake County).
 
 Each record has `type`, `organization` (`name`, and `domain` when known), `verified_facts` (a list), `hypothesis` (may be an empty string), `evidence` (a list of `{url, observed_at, excerpt}` or `{url, observed_at, observation}`, each with `published_at` when the page shows one), `contact` (required by the rules above, although the schema leaves it optional), and optionally `record_id`, `property_location`, `next_action`, `founder_time_h`, `checklist` and `value`.
@@ -179,4 +180,4 @@ These steps run outside the skill, in a terminal:
 2. Check the file without writing anything: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json --check`. It prints each rejected record with its field and rule, and `check: N valid, M rejected`. Never fix a rejected record by guessing; drop it or research it again.
 3. Import it: `cottonwood prospects-import out/research/YYYY-MM-DD-SLUG.json`.
 4. Read the session cost with `/cost` in Claude Code.
-5. Record the run: `cottonwood record-run --skill research-prospects --skill-version 1.2.0 --model MODEL --started "YYYY-MM-DD HH:MM" --ended "YYYY-MM-DD HH:MM" --input "brief: ..." --output out/research/YYYY-MM-DD-SLUG.json --validation passed --tokens N --cost USD --cost-source claude-code-cost` (use `--validation failed` when the check rejected any record, and `--cost-source billing-console --estimated` when the figure is not exact). For a demand-mode run, pass `--input "demand: <chosen brief>"`, and have the founder read `out/research/YYYY-MM-DD-SLUG.demand.md` before importing, since the choice of opportunity is itself a proposal.
+5. Record the run: `cottonwood record-run --skill research-prospects --skill-version 1.3.0 --model MODEL --started "YYYY-MM-DD HH:MM" --ended "YYYY-MM-DD HH:MM" --input "brief: ..." --output out/research/YYYY-MM-DD-SLUG.json --validation passed --tokens N --cost USD --cost-source claude-code-cost` (use `--validation failed` when the check rejected any record, and `--cost-source billing-console --estimated` when the figure is not exact). For a demand-mode run, pass `--input "demand: <chosen brief>"`, and have the founder read `out/research/YYYY-MM-DD-SLUG.demand.md` before importing, since the choice of opportunity is itself a proposal.
