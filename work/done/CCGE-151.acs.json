@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-151",
+  "runs": [
+    {
+      "date": "2026-11-18",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md Demand mode step 4 adds a 'project conversion' rating, checked 'in a sample of two or three organizations from the scan'. Step 5 says 'A candidate rated `low` or `unknown` on project conversion never wins.' tests/test_research_skill_demand.py has test_demand_mode_rates_project_conversion_on_a_sample and test_low_or_unknown_project_conversion_never_wins. Both assert these phrases within the Demand mode section. All 7 tests in the file pass.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-151/.claude/skills/research-prospects/SKILL.md",
+          "line": 43,
+          "quote": "A candidate rated `low` or `unknown` on project conversion never wins."
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "SKILL.md Procedure step 7 tells the researcher to drop a prospect already open in an existing fitted-out space (takeover, rebrand or move) and to list it under Dropped in the demand report with the reason. tests/test_research_skill_demand.py::test_procedure_drops_a_prospect_already_open_in_existing_space asserts all three phrases in the Procedure section. A second test checks the step comes before 'Write the file'. All 7 tests in the file pass.",
+          "file": ".claude/skills/research-prospects/SKILL.md",
+          "line": 66,
+          "quote": "Drop any prospect that is already open in an existing fitted-out space (a takeover, rebrand or move); it has no build-out to bid. Do not write it to the file; in demand mode, list it under **Dropped** in the demand report with the reason and the page that shows it."
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_research_skill_demand.py:85-88 asserts the Output section's Shortlist line contains '**Project conversion** column'. SKILL.md:91 contains that text. All 7 tests in the file pass.",
+          "file": ".claude/skills/research-prospects/SKILL.md",
+          "line": 91,
+          "quote": "- **Shortlist:** a table with one row per candidate, a column per rating (including a **Project conversion** column, with the sampled organizations behind it) and the cited source URLs."
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff against HEAD (CCGE-150's version) changes frontmatter line 4 from 1.2.0 to 1.3.0 and the after-run step on line 183 from `--skill-version 1.2.0` to `--skill-version 1.3.0`. The diff has no hunk touching the allowed-tools block, so it is unchanged. I ran the tools from the main checkout's .venv. pytest: 922 passed. ruff check: All checks passed. ruff format --check: 312 files already formatted. mypy: no issues found in 104 source files.",
+          "file": ".claude/skills/research-prospects/SKILL.md",
+          "line": 183,
+          "quote": "5. Record the run: `cottonwood record-run --skill research-prospects --skill-version 1.3.0 --model MODEL"
+        }
+      ],
+      "returns_through": "2026-11-19T03:15:29.714Z"
+    }
+  ]
+}

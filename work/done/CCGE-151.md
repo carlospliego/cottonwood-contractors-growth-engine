@@ -18,10 +18,12 @@ Skill text and its tests only; no code, schema or CLI changes. Keep allowed-tool
 6. Add pytest checks for the new text; run all checks.
 
 ## Acceptance Criteria
-- [ ] A pytest test asserts SKILL.md's Demand mode names a 'project conversion' rating checked on a sample of 2 or 3 organizations per candidate, and states that a candidate rated low or unknown on it never wins.
-- [ ] A pytest test asserts SKILL.md's Procedure tells the researcher to drop a prospect that is already open in an existing fitted-out space (a takeover, rebrand or move), and to list it under Dropped with the reason.
-- [ ] A pytest test asserts the demand report section of SKILL.md lists a 'Project conversion' column for the shortlist.
-- [ ] SKILL.md frontmatter version is 1.3.0 and the after-run step says `--skill-version 1.3.0`; allowed-tools is unchanged from CCGE-150's version; `uv run pytest`, `uv run ruff check .`, `uv run mypy .` and `uv run ruff format --check .` all pass.
+- [x] A pytest test asserts SKILL.md's Demand mode names a 'project conversion' rating checked on a sample of 2 or 3 organizations per candidate, and states that a candidate rated low or unknown on it never wins.
+- [x] A pytest test asserts SKILL.md's Procedure tells the researcher to drop a prospect that is already open in an existing fitted-out space (a takeover, rebrand or move), and to list it under Dropped with the reason.
+- [x] A pytest test asserts the demand report section of SKILL.md lists a 'Project conversion' column for the shortlist.
+- [x] SKILL.md frontmatter version is 1.3.0 and the after-run step says `--skill-version 1.3.0`; allowed-tools is unchanged from CCGE-150's version; `uv run pytest`, `uv run ruff check .`, `uv run mypy .` and `uv run ruff format --check .` all pass.
+
+All criteria verified 2026-11-18.
 
 ## Depends on
 CCGE-150
