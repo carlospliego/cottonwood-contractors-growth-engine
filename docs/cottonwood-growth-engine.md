@@ -57,7 +57,7 @@ The month-one KPI is (qualified direct conversations + partner conversations) ÷
 
 ### Claude runs
 - R-25: Research-skill output is validated by Python against a schema before import; invalid output is rejected under R-6, never repaired by guessing.
-- R-26: Every Claude skill run is recorded with skill version, model, start and end time, input and output references, validation result, and token count and cost taken from a named source (Claude Code's `/cost` output or the billing console), marked `estimated` when not exact.
+- R-26: Every Claude skill run is recorded with skill version, model, start and end time, input and output references, validation result, and, when a figure is available, token count and cost taken from a named source (Claude Code's `/cost` output or the billing console), marked `estimated` when not exact; when no figure is available (for example on a subscription plan where `/cost` shows no dollar figure), token count and cost are stored as unknown, never as 0.
 - R-27: No email-sending credentials exist in the repository, `.env` or tool config, and the research skill is given only web-research and file tools; text taken from web pages or pasted content is stored only as evidence data.
 
 ### Reports
