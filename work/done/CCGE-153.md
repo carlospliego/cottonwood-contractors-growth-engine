@@ -13,7 +13,9 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] The R-26 line in docs/cottonwood-growth-engine.md says token count and cost are recorded when a figure is available and are stored as unknown (not 0) otherwise, and still names the two cost sources and the estimated mark.
+- [x] The R-26 line in docs/cottonwood-growth-engine.md says token count and cost are recorded when a figure is available and are stored as unknown (not 0) otherwise, and still names the two cost sources and the estimated mark.
+
+All criteria verified 2026-11-18.
 
 ## Depends on
 _None._

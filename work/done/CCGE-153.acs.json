@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-153",
+  "runs": [
+    {
+      "date": "2026-11-18",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "trivial",
+          "refuter": "skipped",
+          "evidence": "R-26 at line 60 of docs/cottonwood-growth-engine.md now says token count and cost are recorded 'when a figure is available'. It also says that when no figure is available (for example a subscription plan where /cost shows no dollar figure) they are 'stored as unknown, never as 0'. It still names both sources (Claude Code's /cost output or the billing console) and the 'estimated' mark. The git diff shows this is the only change to the line.",
+          "file": "docs/cottonwood-growth-engine.md",
+          "line": 60,
+          "quote": "and, when a figure is available, token count and cost taken from a named source (Claude Code's `/cost` output or the billing console), marked `estimated` when not exact; when no figure is available (for example on a subscription plan where `/cost` shows no dollar figure), token count and cost are stored as unknown, never as 0."
+        }
+      ],
+      "returns_through": "2026-11-19T06:00:38.184Z"
+    }
+  ]
+}

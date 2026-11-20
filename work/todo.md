@@ -110,10 +110,10 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 - [ ] `CCGE-145` — Untested lead export branches → [CCGE-145.md](tasks/CCGE-145.md)
 - [ ] `CCGE-147` — Deletion requests remove personal details from activity records (founder decision: Option A) → [CCGE-147.md](tasks/CCGE-147.md)
 - [ ] `CCGE-148` — Website privacy page denies analytics, but Google Analytics is installed (website repo, not this one) → [CCGE-148.md](tasks/CCGE-148.md)
-- [ ] `CCGE-153` — Spec R-26: say token count and cost are recorded when a figure is available → [CCGE-153.md](tasks/CCGE-153.md)
 
 ## Done
 
+- [x] `CCGE-153` — Spec R-26: say token count and cost are recorded when a figure is available → [CCGE-153.md](done/CCGE-153.md)
 - [x] `CCGE-152` — record-run: tokens and cost are optional, for subscription plans where /cost shows no dollar figure → [CCGE-152.md](done/CCGE-152.md)
 - [x] `CCGE-151` — research-prospects demand mode: sample-check that a segment's signal means construction work before picking it → [CCGE-151.md](done/CCGE-151.md)
 - [x] `CCGE-150` — research-prospects demand mode, and every researched prospect carries a reachable contact (phone or address allowed) → [CCGE-150.md](done/CCGE-150.md)
