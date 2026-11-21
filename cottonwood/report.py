@@ -11,7 +11,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 
 from cottonwood import config, events, inbound, review, timeutil
 
@@ -81,8 +81,8 @@ LABEL_REFERRED = "Referred leads"
 TOTAL = "total"
 
 # The two outreach motions (lead types) that research and hand review are counted by (R-11).
-DIRECT_MOTION = "direct_candidate"
-PARTNER_MOTION = "relationship_prospect"
+DIRECT_MOTION = events.DIRECT_CANDIDATE
+PARTNER_MOTION = events.RELATIONSHIP_PROSPECT
 MOTIONS = (DIRECT_MOTION, PARTNER_MOTION)
 # Payload contract for activities later features write (build assumption 4).
 RESULT_KEY = "result"
@@ -198,8 +198,9 @@ def _inbound(conn: sqlite3.Connection, period: Period) -> InboundMetrics:
     total = within = outside = missing = 0
     for row in conn.execute(
         "SELECT id, channel, segment, received_at FROM leads"
-        f" WHERE type = 'inbound_inquiry' AND {review.COUNTED_LEADS_FILTER}"
-        " AND received_at IS NOT NULL ORDER BY id"
+        f" WHERE type = ? AND {review.COUNTED_LEADS_FILTER}"
+        " AND received_at IS NOT NULL ORDER BY id",
+        (inbound.LEAD_TYPE,),
     ):
         received = timeutil.local_date(str(row["received_at"]))
         if not period.contains(received):
@@ -228,8 +229,7 @@ def _qualified(conn: sqlite3.Connection, period: Period) -> int:
     leads = {
         int(row["lead_id"])
         for row in _counted_in_period(conn, "stage_change", period)
-        if row["lead_id"] is not None
-        and json.loads(str(row["payload"])).get("to") == events.QUALIFIED_STAGE
+        if row["lead_id"] is not None and _payload(row).get("to") == events.QUALIFIED_STAGE
     }
     return len(leads)
 
@@ -249,7 +249,7 @@ def _hours(conn: sqlite3.Connection, period: Period) -> HoursMetrics:
     totals = events.time_totals(conn, period.start, period.end)
     observed = estimated = Decimal(0)
     # The same entries time_totals sums, so the founder split always adds up to its total.
-    for payload in events._entries_in_range(conn, events.TIME_KIND, period.start, period.end):
+    for payload in events.entries_in_range(conn, events.TIME_KIND, period.start, period.end):
         if payload["person"] != FOUNDER:
             continue
         hours = Decimal(str(payload["hours"]))
@@ -273,8 +273,15 @@ def kpi(qualified: int, partner: int, founder_hours: Decimal) -> Decimal | None:
 
 
 def _payload(row: sqlite3.Row) -> dict[str, object]:
-    """An activity row's JSON payload as a dict (empty when it is not an object)."""
-    value = json.loads(str(row["payload"]))
+    """An activity row's JSON payload as a dict (empty when it is not an object or not JSON).
+
+    Every payload read in this module goes through here, so one malformed stored row reads as
+    an empty payload instead of crashing the whole report (F-correctness-2).
+    """
+    try:
+        value = json.loads(str(row["payload"]))
+    except ValueError:  # json.JSONDecodeError is a ValueError
+        return {}
     return value if isinstance(value, dict) else {}
 
 
@@ -406,7 +413,8 @@ class ModelCostMetrics:
 def _run_costs(conn: sqlite3.Connection) -> list[tuple[date, Decimal, bool]]:
     """(Denver start date, cost, estimated) for every agent run with a readable cost_usd.
 
-    A NULL or non-decimal cost_usd is skipped; cost_estimated 1 is estimated, 0 or NULL observed.
+    A NULL or non-decimal cost_usd, or an unparseable started_at, is skipped; cost_estimated 1
+    is estimated, 0 or NULL observed.
     """
     runs = []
     for row in conn.execute("SELECT started_at, cost_usd, cost_estimated FROM agent_runs"):
@@ -418,7 +426,10 @@ def _run_costs(conn: sqlite3.Connection) -> list[tuple[date, Decimal, bool]]:
             continue
         if not cost.is_finite():
             continue
-        started = timeutil.local_date(str(row["started_at"]))
+        try:
+            started = timeutil.local_date(str(row["started_at"]))
+        except ValueError:  # an unparseable start time is skipped like an unreadable cost
+            continue
         runs.append((started, cost, row["cost_estimated"] == 1))
     return runs
 
@@ -538,8 +549,15 @@ def render_report(report: Report) -> str:
 
 
 def money(value: Decimal) -> str:
-    """A USD amount to 2 places for display (sums stay exact), e.g. 1.75 or 100.00."""
-    return f"{value.quantize(_MONEY_PLACES, ROUND_HALF_UP):f}"
+    """A USD amount to 2 places for display (sums stay exact), e.g. 1.75 or 100.00.
+
+    quantize needs every digit of the result to fit the context precision, so a huge cap or
+    run cost (1E+30 needs 33) would raise InvalidOperation in the default 28-digit context; a
+    local context wide enough for the value keeps it printable (F-correctness-1).
+    """
+    with localcontext() as ctx:
+        ctx.prec = max(ctx.prec, value.adjusted() + 1 + 2)
+        return f"{value.quantize(_MONEY_PLACES, ROUND_HALF_UP):f}"
 
 
 def _mtd_value(model: ModelCostMetrics) -> str:
@@ -573,7 +591,7 @@ def _render_costs(model: ModelCostMetrics, other: events.CostTotals) -> list[str
         lines += ["", "| " + " | ".join(COST_COLUMNS) + " |", "|" + "---|" * len(COST_COLUMNS)]
         for category in sorted(other.by_category):
             amount = money(other.by_category[category])
-            lines.append(f"| {review._cell(category)} | {amount} |")
+            lines.append(f"| {review.table_cell(category)} | {amount} |")
     return lines
 
 
@@ -618,7 +636,11 @@ def _render_referrals(referrals: list[Referral]) -> list[str]:
         lines.append("| " + " | ".join(REFERRAL_COLUMNS) + " |")
         lines.append("|" + "---|" * len(REFERRAL_COLUMNS))
         for referral in referrals:
-            cells = [str(referral.partner_id), review._cell(referral.name), str(referral.count)]
+            cells = [
+                str(referral.partner_id),
+                review.table_cell(referral.name),
+                str(referral.count),
+            ]
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
     lines.append(_line(LABEL_REFERRED, sum(r.count for r in referrals)))

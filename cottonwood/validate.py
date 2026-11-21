@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import re
 from collections.abc import Callable, Iterable, Mapping
 from collections.abc import Set as AbstractSet
@@ -22,12 +23,11 @@ from urllib.parse import urlsplit
 
 from jsonschema import Draft202012Validator, ValidationError
 
-from cottonwood import normalize, terminal
+from cottonwood import events, normalize, terminal
 
 SCHEMA_RESOURCE = ("schemas", "research-record.schema.json")
 FILE_SUFFIXES = (".json", ".csv")
-DIRECT = "direct_candidate"
-RELATIONSHIP = "relationship_prospect"
+RELATIONSHIP = events.RELATIONSHIP_PROSPECT
 DEFAULT_EVIDENCE_KIND = "fact"
 
 # Rules Python checks after the schema passes (the schema keyword names the others).
@@ -40,8 +40,12 @@ RULE_PHONE = "phone"
 RULE_DOMAIN = "domain"
 RULE_NAME = "name"
 RULE_DECIMAL = "decimal"
-RULE_REQUIRED = "required"
+# Python reads JSON Infinity/NaN and CSV "inf" as floats; the schema's minimum 0 passes them.
+RULE_FINITE = "finite"
 RULE_CHECKLIST_ITEM = "checklist-item"
+# A CSV row with text in more cells than the header has columns: those cells would be lost.
+FIELD_ROW = "row"
+RULE_EXTRA_CELLS = "extra-cells"
 
 CSV_COLUMNS = (
     "record_id",
@@ -72,6 +76,9 @@ CSV_COLUMNS = (
     "evidence_observation",
     "evidence_kind",
 )
+# Required columns whose empty cell is a real empty value, as JSON allows ("hypothesis": "",
+# "verified_facts": []), rather than an absent key that the schema rejects as required.
+CSV_EMPTY_ALLOWED: dict[str, object] = {"hypothesis": "", "verified_facts": []}
 CSV_REQUIRED = (
     "type",
     "organization_name",
@@ -86,9 +93,11 @@ CSV_CHECKLIST_PREFIX = "checklist."
 # CSV column prefix → nested record key; the rest of the column name is the inner key.
 _CSV_GROUPS = {"organization_": "organization", "contact_": "contact", "value_": "value"}
 
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_PLAIN_DECIMAL = re.compile(r"^\d+(\.\d+)?$")
-_INTEGER = re.compile(r"^\d+$")
+# [0-9] and \A...\Z, not \d and ^...$: \d also matches non-ASCII digits such as '١٠٠' and $ also
+# matches before a trailing newline, so '100\n' would pass and be stored (F-correctness-2).
+_DATE = re.compile(r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
+_PLAIN_DECIMAL = re.compile(r"\A[0-9]+(\.[0-9]+)?\Z")
+_INTEGER = re.compile(r"\A[0-9]+\Z")
 _BOOLEANS = {"true": True, "1": True, "false": False, "0": False}
 
 FieldPath = tuple[str | int, ...]
@@ -100,10 +109,15 @@ class FileError(ValueError):
 
 @dataclass(frozen=True)
 class RawRecord:
-    """One record as read from the file, before validation; ``number`` is 1-based."""
+    """One record as read from the file, before validation; ``number`` is 1-based.
+
+    ``problem`` is a (field, rule) found while reading, such as a CSV row with extra cells; the
+    record is rejected with it before any schema check.
+    """
 
     number: int
     data: object
+    problem: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -177,10 +191,6 @@ class ProspectRecord:
     is_test_given: bool = False  # the record said is_test, so a stored value can differ
     # Checklist answers as (item key, yes/no/unknown) pairs sorted by key; () when absent.
     checklist: tuple[tuple[str, str], ...] = ()
-
-    def label(self) -> str:
-        """``record N`` with the record_id in parentheses when the record has one."""
-        return record_label(self.number, self.record_id)
 
 
 def record_label(number: int, record_id: str | None) -> str:
@@ -262,20 +272,35 @@ def _csv_records(path: Path, text: str) -> list[RawRecord]:
                 for key, value in row.items()
                 if isinstance(key, str) and isinstance(value, str)
             }
-            records.append(RawRecord(number, _csv_record(cells)))
+            # DictReader puts cells past the last header column in a list under the key None;
+            # dropping them would import a truncated row, so a row with text there is rejected.
+            extra = row.get(None) or []
+            problem = (
+                (FIELD_ROW, RULE_EXTRA_CELLS)
+                if any(isinstance(cell, str) and cell.strip() for cell in extra)
+                else None
+            )
+            records.append(RawRecord(number, _csv_record(cells), problem))
     except csv.Error as exc:
         raise FileError(f"{path} is not valid CSV: {exc}") from None
     return records
 
 
 def _csv_record(cells: Mapping[str, str]) -> dict[str, object]:
-    """One CSV row in the JSON record shape: empty cells are absent; one evidence item."""
+    """One CSV row in the JSON record shape: empty cells are absent; one evidence item.
+
+    An empty hypothesis or verified_facts cell is the empty value (CSV_EMPTY_ALLOWED), so a CSV
+    row can say "no hypothesis" or "no facts yet" just as a JSON record can.
+    """
     record: dict[str, object] = {}
     evidence: dict[str, object] = {}
     groups: dict[str, dict[str, object]] = {}
     for column in CSV_COLUMNS:
         value = cells.get(column, "")
         if not value.strip():
+            if column in CSV_EMPTY_ALLOWED and column in cells:
+                empty = CSV_EMPTY_ALLOWED[column]
+                record[column] = list(empty) if isinstance(empty, list) else empty
             continue
         if column.startswith("evidence_"):
             evidence[column.removeprefix("evidence_")] = value
@@ -339,6 +364,8 @@ def validate_record(
     Only the first failure, in field-path order, is reported, so output is stable.
     """
     record_id = _record_id(raw.data)
+    if raw.problem is not None:
+        return Rejection(raw.number, record_id, *raw.problem)
     errors = [_schema_failure(error) for error in _validator().iter_errors(raw.data)]
     if errors:
         field, rule = min(errors, key=_failure_order)
@@ -408,6 +435,9 @@ def _python_failures(
     data: Mapping[str, Any], today: date, checklist_keys: AbstractSet[str]
 ) -> Iterable[tuple[FieldPath, str]]:
     """Failures of the rules the schema leaves to Python, for a schema-valid record."""
+    founder_time = data.get("founder_time_h")
+    if founder_time is not None and not math.isfinite(founder_time):
+        yield ("founder_time_h",), RULE_FINITE
     for key in data.get("checklist", {}):
         if key not in checklist_keys:
             yield ("checklist", key), RULE_CHECKLIST_ITEM
