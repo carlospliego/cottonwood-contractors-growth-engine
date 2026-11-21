@@ -574,6 +574,8 @@ def _add_entry_arguments(parser: argparse.ArgumentParser, *, amount: str, help_t
     parser.add_argument("amount", nargs="?", default=None, metavar=amount, help=help_text)
     parser.add_argument("--date", default=None, help="the day it happened, YYYY-MM-DD (Denver)")
     parser.add_argument("--category", default=None, help="what it was for (stored lowercase)")
+    # default=None, not False: None means --estimated was not given, and the --voids conflict
+    # check (_void_entry_conflict) relies on that to refuse --voids together with --estimated.
     parser.add_argument(
         "--estimated",
         action="store_true",
@@ -606,6 +608,9 @@ def _add_entry_arguments(parser: argparse.ArgumentParser, *, amount: str, help_t
 def _add_log_time_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the log-time command's arguments."""
     _add_entry_arguments(parser, amount="HOURS", help_text="hours spent, e.g. 1.5 (at most 24)")
+    # default=None, not DEFAULT_PERSON: None means --person was not given (the default is applied
+    # later), and the --voids conflict check (_void_entry_conflict) relies on that to refuse
+    # --voids together with --person.
     parser.add_argument(
         "--person",
         choices=events.PEOPLE,
