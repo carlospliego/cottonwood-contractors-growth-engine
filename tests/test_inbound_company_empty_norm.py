@@ -10,13 +10,13 @@ import pytest
 from cottonwood import db, inbound
 
 
-def _raw(company: str | None) -> inbound.RawInquiry:
+def _raw(company: str | None, email: str = "pat@example.com") -> inbound.RawInquiry:
     return inbound.RawInquiry(
         channel="form",
         received="2026-11-16 09:30",
         segment="commercial",
         name="Pat Lee",
-        email="pat@example.com",
+        email=email,
         company=company,
     )
 
@@ -38,7 +38,11 @@ def test_real_company_names_still_share_an_organization(tmp_path: Path) -> None:
     conn = db.connect(path)
     try:
         first = inbound.log_inquiry(conn, inbound.validate(_raw("Acme Builders")))
-        second = inbound.log_inquiry(conn, inbound.validate(_raw("ACME builders!")))
+        # A different person at the same firm, so CCGE-037's same-day duplicate check stays out
+        # of a test about organization matching.
+        second = inbound.log_inquiry(
+            conn, inbound.validate(_raw("ACME builders!", email="sam@example.com"))
+        )
         orgs = {
             int(row[0])
             for row in conn.execute(

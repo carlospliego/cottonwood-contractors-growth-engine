@@ -81,7 +81,9 @@ def _clean(value: str | None) -> str | None:
 def _parse_budget(value: str) -> str:
     """Return a stated budget as exact decimal text; reject non-numbers and negatives.
 
-    Exponent form (1e5) is refused: Decimal would keep it as '1E+5' and show it that way.
+    The stored text is plain fixed-point digits with the precision the inquirer gave
+    ('1500', '1500.50', '0.0000001'), never scientific notation. Exponent form (1e5) is
+    refused rather than rewritten, so the stored figure is the one that was typed.
     """
     if "e" in value.lower():
         raise InquiryError("budget", f"write the amount in plain digits, not 1e5 form: {value!r}")
@@ -95,7 +97,8 @@ def _parse_budget(value: str) -> str:
         raise InquiryError("budget", f"must not be negative: {value!r}")
     if amount == 0:
         return "0"
-    return str(amount)
+    # str(Decimal) switches to exponent form for small values ('1E-7'); 'f' never does.
+    return format(amount, "f")
 
 
 def validate(raw: RawInquiry) -> Inquiry:
