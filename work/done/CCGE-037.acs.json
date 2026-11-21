@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-037",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "log_inquiry in cottonwood/inbound.py now runs `BEGIN IMMEDIATE` first, then repeats find_same_day_duplicates under the lock. It raises DuplicateChangedError, and writes nothing, if a match appears that the operator did not confirm. cli.py catches that error and returns EXIT_REFUSED, so the prompt stays outside the lock and the check is repeated. tests/test_inbound_duplicate_lock.py covers four cases: a race where a match is saved after the first check and the save is refused, confirmed duplicates still saving, a SQL trace showing BEGIN IMMEDIATE before the check and the check before the INSERT, and an unconfirmed match raising with no rows written. I ran the full gate in the worktree. pytest passed 933 tests, ruff check passed, mypy found no issues in 106 source files, and ruff format --check reported 316 files already formatted.",
+          "file": "cottonwood/inbound.py",
+          "line": 207,
+          "quote": "conn.execute(\"BEGIN IMMEDIATE\")\n    try:\n        current = find_same_day_duplicates(\n            conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at\n        )"
+        }
+      ],
+      "returns_through": "2026-11-21T04:30:11.860Z"
+    }
+  ]
+}

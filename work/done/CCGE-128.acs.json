@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-128",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test inserts claim_verified rows for an other-claim payload and for the malformed payload {\"claim_id\": \"service-area\"} (no verifier, no date). It also inserts a valid service-area row, and the valid row is inserted first, so every row to skip is newer and is read first. It asserts standing_verification(conn, 'service-area') == Verification(valid_id, 'Founder', '2026-11-30'), which covers the id, verified_by and verified_at. standing_verification (cottonwood/claims.py:109-125) skips rows for other claim ids and rows without string verified_by and verified_at, so the test exercises that loop. The test file has two extra malformed payloads (non-string date, non-object) and two extra tests (all-skipped returns None, and other-claim's row still counts for its own claim). All 3 tests pass with pytest. I did not run a mutant, so I did not confirm that the test fails when the skip logic is broken.",
+          "file": "tests/test_standing_verification_payloads.py",
+          "line": 57,
+          "quote": "def test_the_valid_row_is_found_past_later_rows_it_must_skip(conn: sqlite3.Connection) -> None:\n    valid_id = _insert(conn, json.dumps(VALID))\n    for payload in NOISE:  # every row to skip is newer, so it is read first\n        _insert(conn, payload)\n    found = claims.standing_verification(conn, \"service-area\")\n    assert found == claims.Verification(valid_id, \"Founder\", \"2026-11-30\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_only_rows_to_skip_give_no_standing_verification inserts only the NOISE rows (an other-claim row plus malformed payloads: missing verifier/date, non-string date, non-object) and asserts standing_verification(conn, 'service-area') is None. standing_verification (cottonwood/claims.py:109-125) skips rows whose claim_id differs (line 119) and returns a result only when verified_by and verified_at are both strings (line 123), so it falls through to None (line 125). The test run passed 3/3. One caveat: the non-object payload relies on _payload() returning a dict-like value, and that passed in the run.",
+          "file": "tests/test_standing_verification_payloads.py",
+          "line": 65,
+          "quote": "def test_only_rows_to_skip_give_no_standing_verification(conn: sqlite3.Connection) -> None:\n    for payload in NOISE:\n        _insert(conn, payload)\n    assert claims.standing_verification(conn, \"service-area\") is None"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with `uv run --offline`. pytest: 932 passed, exit 0. ruff check: All checks passed, exit 0. mypy: no issues found in 106 source files, exit 0. ruff format --check: 316 files already formatted, exit 0.",
+          "file": "tests/test_standing_verification_payloads.py",
+          "line": 1,
+          "quote": "932 passed in 5.36s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:36:15.943Z"
+    }
+  ]
+}

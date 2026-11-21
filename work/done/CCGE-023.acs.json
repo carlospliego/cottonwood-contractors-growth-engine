@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-023",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test file parametrizes an empty file, 'paths:\\n' (null value) and a paths mapping without backup_dir, and asserts backup_dir == Path('data/backups'). A second test parametrizes backup_dir '' and '  ' and expects ConfigError. config.py:117-119 implements this behavior, and all 5 tests pass with `uv run --offline pytest`.",
+          "file": "tests/test_config_backup_fallback.py",
+          "line": 27,
+          "quote": "def test_missing_backup_dir_falls_back_to_data_backups(tmp_path: Path, text: str) -> None:\n    assert _load(tmp_path, text).backup_dir == Path(\"data/backups\")"
+        }
+      ],
+      "returns_through": "2026-11-21T04:59:10.606Z"
+    }
+  ]
+}

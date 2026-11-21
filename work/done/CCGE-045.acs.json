@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-045",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "inbound.py:17 defines LEAD_TYPE. It is bound as a parameter in inbound.py:179 (find_same_day_duplicates) and :215 (log_inquiry INSERT), in review.py:67, 78 and 87, and in report.py:203, all as (inbound.LEAD_TYPE,) or LEAD_TYPE. No 'inbound_inquiry' literal is left in any SQL query in the cottonwood Python sources. The remaining hits are events.py:54, a dict key, and the cli.py:180 docstring. tests/test_lead_type_bound.py asserts LEAD_TYPE == 'inbound_inquiry', that the literal is absent from the module text, and that the stored type equals {inbound.LEAD_TYPE}. Results: pytest 937 passed; ruff check passed; mypy reported no issues in 107 files; ruff format --check reported 317 files already formatted.",
+          "file": "cottonwood/inbound.py",
+          "line": 17,
+          "quote": "LEAD_TYPE = \"inbound_inquiry\""
+        }
+      ],
+      "returns_through": "2026-11-21T05:39:12.394Z"
+    }
+  ]
+}

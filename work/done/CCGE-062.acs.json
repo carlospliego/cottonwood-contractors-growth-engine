@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-062",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_correction_refusals.py has tests for unparseable --at, future --at, blank --actor and --procurement-url (parametrized, each asserts exit 1, an 'error:' message and an unchanged activity count and stage). It also has tests for a missing database (the file is not created) and an unmigrated database (the file bytes are unchanged). All 8 tests pass in the worktree. In a temp copy I replaced line 393 of validate_correction in cottonwood/events.py, `if occurred_at > now:`, with `if False:`. The copy imported cottonwood from itself. test_bad_input_exits_1_and_writes_nothing[future-at] and test_future_at_names_now then failed (2 failed, 6 passed).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-062/tests/test_correction_refusals.py",
+          "line": 71,
+          "quote": "assert _correction(db_path, \"--voids\", _call_id(db_path), *extra) == EXIT_REFUSED"
+        }
+      ],
+      "returns_through": "2026-11-21T06:16:58.281Z"
+    }
+  ]
+}

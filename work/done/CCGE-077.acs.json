@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-077",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Both tests in tests/test_actor_stored_everywhere.py passed (2 passed). _run appends --actor founder to every CLI call. The first test runs log-time, log-cost, log-time --voids 1 and log-cost --voids 2. It asserts the rows are time_logged, cost_logged, correction, correction and that every actor is {'founder'}. The second test logs an inbound lead and a call event with --stage researched. It then runs `log-event 1 correction --voids 2` and asserts that the newly written rows are exactly correction and stage_change, both with actor founder. It also asserts that every row in the table has actor founder. 'founder' differs from the default actor (developer), so a dropped --actor would fail the tests. I did not mutate the code to confirm that.",
+          "file": "tests/test_actor_stored_everywhere.py",
+          "line": 69,
+          "quote": "    written = [row for row in _rows(db_path) if row[0] not in before]\n    assert sorted(kind for _, kind, _ in written) == [\"correction\", \"stage_change\"]\n    assert {actor for _, _, actor in written} == {ACTOR}"
+        }
+      ],
+      "returns_through": "2026-11-21T16:56:24.831Z"
+    }
+  ]
+}

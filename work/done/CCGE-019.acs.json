@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-019",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_config_backup_dir.py sets HOME to tmp_path (monkeypatch.setenv) and asserts backup_dir '~/b' == tmp_path / 'b'. A second test asserts ' data/backups ' == Path('data/backups'). Both pass (2 passed). config.py now builds the path with Path(backup_dir.strip()).expanduser().",
+          "file": "tests/test_config_backup_dir.py",
+          "line": 18,
+          "quote": "    monkeypatch.setenv(\"HOME\", str(tmp_path))\n    assert _load(tmp_path, \"~/b\").backup_dir == tmp_path / \"b\""
+        }
+      ],
+      "returns_through": "2026-11-21T04:52:00.244Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-038",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "db.require_migrated compares the user_version with the newest discovered migration and raises MigrationError 'database at version N, run `cottonwood migrate`' when it is lower. cli._run_log_inbound and _run_review call it right after connect and map MigrationError to EXIT_REFUSED with the message on stderr. tests/test_unmigrated_db_refused.py runs both commands against databases at versions 0, 1 and NEWEST-1. It asserts the refusal, the message text, and that 'no such table' is absent. It also checks that a migrated database is accepted. I ran uv run --offline pytest (936 passed), ruff check (passed), mypy (no issues) and ruff format --check (316 files already formatted). All four passed.",
+          "file": "cottonwood/db.py",
+          "line": 115,
+          "quote": "    if current < newest:\n        raise MigrationError(\n            f\"database at version {current}, run `cottonwood migrate` \""
+        }
+      ],
+      "returns_through": "2026-11-21T05:21:41.080Z"
+    }
+  ]
+}

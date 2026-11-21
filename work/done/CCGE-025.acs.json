@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-025",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `sir verify mutant` on a copy of the worktree. It edited docs/runbook.md line 90, the only `cottonwood backup` in the Deletion requests section, replacing it with `cottonwood bkp`. The target test then failed with `AssertionError: deletion section no longer says to run `cottonwood backup`` at tests/test_runbook_restore.py:81. The tool reported `killed: true`. The other failure in that run, tests/test_no_send_credentials.py, was a `git ls-files` error (exit status 128) in the copy and has nothing to do with this AC. I could not use the manual-copy recipe from the task because the sir policy gate blocked those commands. The `sir verify mutant` route made the same edit.",
+          "file": "tests/test_runbook_restore.py",
+          "line": 81,
+          "quote": "assert backup_at != -1, \"deletion section no longer says to run `cottonwood backup`\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff against the base commit touches only test_deletion_section_backs_up_clears_fields_and_keeps_suppression. The original order assertion (backup position < UPDATE contacts position) is kept, now as `backup_at < clear_at`. Two presence asserts and a comment were added, which is the change the contract's goal asks for. The field checks (name/email/email_norm/phone_e164 = NULL) and the `deleted_at` check after it are untouched. No other test was modified. All 4 tests in the file pass.",
+          "file": "tests/test_runbook_restore.py",
+          "line": 78,
+          "quote": "    backup_at = section.find(\"cottonwood backup\")\n    clear_at = section.find(\"UPDATE contacts\")\n    # find() returns -1 for a missing phrase, which would sort first; require both.\n    assert backup_at != -1, \"deletion section no longer says to run `cottonwood backup`\"\n    assert clear_at != -1, \"deletion section no longer shows the UPDATE contacts step\"\n    assert backup_at < clear_at"
+        }
+      ],
+      "returns_through": "2026-11-21T05:03:26.670Z"
+    }
+  ]
+}

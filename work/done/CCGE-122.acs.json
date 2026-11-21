@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-122",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the exact command against a freshly migrated temp database (version 6). It exited 1. Stderr was the single line 'error: lead: no lead 99999999999999999999'. Stdout was empty and the activities row count was 0. The new tests pass (6 passed). They cover this id, 2**63, a negative out-of-range id, and the --lead option. They also check that the largest in-range id, 2**63-1, is still looked up normally. _check_lead raises GateError('lead', ...) for ids outside the signed 64-bit range before the query is bound.",
+          "file": "cottonwood/gate.py",
+          "line": 290,
+          "quote": "    if not _SQLITE_MIN_INT <= lead_id <= _SQLITE_MAX_INT:\n        raise GateError(\"lead\", f\"no lead {lead_id}\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran the exact command against a freshly migrated temp DB (--db $TMPDIR/t122.db). Exit code 1. Stderr was 'error: lead: no lead 99999999999999999999'. Stdout was empty. The activities row count was 0. The new tests passed (6/6) with 'uv run --offline pytest -q tests/test_approve_oversized_lead.py -v'. The fix is in _check_lead, which raises GateError('lead', ...) for ids outside the 64-bit range before any SQL is bound.",
+          "file": "cottonwood/gate.py",
+          "line": 291,
+          "quote": "if not _SQLITE_MIN_INT <= lead_id <= _SQLITE_MAX_INT:\n        raise GateError(\"lead\", f\"no lead {lead_id}\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline. pytest: 935 passed in 5.24s. ruff check .: All checks passed!. mypy .: Success, no issues found in 106 source files. ruff format --check .: 316 files already formatted. All four exited clean.",
+          "file": "cottonwood/gate.py",
+          "line": 1,
+          "quote": "935 passed in 5.24s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:21:21.667Z"
+    }
+  ]
+}

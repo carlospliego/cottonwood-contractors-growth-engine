@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-065",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "log_correction now queries the lead's newest effective stage change, ordered by occurred_at DESC and id DESC, using _EFFECTIVE_STAGE_CHANGE_SQL. If the correction's occurred_at is earlier, it raises EventError('at', ...). The new test file passed 4/4 with `uv run --offline pytest`. The first test voids the walkthrough at 10:30, which writes a revert. It then voids the call at 10:00 and asserts exit code EXIT_REFUSED. It also asserts stderr starts with 'error: at:' and that the activity count and leads.stage are unchanged, so nothing was written. That covers the 'including reverts' case. A test also shows a revert at the same time as the latest change is still saved. I did not run a mutant. I did not check that EXIT_REFUSED equals 1 or read the SQL constant; the test's passing relies on both.",
+          "file": "cottonwood/events.py",
+          "line": 456,
+          "quote": "if newest is not None and correction.occurred_at < str(newest[\"occurred_at\"]):"
+        }
+      ],
+      "returns_through": "2026-11-21T06:19:46.779Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-018",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_display_local_offset.py asserts display_local('1880-01-01T12:00:00Z') == '1880-01-01 05:00 -06:59:56' (America/Denver LMT) and that 2026-01-15T19:00:00Z gives '... -07:00'. The new _offset_text in cottonwood/timeutil.py appends :SS only when seconds are non-zero. Ran pytest on the file: 2 passed.",
+          "file": "tests/test_display_local_offset.py",
+          "line": 10,
+          "quote": "assert timeutil.display_local(\"1880-01-01T12:00:00Z\") == \"1880-01-01 05:00 -06:59:56\""
+        }
+      ],
+      "returns_through": "2026-11-21T04:50:09.660Z"
+    }
+  ]
+}

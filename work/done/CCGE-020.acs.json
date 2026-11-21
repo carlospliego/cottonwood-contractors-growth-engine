@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-020",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "A recursive grep for 'class DatabaseMissingError' in cottonwood/ finds exactly one definition, at cottonwood/db.py:33. backup.py imports it from db instead of defining it again (backup.py:14), and raises it at backup.py:55. The existing tests (tests/test_backup.py, tests/test_backup_failure.py, tests/test_schema.py) plus the new tests/test_database_missing_error.py passed: 68 passed.",
+          "file": "cottonwood/db.py",
+          "line": 33,
+          "quote": "class DatabaseMissingError(MigrationError):"
+        }
+      ],
+      "returns_through": "2026-11-21T04:53:59.799Z"
+    }
+  ]
+}

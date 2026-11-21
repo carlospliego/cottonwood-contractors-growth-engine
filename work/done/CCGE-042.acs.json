@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-042",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Direct evidence from the working tree. _parse_budget now returns format(amount, 'f'), and it also rejects exponent input with 'plain digits' (that rejection is carried over from CCGE-035). The docstring states the stored format: plain fixed-point digits, never scientific notation. The new tests/test_inbound_budget_format.py parametrizes '1e3', '1E3', '2.5e4' and '1e-3' and expects InquiryError. It also checks that fixed-point text is stored unchanged, including '0.0000001' (the case where str(Decimal) gives '1E-7'). uv run --offline pytest: 938 passed. ruff check, mypy and ruff format --check all pass. I did not mutation-test the 'f' change. The explicit rejection of 'e' input means the 'f' format is only exercised by the small-value test '0.0000001'.",
+          "file": "cottonwood/inbound.py",
+          "line": 91,
+          "quote": "    # str(Decimal) switches to exponent form for small values ('1E-7'); 'f' never does.\n    return format(amount, \"f\")"
+        }
+      ],
+      "returns_through": "2026-11-21T05:31:50.758Z"
+    }
+  ]
+}

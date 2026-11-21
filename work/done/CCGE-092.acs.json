@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-092",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py now uses _PLAIN_DECIMAL = \\A[0-9]+(\\.[0-9]+)?\\Z, so '100\\n' no longer matches. The new test, run through the prospects-import CLI, passes (12 passed). test_a_non_ascii_or_newline_amount_is_rejected is parametrized with '100\\n'. It asserts 'rejected record 1: value.amount: decimal' appears in the output and that the leads table has no rows (_value_amounts == []). ASCII amounts still import.",
+          "file": "cottonwood/validate.py",
+          "line": 90,
+          "quote": "_PLAIN_DECIMAL = re.compile(r\"\\A[0-9]+(\\.[0-9]+)?\\Z\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py now checks value.amount with an ASCII-only regex, \\A[0-9]+(\\.[0-9]+)?\\Z, at line 422. The test test_a_non_ascii_or_newline_amount_is_rejected is parametrized with ARABIC_INDIC_100 and runs a real prospects-import through main(). It asserts the output contains 'rejected record 1: value.amount: decimal' and that no lead was stored. All 12 tests in tests/test_prospects_ascii_numbers.py passed. I did not run the CLI by hand.",
+          "file": "cottonwood/validate.py",
+          "line": 91,
+          "quote": "_PLAIN_DECIMAL = re.compile(r\"\\A[0-9]+(\\.[0-9]+)?\\Z\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py now uses ASCII-only anchored regexes (\\A[0-9]+(\\.[0-9]+)?\\Z), and '1500.50' still matches. test_an_ascii_amount_still_imports imports a record through the real `prospects-import` CLI and asserts exit OK and that SELECT value_amount FROM leads returns exactly ['1500.50']. The test file passed 12/12 with `uv run --offline pytest -q tests/test_prospects_ascii_numbers.py`.",
+          "file": "tests/test_prospects_ascii_numbers.py",
+          "line": 89,
+          "quote": "@pytest.mark.parametrize(\"amount\", [\"1500.50\", \"100\", \"0\", \"250000.00\"])"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with `uv run --offline`. pytest: 941 passed in 5.29s. ruff check: All checks passed!. mypy: Success, no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-092",
+          "line": 1,
+          "quote": "941 passed in 5.29s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:18:28.282Z"
+    }
+  ]
+}

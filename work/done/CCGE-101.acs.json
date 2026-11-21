@@ -1,0 +1,68 @@
+{
+  "task_id": "CCGE-101",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "source": "agent-returns",
+      "results": [
+        {
+          "index": 1,
+          "verdict": "FAIL",
+          "method": "verifier+refuter",
+          "refuter": "refuted",
+          "evidence": "[logged ac-refuter return, repaired before this record] The check runs on value.strip(), so a record_id with a leading or trailing control character is accepted, not rejected. I called _record_id directly. It returned 'abc' for 'abc\\n', 'abc\\x85' (U+0085), '\\x1fabc' and 'abc\\t', and it returned None for the 65-char id, 'a@b' and 'a\\x7f'. The AC says a record_id that 'contains ... a control character' is rejected. The code accepts any of these ids and stores the stripped value. The 65-char, '@' and inner or DEL cases do reject. I did not run the CLI import or read the import_rejected payloads from sqlite. I also did not check whether an earlier-ordered schema error reports its own field instead of record_id.",
+          "file": "cottonwood/validate.py",
+          "line": 365
+        }
+      ]
+    },
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_prospects_record_id_terminal.py passed (15/15). Real CLI reproduction (migrate, then prospects-import, with COTTONWOOD_CONFIG set and temp dirs only) was run for 8 ids: 65 'a' characters, 'pat@acme', an inner ESC, a trailing '\\n', a leading '\\t', a trailing U+0085, DEL, and a leading U+001F. Every import exited 1 with stderr 'rejected record 1: record_id: record-id'. Each import_rejected payload read from sqlite had field='record_id', rule='record-id' and record_id=null. None of the payloads contained the offending value. validate.py:358 defines the pattern [A-Za-z0-9._-]{1,64}. Line 369 applies it with fullmatch after trimming spaces only. Line 440 yields ('record_id',) when the id is invalid.",
+          "file": "cottonwood/validate.py",
+          "line": 369,
+          "quote": "if isinstance(value, str) and _RECORD_ID.fullmatch(value.strip(\" \")):"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new pattern [A-Za-z0-9._-]{1,64} fully matches 'acme-1.v2_x', so the record is not rejected. A real CLI run (main prospects-import, migrated temp db, temp yaml config with backup_dir) printed 'record 1 (acme-1.v2_x): created lead 1 (direct_candidate)' and 'imported 1, matched 0, rejected 0', with exit code 0. tests/test_prospects_record_id_terminal.py passed 9/9, including test_a_plain_record_id_imports_and_is_printed, which asserts that exact output.",
+          "file": "cottonwood/validate.py",
+          "line": 358,
+          "quote": "_RECORD_ID = re.compile(r\"[A-Za-z0-9._-]{1,64}\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I imported a record with organization.category 'dental' through the real CLI (uv run cottonwood prospects-import) into a temp DB. I then re-imported it with the category 'ortho\\u001b[31mdontics', written with json.dump. The difference line printed was: \"record 1 (acme-1): organization.category differs: stored 'dental', incoming 'ortho[31mdontics' (kept stored)\". Checked as bytes, there was no 0x1b in stdout or stderr; the check printed False. tests/test_prospects_record_id_terminal.py passed (9 passed). The test at line 135 covers the same case. Difference values go through terminal.printable at cottonwood/prospects.py:431, and printable drops Unicode Cc and Cf characters.",
+          "file": "cottonwood/prospects.py",
+          "line": 431,
+          "quote": "Difference(field, terminal.printable(_shown(stored)), terminal.printable(_shown(incoming)))"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four commands in the worktree with `uv run --offline`. pytest: 944 passed in 5.21s. ruff check: All checks passed!. mypy: Success: no issues found in 107 source files. ruff format --check: 317 files already formatted. All four exited cleanly.",
+          "file": "pyproject.toml",
+          "line": 1,
+          "quote": "944 passed in 5.21s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:47:13.033Z"
+    }
+  ]
+}

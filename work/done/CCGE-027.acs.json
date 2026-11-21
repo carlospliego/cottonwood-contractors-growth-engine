@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-027",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_normalize.py has test_email_with_whitespace_inside_is_rejected, which expects ValueError from normalize_email('jane doe@example.com'). It also has test_domain_drops_userinfo_before_the_host, which asserts normalize_domain('https://user@Example.com/x') == 'example.com'. `uv run --offline pytest tests/test_normalize.py` passed 28 tests. I did not run a mutant to check that the tests fail when the code is broken.",
+          "file": "tests/test_normalize.py",
+          "line": 25,
+          "quote": "def test_email_with_whitespace_inside_is_rejected() -> None:\n    with pytest.raises(ValueError):\n        normalize_email(\"jane doe@example.com\")"
+        }
+      ],
+      "returns_through": "2026-11-21T05:06:46.751Z"
+    }
+  ]
+}

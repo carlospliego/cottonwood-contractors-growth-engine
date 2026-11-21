@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-085",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep -nE 'events\\._|review\\._' cottonwood/report.py returned no matches (rc=1). The remaining events./review. references in report.py are public names: events.entries_in_range, review.table_cell, review.COUNTED_LEADS_FILTER and others.",
+          "file": "cottonwood/report.py",
+          "line": 252,
+          "quote": "for payload in events.entries_in_range(conn, events.TIME_KIND, period.start, period.end):"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four in the ccge-085 worktree with uv run --offline. pytest: 932 passed in 5.27s. ruff check: All checks passed!. mypy: Success, no issues found in 106 source files. ruff format --check: 316 files already formatted. I read results from each tool's summary output. The exit-code echo printed blank because zsh has no PIPESTATUS, and each summary line reports success.",
+          "file": "tests/test_report_public_helpers.py",
+          "line": 1,
+          "quote": "932 passed in 5.27s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:07:57.971Z"
+    }
+  ]
+}

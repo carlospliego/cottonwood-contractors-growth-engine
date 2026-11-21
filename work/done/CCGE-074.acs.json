@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-074",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "No code under cottonwood/ defines or calls _void_entry_conflict. The only code mention is a negative assertion in tests/test_entry_option_problem.py:24. The other hits are the work/ task and todo files. cottonwood/cli.py:627 now defines _entry_option_problem, and its docstring names both jobs: conflict with --voids, and missing required options. The call site (cli.py:652) and the two comments (cli.py:578, 612) use the new name. The full suite ran with `uv run --offline pytest -q` and passed: 933 passed.",
+          "file": "cottonwood/cli.py",
+          "line": 627,
+          "quote": "def _entry_option_problem(args: argparse.Namespace, amount_name: str) -> str | None:\n    \"\"\"Name the first problem with the log-time/log-cost options, or return None.\n\n    It does two jobs: with --voids, it names the first entry option also given (a conflict);\n    without --voids, it names the first required entry option that is missing."
+        }
+      ],
+      "returns_through": "2026-11-21T16:48:27.044Z"
+    }
+  ]
+}

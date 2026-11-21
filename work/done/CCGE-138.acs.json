@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-138",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Both tests pass (2 passed). Test 1 adds extra lead and draft approvals, then voids the newest lead approval. It asserts the draft_prepared payload's sha256 equals hashlib.sha256(draft bytes), lead_approval_id equals the second-newest lead approval (the newest unvoided one), and draft_approval_id equals the newest draft approval. send.py _standing_approvals filters by lead_id, type='approval' and NOT voided, ordered by id DESC, and _approvals takes element [0], so the test matches the implementation. Test 2 inserts lead 2 with the same contact and approves the lead and draft for lead 2. It then voids all of lead 1's approvals, so the only standing approvals are lead 2's, and asserts lead 2 still has approvals. _assert_refused asserts prepare() == EXIT_REFUSED, which I did not check equals 1, and that the only refusal check is ['approval']. It also asserts there is no sendable file and no draft_prepared. The refusal lines are 'no founder approval of lead 1' and 'no founder approval of a draft for lead 1'. This meets 'approvals recorded only for lead 2' in effect: lead 1 has none standing, and dropping 'lead_id = ?' would make lead 2's approvals satisfy it and fail the test. The voided lead 1 rows remain in the log, but the AC is about which approvals count. I did not run a mutant to confirm the test fails without the lead_id filter.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-138/tests/test_prepare_send_payload_and_lead.py",
+          "line": 97,
+          "quote": "for activity_id in _approvals(ready, \"lead\") + _approvals(ready, \"draft\"):\n        _void(ready, activity_id)"
+        }
+      ],
+      "returns_through": "2026-11-21T18:46:00.269Z"
+    }
+  ]
+}

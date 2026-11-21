@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-123",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the CLI on a claims file holding exactly b'\\xff\\xfe', against a freshly migrated temp database. `cottonwood claims --claims /tmp/claude-501/t123/claims.yaml --db /tmp/claude-501/t123/c.db` exited 1. Stdout was empty. Stderr was one line: 'error: /tmp/claude-501/t123/claims.yaml: file: is not UTF-8 text (byte 0)'. It starts with 'error:' and names the file. load_claims now catches UnicodeDecodeError and raises ClaimsError. `uv run --offline pytest -q tests/test_claims_file_not_utf8.py -v` passed 3 of 3. The first test asserts the same exit code and a single-line stderr.",
+          "file": "cottonwood/claims.py",
+          "line": 85,
+          "quote": "    except UnicodeDecodeError as exc:\n        raise ClaimsError(path, \"file\", f\"is not UTF-8 text (byte {exc.start})\") from None"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran the exact command with a file of bytes ff fe against a freshly migrated temp DB (--db). Exit code 1, stdout empty, stderr 'error: claims: /tmp/claude-501/ac2/c.yaml: file: is not UTF-8 text (byte 0)'. The activities row count was 0. tests/test_claims_file_not_utf8.py passed 3 of 3. load_claims converts UnicodeDecodeError to ClaimsError, which gate.approve wraps as GateError('claims', ...).",
+          "file": "cottonwood/claims.py",
+          "line": 85,
+          "quote": "    except UnicodeDecodeError as exc:\n        raise ClaimsError(path, \"file\", f\"is not UTF-8 text (byte {exc.start})\") from None"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline. pytest: 932 passed. ruff check: All checks passed. mypy: no issues found in 106 source files. ruff format --check: 316 files already formatted. All four exited cleanly.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-123",
+          "line": 1,
+          "quote": "932 passed in 5.38s | All checks passed! | Success: no issues found in 106 source files | 316 files already formatted"
+        }
+      ],
+      "returns_through": "2026-11-21T18:23:54.001Z"
+    }
+  ]
+}

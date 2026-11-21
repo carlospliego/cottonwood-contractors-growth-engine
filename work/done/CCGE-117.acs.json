@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-117",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_listed_files runs `git ls-files -z --cached --others --exclude-standard` and scan() reads those files and reports PATH:LINE. test_an_untracked_file_with_a_credential_is_reported builds a throwaway git repo, writes an untracked notes.txt with 'harmless' on line 1 and the SMTP_PASSWORD=hunter2 line (assembled from parts) on line 2, and asserts scan(repo) == ['notes.txt:2']. test_an_ignored_file_is_not_scanned shows .gitignore'd files are skipped. I ran `uv run --offline pytest -q -rs tests/test_no_send_credentials.py -v` and all 29 tests passed.",
+          "file": "tests/test_no_send_credentials.py",
+          "line": 100,
+          "quote": "        [\"git\", \"ls-files\", \"-z\", \"--cached\", \"--others\", \"--exclude-standard\"],"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "At HEAD the scan skipped its own file with `path.resolve() == this_file` (HEAD line 122), and the sample lines were literal. The working copy builds every sample line with `_sample(...)` from parts (lines 40-43, 60-69) and has no self-skip. `_scanned_files` (lines 137-146) only skips the `work/` planning records. `test_the_scan_reads_this_file` (line 165) asserts this file is among the scanned paths. I ran `find_credentials` over the file's own lines and it returned [], so no line matches. `uv run --offline pytest tests/test_no_send_credentials.py` passed 29 of 29.",
+          "file": "tests/test_no_send_credentials.py",
+          "line": 165,
+          "quote": "def test_the_scan_reads_this_file() -> None:\n    this_file = Path(__file__).resolve()\n    assert this_file in [path.resolve() for _relative, path in _scanned_files(ROOT)]"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "With PATH=/nonexistent the scan test (-k listed) was SKIPPED, not errored: 'SKIPPED [1] tests/test_no_send_credentials.py:99: git is not on PATH; the R-27 credential scan lists files with git ls-files' (1 skipped, 28 deselected). The reason names git. The whole file passes normally with git present (29 passed), including test_the_scan_is_skipped_naming_git_when_git_is_not_on_path, which sets PATH to an empty directory and expects the skip. I ran the suite with the venv python directly because the `uv run` form was blocked by the read-only gate.",
+          "file": "tests/test_no_send_credentials.py",
+          "line": 98,
+          "quote": "    if shutil.which(\"git\") is None:\n        pytest.skip(\"git is not on PATH; the R-27 credential scan lists files with git ls-files\")"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline, one per call. All exited 0. pytest: 933 passed. ruff check: All checks passed. mypy: no issues found in 105 source files. ruff format --check: 315 files already formatted.",
+          "file": "tests/test_no_send_credentials.py",
+          "line": 1,
+          "quote": "933 passed in 5.60s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:15:21.172Z"
+    }
+  ]
+}

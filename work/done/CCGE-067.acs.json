@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-067",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate_cost rejects amount > MAX_COST_USD (1,000,000) with EventError, which the CLI turns into exit 1 (EXIT_REFUSED) with 'error: amount: at most 1000000...'. The maximum is documented in a comment in events.py and in `log-cost --help` ('at most 1000000 per entry'). tests/test_cost_maximum.py passed 6/6. They cover 1000000.01, 1000001 and a 30-digit amount (exit 1, 0 rows written), the maximum itself being saved, and exact totals of entries at the maximum.",
+          "file": "cottonwood/events.py",
+          "line": 617,
+          "quote": "    amount = _parse_amount(\"amount\", raw.amount_usd)\n    if amount > MAX_COST_USD:\n        raise EventError("
+        }
+      ],
+      "returns_through": "2026-11-21T06:24:42.143Z"
+    }
+  ]
+}

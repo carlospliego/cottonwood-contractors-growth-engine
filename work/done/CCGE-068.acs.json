@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-068",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_is_http_url now checks parsed.hostname, so 'http://:80' is rejected. The new test test_url_without_a_host_exits_1_and_writes_nothing runs log-event --stage buyer_need_confirmed --procurement-url http://:80 (and 3 other hostless URLs). It asserts the exit code equals EXIT_REFUSED, that stderr starts with the procurement-url error, and that the activities count and lead stage are unchanged. I ran the file with pytest and all 10 tests passed. I did not check that EXIT_REFUSED equals 1.",
+          "file": "tests/test_procurement_url_host.py",
+          "line": 60,
+          "quote": "@pytest.mark.parametrize(\"url\", [\"http://:80\", \"https://:443/rfp\", \"http://user@\", \"http://@:8080\"])"
+        }
+      ],
+      "returns_through": "2026-11-21T06:27:00.820Z"
+    }
+  ]
+}

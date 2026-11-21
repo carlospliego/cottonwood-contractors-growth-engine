@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-021",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_db_error_base.py asserts issubclass(db.MigrationError, db.DatabaseError) and that db.connect on a missing file raises db.DatabaseError (pytest.raises). db.py defines MigrationError(DatabaseError) at line 25. All 3 tests in the file pass under uv run --offline pytest. One caveat: the missing-file test uses pytest.raises(db.DatabaseError), which also accepts subclasses, so it does not prove the raised type is exactly DatabaseError. That matches the AC wording 'instance of db.DatabaseError'.",
+          "file": "tests/test_db_error_base.py",
+          "line": 14,
+          "quote": "def test_migration_error_is_a_database_error() -> None:\n    assert issubclass(db.MigrationError, db.DatabaseError)\n\n\ndef test_connect_on_a_missing_file_raises_a_database_error(tmp_path: Path) -> None:\n    with pytest.raises(db.DatabaseError):\n        db.connect(tmp_path / \"missing.db\")"
+        }
+      ],
+      "returns_through": "2026-11-21T04:56:23.397Z"
+    }
+  ]
+}

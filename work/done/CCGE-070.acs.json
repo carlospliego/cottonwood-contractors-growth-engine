@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-070",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate_event raises EventError('stage', 'must not be blank; leave --stage out to log no move') when raw.stage is given but blank. The new test runs log-event --stage with ' ', '', tab and spaces. It asserts the exit code is EXIT_REFUSED, stderr starts with 'error: stage: must not be blank', and the activities count and lead stage are unchanged, so nothing is written. A second test shows that leaving --stage out still logs the event. All 5 tests passed with `uv run --offline pytest`. I did not separately confirm that EXIT_REFUSED equals 1.",
+          "file": "cottonwood/events.py",
+          "line": 177,
+          "quote": "if raw.stage is not None and not raw.stage.strip():\n        raise EventError(\"stage\", \"must not be blank; leave --stage out to log no move\")"
+        }
+      ],
+      "returns_through": "2026-11-21T06:31:07.377Z"
+    }
+  ]
+}

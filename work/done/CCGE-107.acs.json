@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-107",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Recursive grep for '_import_review_config' over cottonwood/ and tests/ returned no matches (rc=1). cli.py defines _load_review_config at line 759. It is called in _run_review (def at 267, call at line 272) and in _run_prospects_import (def at 772, call at line 776).",
+          "file": "cottonwood/cli.py",
+          "line": 759,
+          "quote": "def _load_review_config(path: Path | None) -> config.ReviewConfig:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "All four commands exited 0 in the worktree, each run with uv run --offline. pytest: 929 passed in 5.17s. ruff check: All checks passed!. mypy: Success: no issues found in 105 source files. ruff format --check: 315 files already formatted.",
+          "file": "cottonwood/cli.py",
+          "line": 1,
+          "quote": "929 passed in 5.17s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:55:03.185Z"
+    }
+  ]
+}

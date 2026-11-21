@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-026",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_normalize.py has a parametrized test with '+44 20' and '+4412345678901234'. It wraps normalize_phone in pytest.raises(ValueError, match='international numbers'). cottonwood/normalize.py:42 raises ValueError with 'international numbers must have 8-15 digits', which matches the pattern. The test file ran 29 passed.",
+          "file": "tests/test_normalize.py",
+          "line": 66,
+          "quote": "        pytest.param(\"+44 20\", id=\"too-short-4-digits\"),\n        pytest.param(\"+4412345678901234\", id=\"too-long-16-digits\"),\n    ],\n)\ndef test_international_numbers_outside_8_to_15_digits_are_refused(bad: str) -> None:\n    with pytest.raises(ValueError, match=\"international numbers\"):\n        normalize_phone(bad)"
+        }
+      ],
+      "returns_through": "2026-11-21T05:05:16.050Z"
+    }
+  ]
+}

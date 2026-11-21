@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-069",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff adds comment blocks directly above the --estimated add_argument (cli.py:577-578) and the --person add_argument (cli.py:611-613). Both say default=None means the option was not given and that the --voids conflict check (_void_entry_conflict) relies on it. Both arguments really do use default=None (cli.py:582 and cli.py:617), so the comments match the code. The diff changes comments only.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-069/cottonwood/cli.py",
+          "line": 577,
+          "quote": "# default=None, not False: None means --estimated was not given, and the --voids conflict\n    # check (_void_entry_conflict) relies on that to refuse --voids together with --estimated."
+        }
+      ],
+      "returns_through": "2026-11-21T06:28:44.812Z"
+    }
+  ]
+}

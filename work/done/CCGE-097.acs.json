@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-097",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep -rwn RULE_REQUIRED over cottonwood/ gives two matches, both in cottonwood/eligibility.py. Line 28 is the definition, `RULE_REQUIRED = \"required\"`. Line 140 is a use, `failures.append((FIELD_SOURCE_URL, RULE_REQUIRED))`, which is outside the definition line. validate.py has no match, so its removed definition left no dangling reference. The AC accepts either no match or a use outside the definition line, and line 140 satisfies the second. The grep was run recursively because the AC's plain `grep -wn ... cottonwood/` form on a directory prints no matches. I did not run the project's tests.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-097/cottonwood/eligibility.py",
+          "line": 140,
+          "quote": "failures.append((FIELD_SOURCE_URL, RULE_REQUIRED))"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep -n 'def label' cottonwood/validate.py returns one hit, line 115. Class boundaries: Rejection starts at line 107 and ProspectRecord starts at line 151. Line 115 therefore belongs to Rejection, and no label method exists on ProspectRecord. The Rejection.label method is also called at validate.py:121 (self.label()).",
+          "file": "cottonwood/validate.py",
+          "line": 115,
+          "quote": "    def label(self) -> str:"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git status and git diff --stat show only cottonwood/validate.py changed (6 deletions), so tests/test_prospects_import.py is unchanged. `uv run --offline pytest -q tests/test_prospects_import.py` gave 15 passed. The test at tests/test_prospects_import.py:325 asserts the line 'rejected {label}: evidence[0].url: required' and passes. The 'required' text does not come from the deleted RULE_REQUIRED, which no code used. It is the jsonschema validator name: _schema_failure sets rule = str(error.validator), which is 'required' for a missing key, and appends the missing key to the path (validate.py:~360-366). Rejection.line() (validate.py:121) formats it as 'rejected {label}: {field}: {rule}'. Rejection has its own label() method (validate.py:113), so deleting ProspectRecord.label did not affect it. Remaining RULE_REQUIRED uses are in eligibility.py, which has its own constant.",
+          "file": "cottonwood/validate.py",
+          "line": 121,
+          "quote": "return f\"rejected {self.label()}: {self.field}: {self.rule}\""
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline. pytest: 929 passed, exit 0. ruff check .: All checks passed, exit 0. mypy .: no issues found in 105 source files, exit 0. ruff format --check .: 315 files already formatted, exit 0.",
+          "file": "cottonwood/validate.py",
+          "line": 1,
+          "quote": "929 passed in 5.57s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:30:13.209Z"
+    }
+  ]
+}

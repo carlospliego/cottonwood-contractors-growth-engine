@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-126",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The exact grep over cottonwood/gate.py and cottonwood/claims.py printed nothing and exited 1, so there is no match. In cli.py, _run_approve (lines 1070-1106) makes three events.* references: events.denver_today() (line 1072), events.parse_entry_date(...) (line 1074) and except events.EventError (line 1075). None starts with an underscore. denver_today is defined at events.py:553, parse_entry_date is the public alias at events.py:774, and EventError is the class at events.py:97. The run `uv run --offline pytest -q tests/test_events_public_helpers.py -v` passed 7 of 7.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-126/cottonwood/cli.py",
+          "line": 1074,
+          "quote": "day = today if args.date is None else events.parse_entry_date(args.date, today)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with `uv run --offline`, one per Bash call. pytest: exit 0, 936 passed in 5.30s. ruff check: exit 0, 'All checks passed!'. mypy: exit 0, 'Success: no issues found in 106 source files'. ruff format --check: exit 0, '316 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-126",
+          "line": 1,
+          "quote": "============================= 936 passed in 5.30s =============================="
+        }
+      ],
+      "returns_through": "2026-11-21T18:31:54.945Z"
+    }
+  ]
+}

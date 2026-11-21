@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-034",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "parse_received wraps to_utc_iso in try/except OverflowError and re-raises ValueError('date and time is out of range'). The UTC branch now catches (ValueError, OverflowError). tests/test_parse_received_overflow.py covers 9999-12-31 23:30 raising ValueError, the edge UTC times that still convert, and inbound.validate reporting the error on the 'received' field. All gates passed: pytest 938 passed, ruff check clean, mypy no issues in 107 files, ruff format --check 317 files already formatted. I did not run a year-1 local-time case. Denver is behind UTC, so that case cannot overflow on the low end.",
+          "file": "cottonwood/timeutil.py",
+          "line": 48,
+          "quote": "        try:\n            stored = to_utc_iso(naive.replace(tzinfo=DENVER, fold=0))\n        except OverflowError:\n            # Near year 1 or 9999 the offset pushes the UTC time outside datetime's range.\n            raise ValueError(f\"date and time is out of range: {value!r}\") from None"
+        }
+      ],
+      "returns_through": "2026-11-21T05:14:32.839Z"
+    }
+  ]
+}

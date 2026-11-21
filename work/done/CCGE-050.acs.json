@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-050",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test parametrizes valid budgets '0', '-0', '0.00', '25000.50' (plus '25000' and ' 1500 ') against the stored text. '1e3' is covered separately by test_exponent_notation_is_rejected_not_normalized, and the reject-not-normalize decision is stated in the module docstring. This departs from the AC wording only in that '1e3' is not in the parametrized valid list, which fits the decision to reject it. I ran `uv run --offline pytest` (946 passed), `ruff check` (all checks passed), `mypy .` (no issues in 107 files) and `ruff format --check` (317 files already formatted). I did not run the new test file against a mutated inbound.py.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-050/tests/test_inbound_budget_values.py",
+          "line": 4,
+          "quote": "Decision: exponent notation is rejected, not normalized, so the stored figure is the one the"
+        }
+      ],
+      "returns_through": "2026-11-21T05:56:05.890Z"
+    }
+  ]
+}

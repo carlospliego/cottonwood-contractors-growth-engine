@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-032",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The Deletion requests section's lead-clearing SQL sets hypothesis, next_action, property_location and project_scope to NULL. A second UPDATE sets value_amount and value_basis to NULL only where value_basis = 'buyer-stated'. The prose says estimated values stay. cottonwood/deletion.py:34 has _LEAD_FIELDS including project_scope, so the command matches the docs. tests/test_deletion_inbound_fields.py passed (4/4). I did not read the buyer-stated handling in deletion.py beyond that grep, which matched only line 34, so that part is covered by the tests and the runbook text alone.",
+          "file": "docs/runbook.md",
+          "line": 119,
+          "quote": "UPDATE leads\n  SET hypothesis = NULL, next_action = NULL, property_location = NULL, project_scope = NULL\n  WHERE contact_id = 42;\n  UPDATE leads\n  SET value_amount = NULL, value_basis = NULL\n  WHERE contact_id = 42 AND value_basis = 'buyer-stated';"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_deletion_inbound_fields.py extracts the sql code block containing UPDATE leads from the Deletion requests section of docs/runbook.md (_lead_clearing_sql). test_runbook_lead_sql_clears_scope_and_stated_budget migrates a DB (db.migrate), logs an inquiry with scope and budget via inbound.log_inquiry, and first asserts project_scope, value_amount=45000 and value_basis=BUDGET_BASIS are set. It then runs the extracted SQL with executescript, substituting the contact id for 42, and asserts hypothesis, next_action, property_location, project_scope, value_amount and value_basis are all NULL. The runbook SQL sets project_scope = NULL and clears value_amount/value_basis where value_basis = 'buyer-stated'. I ran the test file with uv run --offline pytest: 4 passed.",
+          "file": "tests/test_deletion_inbound_fields.py",
+          "line": 91,
+          "quote": "    sql = _lead_clearing_sql().replace(\"contact_id = 42\", f\"contact_id = {contact_id}\")"
+        }
+      ],
+      "returns_through": "2026-11-21T05:09:54.461Z"
+    }
+  ]
+}

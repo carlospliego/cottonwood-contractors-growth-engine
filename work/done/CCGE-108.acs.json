@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-108",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_actor_and_database_errors.py has test_set_eligibility_records_the_given_actor. It runs 'set-eligibility <contact> ineligible --actor founder' and asserts the activities row is (eligibility.ACTIVITY_TYPE, 'founder', contact). It also asserts events.DEFAULT_ACTOR != 'founder', so the default value could not make it pass. test_mark_reviewed_records_the_given_actor runs 'mark-reviewed <lead> relevant --reviewer founder --actor founder' and asserts the activities row is (hand_review.ACTIVITY_TYPE, 'founder', lead). I ran the file with pytest and all 5 tests passed. I did not read cottonwood/cli.py, eligibility.py or hand_review.py. I also did not confirm that the contact and lead ids are 1, because the tests use the ids their helpers return.",
+          "file": "tests/test_actor_and_database_errors.py",
+          "line": 86,
+          "quote": "args = [\"set-eligibility\", str(contact), \"ineligible\", \"--actor\", \"founder\"]\n    assert main([*args, \"--db\", str(db_path)]) == EXIT_OK\n    rows = _rows(db_path, \"SELECT type, actor, contact_id FROM activities\")\n    assert rows == [(eligibility.ACTIVITY_TYPE, \"founder\", contact)]"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_mark_reviewed_refuses_a_blank_actor runs mark-reviewed with --actor '   ' and asserts the return code equals EXIT_REFUSED, which is 1 (cottonwood/cli.py:39). It asserts stderr is exactly ['error: actor: must not be empty'], so the line starts with 'error: actor:'. It asserts stdout is empty and that the activities table is empty, so no activity was added. The source check is at cottonwood/hand_review.py:63-65 (blank actor raises EventError('actor', 'must not be empty')). All 5 tests in the file pass (uv run --offline pytest).",
+          "file": "tests/test_actor_and_database_errors.py",
+          "line": 109,
+          "quote": "args = [\"mark-reviewed\", str(lead), \"relevant\", \"--reviewer\", \"founder\", \"--actor\", \"   \"]\n    assert main([*args, \"--db\", str(db_path)]) == EXIT_REFUSED\n    captured = capsys.readouterr()\n    assert captured.err.splitlines() == [\"error: actor: must not be empty\"]\n    assert captured.out == \"\"\n    assert _activities(db_path) == []"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_actor_and_database_errors.py has one test per command. Each wraps the module's _apply so the real write runs and sqlite3.OperationalError is then raised. Each asserts exit 1, stderr == ['error: could not ...: disk I/O error'], empty stdout, and contacts and activities rows equal to the snapshots taken before the call. Because the write happens before the raise, only the rollback can leave the tables unchanged. The modules do roll back: eligibility.py:83 and hand_review.py:71 call conn.rollback(). All 5 tests in the file pass. The AC says stderr starting 'error:'; the exact-line assertion is stricter and still satisfies it.",
+          "file": "tests/test_actor_and_database_errors.py",
+          "line": 138,
+          "quote": "assert main([\"set-eligibility\", str(contact), \"ineligible\", \"--db\", str(db_path)]) == 1"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "All four commands were run in the worktree with `uv run --offline`. pytest: 934 passed in 5.53s. ruff check: All checks passed!. mypy: Success, no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-108",
+          "line": 1,
+          "quote": "934 passed in 5.53s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:59:17.572Z"
+    }
+  ]
+}

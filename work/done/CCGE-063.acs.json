@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-063",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "pyproject.toml adds pytest pythonpath=['.']. I copied the repo to $TMPDIR, appended a RuntimeError to the copy's cottonwood/events.py, and ran the main checkout's .venv pytest there. It errored on 'RuntimeError: BRK' at cottonwood/events.py:767, so the copy's own code was tested. tests/test_tests_import_checkout.py automates this (a broken copy fails, an unbroken copy passes). `uv run pytest` gave 931 passed. I ran it in the worktree, where the change lives, not in the main checkout.",
+          "file": "pyproject.toml",
+          "line": 52,
+          "quote": "pythonpath = [\".\"]"
+        }
+      ],
+      "returns_through": "2026-11-21T04:16:46.352Z"
+    }
+  ]
+}

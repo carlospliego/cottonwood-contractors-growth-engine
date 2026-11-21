@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-094",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py now yields (founder_time_h,), RULE_FINITE when the value is not math.isfinite. The new test writes raw JSON with the bare Infinity literal and runs the real prospects-import. It asserts the output contains 'rejected record 1: founder_time_h:' and that every table has 0 rows, so no lead is written. `uv run --offline pytest -q tests/test_prospects_finite_founder_time.py` gave 8 passed. The Infinity case is covered, as are NaN, -Infinity and CSV inf.",
+          "file": "cottonwood/validate.py",
+          "line": 404,
+          "quote": "    founder_time = data.get(\"founder_time_h\")\n    if founder_time is not None and not math.isfinite(founder_time):\n        yield (\"founder_time_h\",), RULE_FINITE"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py adds a finite check on founder_time_h that yields a failure on field founder_time_h. The new tests feed a JSON record with the bare NaN literal and a CSV row with cell 'inf' through the import path. Each is rejected with 'rejected record 1: founder_time_h:' and nothing is written to the db. All 8 tests pass.",
+          "file": "cottonwood/validate.py",
+          "line": 404,
+          "quote": "    founder_time = data.get(\"founder_time_h\")\n    if founder_time is not None and not math.isfinite(founder_time):\n        yield (\"founder_time_h\",), RULE_FINITE"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_a_finite_founder_time_still_imports writes a JSON record with founder_time_h 1.5, runs the real import, asserts exit OK and that SELECT founder_time_h FROM leads returns [1.5]. The test file passed (8 passed). The new finite check in validate.py only yields a failure when math.isfinite is false, so 1.5 is not rejected.",
+          "file": "tests/test_prospects_finite_founder_time.py",
+          "line": 105,
+          "quote": "    path.write_text(_json_text(\"1.5\"), encoding=\"utf-8\")\n    code, output = _run(db_path, path, capsys)\n    assert code == EXIT_OK, output\n    assert _founder_times(db_path) == [1.5]"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four in the worktree with uv run --offline. pytest: 937 passed. ruff check: All checks passed. mypy: no issues in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "cottonwood/validate.py",
+          "line": 1,
+          "quote": "937 passed in 6.07s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:24:25.170Z"
+    }
+  ]
+}

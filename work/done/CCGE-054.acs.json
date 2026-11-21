@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-054",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_runbook_inbound_runs.py extracts the indented uv run cottonwood lines and the single sql block from the runbook sections Inbound verification checklist and Relay. It runs the commands through main() against a temp migrated DB. The inline review --out out/review.md command is run as written with --db added. Review output is asserted: 2 TEST rows and Test inquiries excluded: 2; the relay counts line; and the form and phone fields. Duplicate refusal and --confirm-duplicate are asserted. The SQL block runs twice via sqlite3 executescript, leaving one suppression row (pat@example.com, opt_out, relay), and eligibility._is_suppressed is true. Full run: pytest 934 passed; ruff check passed; mypy no issues in 106 files; ruff format --check 316 files already formatted.",
+          "file": "tests/test_runbook_inbound_runs.py",
+          "line": 140,
+          "quote": "def test_relay_opt_out_sql_suppresses_and_is_safe_to_repeat(db_path: Path) -> None:"
+        }
+      ],
+      "returns_through": "2026-11-21T06:08:32.817Z"
+    }
+  ]
+}

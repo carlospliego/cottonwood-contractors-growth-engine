@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-091",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py _csv_record now sets hypothesis to '' when the column is present in the row but the cell is empty or blank. The column check `column in cells` leaves a CSV with no hypothesis column unchanged, so the existing missing-column FileError path applies. The new tests passed (6/6). They cover an empty hypothesis cell importing as '' without 'hypothesis: required', a blank cell, an empty verified_facts cell, both empty, and a missing column (hypothesis or verified_facts) still being a FileError. I did not run the CLI by hand.",
+          "file": "cottonwood/validate.py",
+          "line": 285,
+          "quote": "if column in CSV_EMPTY_ALLOWED and column in cells:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate.py now maps an empty verified_facts cell (column present) to [] via CSV_EMPTY_ALLOWED. The new test imports a CSV row with an empty verified_facts cell through the real CLI (prospects-import) and asserts exit OK and the stored leads row has verified_facts '[]'. All 6 tests in tests/test_prospects_csv_empty_values.py pass.",
+          "file": "tests/test_prospects_csv_empty_values.py",
+          "line": 98,
+          "quote": "code = _import(db_path, _csv(tmp_path, HEADER, {**ROW, \"verified_facts\": \"\"}))\n    captured = capsys.readouterr()\n    assert code == EXIT_OK, captured.err\n    assert \"verified_facts: required\" not in captured.out + captured.err\n    assert _leads(db_path) == [(\"May need a tenant improvement\", \"[]\")]"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline. pytest: 935 passed, exit 0. ruff check .: All checks passed, exit 0. mypy .: no issues found in 106 source files, exit 0. ruff format --check .: 316 files already formatted, exit 0.",
+          "file": "pyproject.toml",
+          "line": 1,
+          "quote": "935 passed in 5.56s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:15:24.754Z"
+    }
+  ]
+}

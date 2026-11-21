@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-134",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In prepare_send, conn.execute(\"BEGIN IMMEDIATE\") is at send.py:112, and _approvals, _contact_checks, _claim_checks and _evidence_check are called at lines 119-122, inside the try block after it. Before the change they ran before BEGIN. The new test test_a_suppression_committed_just_before_the_lock_is_seen uses a trace callback to insert a suppression row from a second connection as the first connection issues BEGIN IMMEDIATE. It asserts the refusal check is 'suppression'. All 23 tests in tests/test_prepare_send.py pass.",
+          "file": "cottonwood/send.py",
+          "line": 112,
+          "quote": "conn.execute(\"BEGIN IMMEDIATE\")\n    try:\n        lead = conn.execute(\"SELECT id, contact_id FROM leads WHERE id = ?\", (lead_id,)).fetchone()"
+        }
+      ],
+      "returns_through": "2026-11-21T04:38:52.060Z"
+    }
+  ]
+}

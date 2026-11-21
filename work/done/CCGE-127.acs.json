@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-127",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The three tests patch gate.approve, claims.effective_statuses and gate.suppress to raise sqlite3.OperationalError. cli.py looks them up on those same modules (cli.py:1085 gate.approve, :1139 claims.effective_statuses, :1387 gate.suppress), so the patches take effect. Each test calls main(...) and asserts the return is EXIT_REFUSED, which is 1 (cli.py:39). Each then asserts stdout is empty, no Traceback in stderr, and that stderr splits into exactly one line. The lines are 'error: could not record the approval: ...', 'error: could not read the claim approvals: ...' and 'error: could not record the suppression: ...'. All three match the handlers' sqlite3.Error branches (cli.py:1101, 1141, 1392). `uv run --offline pytest -q tests/test_gate_commands_database_errors.py -v` gave 3 passed.",
+          "file": "tests/test_gate_commands_database_errors.py",
+          "line": 92,
+          "quote": "monkeypatch.setattr(claims, \"effective_statuses\", _raise)\n    lines = _refused(capsys, [\"claims\", \"--claims\", str(library), \"--db\", str(db_path)])\n    assert lines == [f\"error: could not read the claim approvals: {FAILURE}\"]"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the ccge-127 worktree with `uv run --offline`. pytest: exit 0, 932 passed in 5.04s. ruff check .: exit 0, 'All checks passed!'. mypy .: exit 0, 'Success: no issues found in 106 source files'. ruff format --check .: exit 0, '316 files already formatted'.",
+          "file": "tests/test_gate_commands_database_errors.py",
+          "line": 1,
+          "quote": "932 passed in 5.04s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:34:04.253Z"
+    }
+  ]
+}

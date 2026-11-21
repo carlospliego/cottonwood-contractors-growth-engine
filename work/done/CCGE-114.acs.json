@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-114",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "check_records now calls import_records(..., dry_run=True), so it uses the import's own matching and referrer logic, then rolls back. It returns the rejections from that run. _check_prospects (cli.py:819-822) prints rejection.line() for each one and 'check: {valid} valid, {n} rejected'. The new test file compares --check with a fresh-DB import on a file whose records 1 and 2 are the same org and lead, and record 2 is referred_by=1. Import gives 'imported 1, matched 1, rejected 0' with no rejected lines, and --check gives no lines and 'check: 2 valid, 0 rejected'. A third test with real rejections asserts the rejection lines are identical and the counts agree (1 valid and 2 rejected, against rejected 2 on import). The tests also assert --check leaves every table's row count unchanged. All 9 tests in test_prospects_check_same_file.py and test_prospects_check.py pass.",
+          "file": "cottonwood/prospects.py",
+          "line": 160,
+          "quote": "result = import_records(conn, CHECK_FILE, records, CHECK_ACTOR, dry_run=True)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "check_records calls import_records(..., dry_run=True). That function opens BEGIN, and at the end calls conn.rollback() when dry_run, otherwise commit. Any exception goes to `except BaseException: conn.rollback(); raise`. The savepoint failure path rolls back to the savepoint and re-raises into the same outer rollback. So both the normal exit and the exception exit discard the writes. The CLI connection comes from db.connect (db.py:66), which is a plain sqlite3.connect in legacy isolation mode, not autocommit=True. rollback() therefore takes effect. The CLI also closes the connection in a finally block (cli.py:~811), which would discard anything uncommitted. The new tests' _check_and_import helper counts organizations, contacts, leads, evidence and activities (TABLES) through a separate connection before and after --check, and asserts they are equal. I ran `uv run --offline pytest -q tests/test_prospects_check_same_file.py tests/test_prospects_check.py`: 9 passed.",
+          "file": "cottonwood/prospects.py",
+          "line": 147,
+          "quote": "        if dry_run:\n            conn.rollback()\n        else:\n            conn.commit()\n    except BaseException:\n        conn.rollback()\n        raise"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four in the worktree with uv run --offline. pytest: 932 passed in 5.32s. ruff check: All checks passed!. mypy: Success, no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "cottonwood/prospects.py",
+          "line": 1,
+          "quote": "932 passed in 5.32s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:09:07.046Z"
+    }
+  ]
+}

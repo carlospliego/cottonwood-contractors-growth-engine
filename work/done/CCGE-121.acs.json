@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-121",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran the CLI on a claims file with `id: |` followed by `service-area`, so the id is 'service-area\\n'. It exited 1 with this stderr line: `error: .../claims.yaml: claims[1]: id: must be lower-kebab-case like service-area, got 'service-area\\n'`. The line names claims[1], the first claim, and contains 'id:'. Before the fix, the `^...$` pattern used with match() accepted one trailing newline. Now _ID has no anchors and the loader calls fullmatch. `pytest tests/test_claims_id_trailing_newline.py` passed 7 of 7, including a test that asserts the same stderr line.",
+          "file": "cottonwood/claims.py",
+          "line": 164,
+          "quote": "if not isinstance(claim_id, str) or not _ID.fullmatch(claim_id):"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_ID is the only id pattern and is used once, at claims.py:164, via _ID.fullmatch(claim_id). fullmatch rejects a trailing newline, unlike re.match with $. The new tests cover 'service-area' (loads, line 74-77, parametrized True at line 83) and 'service-area\\n' (rejected, lines 59-68, parametrized False at line 84). I ran tests/test_claims_id_trailing_newline.py and tests/test_claims.py: 32 passed.",
+          "file": "cottonwood/claims.py",
+          "line": 164,
+          "quote": "if not isinstance(claim_id, str) or not _ID.fullmatch(claim_id):"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command with uv run --offline in the worktree. pytest: 936 passed. ruff check: All checks passed. mypy: Success, no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "cottonwood/claims.py",
+          "line": 1,
+          "quote": "936 passed in 5.32s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:18:29.138Z"
+    }
+  ]
+}

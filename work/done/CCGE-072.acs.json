@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-072",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "An ast scan of cottonwood/events.py found exactly two string constants equal to the names: line 63 'correction' and line 64 'stage_change'. Every other constant containing either word is prose (docstrings, or error-message fragments such as ' is already void (correction ' and '); a correction that reverts a stage cannot be dated before it'). None of those equals or quotes the activity type. The SQL fragments use the constants through f-strings, e.g. line 78 `r.type = '{CORRECTION_KIND}'`, line 359 `a.type = '{STAGE_CHANGE_KIND}'`, line 380 `a.type = '{STAGE_CHANGE_KIND}'`. Python call arguments also use them (lines 287, 522, 540, 771). I did not run the pytest suite; the verdict rests on the ast scan and a grep of the file.",
+          "file": "cottonwood/events.py",
+          "line": 63,
+          "quote": "CORRECTION_KIND = \"correction\"\nSTAGE_CHANGE_KIND = \"stage_change\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff HEAD on tests/test_events_void_definition.py shows only three changed hunks. The first is this task's one-line change: the count of \"c.type = 'correction'\" becomes the count of \"c.type = '{CORRECTION_KIND}'\", still asserted == 1, and the 'voids_activity_id = ' == 1 assertion is untouched. The other two are CCGE-071's dropped NOW argument on the two void_entry calls. events.py defines the predicate once, as an f-string at cottonwood/events.py:87, built from CORRECTION_KIND (defined at line 63). The module's other uses of CORRECTION_KIND (lines 78, 357, 522, 771) are different strings, so they do not add occurrences of the counted text. Both tests in the file pass (2 passed), and the main consistency test still checks counts and refusals.",
+          "file": "tests/test_events_void_definition.py",
+          "line": 70,
+          "quote": "    assert source.count(\"c.type = '{CORRECTION_KIND}'\") == 1"
+        }
+      ],
+      "returns_through": "2026-11-21T06:38:29.032Z"
+    }
+  ]
+}

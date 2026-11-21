@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-087",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_out_write_failure_exits_1 runs main(['report','--db',...,'--period','7d','--out', <path under a regular file>]) and asserts code == EXIT_REFUSED, err.startswith('error: could not write') and 'Traceback' not in err. EXIT_REFUSED was not checked against its definition in cottonwood/cli.py, so the exit-1 reading is taken from the task note. The run of tests/test_report_io_errors.py passed, 2 of 2. cottonwood/cli.py prints the matching 'error: could not write' message at lines 297, 339 and 415.",
+          "file": "tests/test_report_io_errors.py",
+          "line": 43,
+          "quote": "code = main([\"report\", \"--db\", str(db_path), \"--period\", \"7d\", \"--out\", str(out)])\n    captured = capsys.readouterr()\n    assert code == EXIT_REFUSED\n    assert captured.err.startswith(\"error: could not write\")\n    assert \"Traceback\" not in captured.err"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_database_read_failure_exits_1 monkeypatches report.build_report to raise sqlite3.OperationalError, runs main(['report', ... '--out', out]) and asserts code == EXIT_REFUSED, err.startswith('error: could not read the database:'), captured.out == '' and not out.exists(). Test run: 2 passed. I did not check that EXIT_REFUSED equals 1 or that the CLI calls report.build_report through the module attribute. The patch takes effect and the assertions pass, so both hold in practice.",
+          "file": "tests/test_report_io_errors.py",
+          "line": 58,
+          "quote": "    def boom(*_args: object, **_kwargs: object) -> object:\n        raise sqlite3.OperationalError(\"database is locked\")\n\n    monkeypatch.setattr(report, \"build_report\", boom)"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In a copy under $TMPDIR (/tmp/claude-501/sir-probe-087), I changed only line 404 in _run_report's `except sqlite3.Error` handler from `return EXIT_REFUSED` to `return EXIT_OK`. A diff against the worktree showed that one line changed. The test run gave 1 failed, 1 passed. test_database_read_failure_exits_1 failed with `assert code == EXIT_REFUSED` -> `assert 0 == 1`. The other test, test_out_write_failure_exits_1, still passed. The mktemp variant of the setup was blocked by the policy gate, so I used a fixed $TMPDIR path. The worktree itself was not touched.",
+          "file": "cottonwood/cli.py",
+          "line": 402,
+          "quote": "    except sqlite3.Error as exc:\n        print(f\"error: could not read the database: {exc}\", file=sys.stderr)\n        return EXIT_REFUSED"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline. pytest exited 0 (931 passed in 5.73s). ruff check exited 0 (All checks passed!). mypy exited 0 (Success: no issues found in 106 source files). ruff format --check exited 0 (316 files already formatted).",
+          "file": "tests/test_report_io_errors.py",
+          "line": 1,
+          "quote": "931 passed in 5.73s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:12:22.141Z"
+    }
+  ]
+}

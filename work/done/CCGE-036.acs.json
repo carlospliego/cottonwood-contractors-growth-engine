@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-036",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "validate() now raises InquiryError('company', ...) when a non-blank company has an empty normalize_name. A blank company is still treated as not supplied (None). The new test file covers both cases (refusal on '!!!', '—', '& / -', \"'\"; blank gives None) and checks that real names still share one organization. In the worktree, pytest passed (935 passed), ruff check passed, mypy found no issues, and ruff format --check passed.",
+          "file": "cottonwood/inbound.py",
+          "line": 117,
+          "quote": "company = _clean(raw.company)\n    if company is not None and not normalize.normalize_name(company):"
+        }
+      ],
+      "returns_through": "2026-11-21T05:18:42.512Z"
+    }
+  ]
+}

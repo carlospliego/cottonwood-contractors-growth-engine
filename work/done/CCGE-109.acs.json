@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-109",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_unreadable_checklists_read_as_unknown stores leads.checklist 'not json' and '[1, 2]' (via the _lead INSERT). It runs 'cottonwood review' through main(). For both rows it asserts that every checklist cell (direct_signal, fit, the two items in the test config) is 'unknown' and that the Yes cell is '0'. The test passed along with the other two (3 passed). cottonwood/review.py _answers (lines 165-178) gives 'unknown' for unparseable JSON and for non-dict JSON, and Yes counts only 'yes' answers (line 211), so the assertions match the code.",
+          "file": "tests/test_review_fallbacks.py",
+          "line": 113,
+          "quote": "    malformed = _lead(db_path, \"not json\")\n    non_dict = _lead(db_path, \"[1, 2]\")\n    empty_answer = _lead(db_path, '{\"direct_signal\": \"\", \"fit\": \"yes\"}')\n    rows = _rows(db_path, capsys)\n    for lead in (malformed, non_dict):\n        assert [rows[lead][key] for key in CHECKLIST] == [\"unknown\", \"unknown\"]\n        assert rows[lead][\"Yes\"] == \"0\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_non_iso_evidence_date_shows_no_age stores evidence observed_at 'last week' and asserts that lead's 'Evidence age (days)' cell is '—' (a valid-date control row shows '10'). test_unreadable_hand_review_payload_shows_blank stores a hand_review activity with payload 'not json' and asserts that lead's 'Hand review' cell is '—'. The 'not json' row is planted with PRAGMA ignore_check_constraints=ON, which is needed because of the json_valid CHECK. The code under test backs both: review.py _evidence_age returns EMPTY on ValueError, and hand_review.review_result returns '' on JSONDecodeError, which review.py renders as EMPTY via `row.hand_review or EMPTY`. All 3 tests in the file pass.",
+          "file": "tests/test_review_fallbacks.py",
+          "line": 148,
+          "quote": "assert rows[not_json][\"Hand review\"] == \"—\""
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I copied cottonwood/, tests/ and pyproject.toml to /tmp/claude-501/sir-probe-109 and replaced the try/except in review._answers with `parsed = json.loads(stored)` in the copy only. `import cottonwood` resolved to /private/tmp/claude-501/sir-probe-109/cottonwood/__init__.py, so the mutated copy was the one imported. Running tests/test_review_fallbacks.py there gave 1 failed, 2 passed. test_unreadable_checklists_read_as_unknown failed with json.JSONDecodeError on the input 'not json'. I did not run the file unmutated, so the 2 passing tests are not shown to pass on the original code.",
+          "file": "cottonwood/review.py",
+          "line": 169,
+          "quote": "        try:\n            parsed = json.loads(stored)\n        except json.JSONDecodeError:\n            parsed = None"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree with `uv run --offline`, one command per call. pytest: 932 passed in 5.25s. ruff check: All checks passed!. mypy: Success: no issues found in 106 source files. ruff format --check: 316 files already formatted. All four were clean, with no failures.",
+          "file": "tests/test_review_fallbacks.py",
+          "line": 1,
+          "quote": "932 passed in 5.25s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:03:54.797Z"
+    }
+  ]
+}

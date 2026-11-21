@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-039",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "docs/runbook.md Relay section now has a sentence saying email_norm must be the trimmed, lower-cased address. The opt-out example is VALUES (lower(trim(' Pat@Example.com ')), ...). It differs from the AC's literal 'Pat@Example.com' only by padding spaces inside the quotes, which show what trim does. tests/test_runbook_relay_opt_out.py checks the sentence and the lower(trim( form. It also runs the SQL against a migrated DB: the stored email_norm is 'pat@example.com', and eligibility._is_suppressed finds it for the mixed-case contact. uv run pytest passed (933 passed). ruff check passed, mypy found no issues in 106 source files, and ruff format --check reported all 316 files formatted.",
+          "file": "docs/runbook.md",
+          "line": 189,
+          "quote": "add the entry directly; an address already suppressed is kept as it is. `email_norm` must be\nthe trimmed, lower-cased address, or the suppression will not match the contact; let SQLite do\nit by pasting the address as written into `lower(trim(...))`:"
+        }
+      ],
+      "returns_through": "2026-11-21T05:24:07.841Z"
+    }
+  ]
+}
