@@ -4,7 +4,6 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Open
 
-- [ ] `CCGE-003` — Verify each migration's transaction and version bump after it runs → [CCGE-003.md](tasks/CCGE-003.md)
 - [ ] `CCGE-004` — Reject a migration numbered 000 with a specific message → [CCGE-004.md](tasks/CCGE-004.md)
 - [ ] `CCGE-005` — Report already-committed migrations when a later one fails → [CCGE-005.md](tasks/CCGE-005.md)
 - [ ] `CCGE-006` — Tie usage-error exits to EXIT_USAGE and drop the unreachable string branch → [CCGE-006.md](tasks/CCGE-006.md)
@@ -113,6 +112,7 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Done
 
+- [x] `CCGE-003` — Verify each migration's transaction and version bump after it runs → [CCGE-003.md](done/CCGE-003.md)
 - [x] `CCGE-153` — Spec R-26: say token count and cost are recorded when a figure is available → [CCGE-153.md](done/CCGE-153.md)
 - [x] `CCGE-152` — record-run: tokens and cost are optional, for subscription plans where /cost shows no dollar figure → [CCGE-152.md](done/CCGE-152.md)
 - [x] `CCGE-151` — research-prospects demand mode: sample-check that a segment's signal means construction work before picking it → [CCGE-151.md](done/CCGE-151.md)

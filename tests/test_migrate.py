@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -211,3 +212,136 @@ def test_db_flag_overrides_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     assert flag_path.is_file()
     assert not env_path.exists()
+
+
+def _migrate_from(monkeypatch: pytest.MonkeyPatch, migrations: Path) -> None:
+    """Make `cottonwood migrate` read its migrations from ``migrations``."""
+    real_migrate = db.migrate
+
+    def migrate(db_path: Path) -> db.MigrateResult:
+        return real_migrate(db_path, migrations)
+
+    monkeypatch.setattr(db, "migrate", migrate)
+
+
+def test_commit_inside_a_migration_exits_1_and_keeps_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "001_create.sql").write_text("CREATE TABLE ok (id INTEGER);\n")
+    (migrations / "002_commits.sql").write_text(
+        "CREATE TABLE early (id INTEGER);\nCOMMIT;\nCREATE TABLE late (id INTEGER);\n"
+    )
+    path = tmp_path / "commit.db"
+    _migrate_from(monkeypatch, migrations)
+
+    code = main(["migrate", "--db", str(path)])
+
+    assert code == EXIT_REFUSED
+    err = capsys.readouterr().err
+    assert "002_commits.sql" in err
+    assert "COMMIT" in err
+    assert _version(path) == 1
+    assert _tables(path) == ["ok"]
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "BEGIN;",
+        "begin transaction;",
+        "END;",
+        "ROLLBACK;",
+        "SAVEPOINT s;",
+        "RELEASE s;",
+        "-- note\n/* block */ COMMIT;",
+    ],
+)
+def test_any_transaction_control_statement_is_refused_before_it_runs(
+    tmp_path: Path, statement: str
+) -> None:
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "001_tx.sql").write_text(f"CREATE TABLE t (id INTEGER);\n{statement}\n")
+    path = tmp_path / "tx.db"
+
+    with pytest.raises(db.MigrationError, match="001_tx.sql"):
+        db.migrate(path, migrations)
+
+    assert _version(path) == 0
+    assert _tables(path) == []
+
+
+def test_trigger_bodies_and_quoted_keywords_are_not_transaction_control(tmp_path: Path) -> None:
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "001_trigger.sql").write_text(
+        "-- COMMIT; in a comment\n"
+        "CREATE TABLE log (note TEXT);\n"
+        "CREATE TRIGGER log_no_update BEFORE UPDATE ON log\n"
+        "BEGIN\n"
+        "    SELECT RAISE(ABORT, 'append-only; no COMMIT');\n"
+        "END;\n"
+        "INSERT INTO log (note) VALUES ('BEGIN; COMMIT;');\n"
+    )
+    path = tmp_path / "trigger.db"
+
+    result = db.migrate(path, migrations)
+
+    assert [m.number for m in result.applied] == [1]
+    assert _version(path) == 1
+
+
+class _LeavesTransactionOpen(sqlite3.Connection):
+    """Runs the script, then opens a transaction the runner must notice."""
+
+    def executescript(self, sql_script: str, /) -> sqlite3.Cursor:
+        cursor = super().executescript(sql_script)
+        self.execute("BEGIN")
+        return cursor
+
+
+class _SetsWrongVersion(sqlite3.Connection):
+    """Runs the script, then moves user_version off the migration's number."""
+
+    def executescript(self, sql_script: str, /) -> sqlite3.Cursor:
+        cursor = super().executescript(sql_script)
+        self.execute("PRAGMA user_version = 99")
+        return cursor
+
+
+def _connect_with(monkeypatch: pytest.MonkeyPatch, factory: type[sqlite3.Connection]) -> None:
+    """Make the runner's connections instances of ``factory``."""
+    real_connect = sqlite3.connect
+
+    def connect(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        return real_connect(*args, factory=factory, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", connect)
+
+
+def test_runner_refuses_a_transaction_left_open_after_a_migration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "001_create.sql").write_text("CREATE TABLE ok (id INTEGER);\n")
+    path = tmp_path / "open.db"
+    _connect_with(monkeypatch, _LeavesTransactionOpen)
+
+    with pytest.raises(db.MigrationError, match="001_create.sql.*transaction was still open"):
+        db.migrate(path, migrations)
+
+
+def test_runner_refuses_a_version_other_than_the_migration_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "001_create.sql").write_text("CREATE TABLE ok (id INTEGER);\n")
+    path = tmp_path / "version.db"
+    _connect_with(monkeypatch, _SetsWrongVersion)
+
+    with pytest.raises(db.MigrationError, match="001_create.sql.*user_version is 99.*expected 1"):
+        db.migrate(path, migrations)
