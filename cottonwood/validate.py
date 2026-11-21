@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import re
 from collections.abc import Callable, Iterable, Mapping
 from collections.abc import Set as AbstractSet
@@ -39,6 +40,8 @@ RULE_PHONE = "phone"
 RULE_DOMAIN = "domain"
 RULE_NAME = "name"
 RULE_DECIMAL = "decimal"
+# Python reads JSON Infinity/NaN and CSV "inf" as floats; the schema's minimum 0 passes them.
+RULE_FINITE = "finite"
 RULE_REQUIRED = "required"
 RULE_CHECKLIST_ITEM = "checklist-item"
 # A CSV row with text in more cells than the header has columns: those cells would be lost.
@@ -428,6 +431,9 @@ def _python_failures(
     data: Mapping[str, Any], today: date, checklist_keys: AbstractSet[str]
 ) -> Iterable[tuple[FieldPath, str]]:
     """Failures of the rules the schema leaves to Python, for a schema-valid record."""
+    founder_time = data.get("founder_time_h")
+    if founder_time is not None and not math.isfinite(founder_time):
+        yield ("founder_time_h",), RULE_FINITE
     for key in data.get("checklist", {}):
         if key not in checklist_keys:
             yield ("checklist", key), RULE_CHECKLIST_ITEM
