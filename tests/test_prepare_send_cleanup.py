@@ -156,3 +156,25 @@ def test_an_unwritable_out_leaves_no_record(env: Env) -> None:
         pass
     assert env.out.read_text(encoding="utf-8") == "not a directory"
     assert env.prepared() == 0
+
+
+def test_a_write_that_fails_partway_leaves_no_file_and_no_record(
+    env: Env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CCGE-135: a sendable write that stops midway leaves nothing named after the draft."""
+    real_write_bytes = Path.write_bytes
+
+    def write_half_then_fail(self: Path, data: bytes) -> int:
+        if self.parent == env.out:
+            with self.open("wb") as handle:
+                handle.write(data[: len(data) // 2])
+            raise OSError(28, "No space left on device")
+        return real_write_bytes(self, data)
+
+    monkeypatch.setattr(Path, "write_bytes", write_half_then_fail)
+    code = env.prepare()
+    monkeypatch.undo()
+    assert code == 1
+    assert not (env.out / env.draft.name).exists()
+    assert list(env.out.iterdir()) == []
+    assert env.prepared() == 0
