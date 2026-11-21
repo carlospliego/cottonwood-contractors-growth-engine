@@ -790,10 +790,13 @@ class CostTotals:
     estimated: Decimal
 
 
-def _entries_in_range(
+def entries_in_range(
     conn: sqlite3.Connection, kind: str, start: date, end: date
 ) -> list[dict[str, object]]:
-    """Payloads of counted ``kind`` entries whose date is in [start, end] (inclusive)."""
+    """Payloads of counted ``kind`` entries whose date is in [start, end] (inclusive).
+
+    Public: the weekly report reads time entries through it (F-maintainability-1).
+    """
     rows = conn.execute(
         f"SELECT a.payload FROM activities a WHERE {COUNTED_ACTIVITIES_SQL} AND a.type = ?"
         " AND json_extract(a.payload, '$.date') BETWEEN ? AND ? ORDER BY a.id",
@@ -806,7 +809,7 @@ def time_totals(conn: sqlite3.Connection, start: date, end: date) -> TimeTotals:
     """Exact sums of counted hours dated in the inclusive Denver range [start, end]."""
     total = observed = estimated = Decimal(0)
     by_person: dict[str, Decimal] = {}
-    for payload in _entries_in_range(conn, TIME_KIND, start, end):
+    for payload in entries_in_range(conn, TIME_KIND, start, end):
         hours = Decimal(str(payload["hours"]))
         total += hours
         person = str(payload["person"])
@@ -822,7 +825,7 @@ def cost_totals(conn: sqlite3.Connection, start: date, end: date) -> CostTotals:
     """Exact sums of counted spend dated in the inclusive Denver range [start, end]."""
     total = observed = estimated = Decimal(0)
     by_category: dict[str, Decimal] = {}
-    for payload in _entries_in_range(conn, COST_KIND, start, end):
+    for payload in entries_in_range(conn, COST_KIND, start, end):
         amount = Decimal(str(payload["amount_usd"]))
         total += amount
         category = str(payload["category"])
