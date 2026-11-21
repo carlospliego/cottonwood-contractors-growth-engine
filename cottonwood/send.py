@@ -79,9 +79,14 @@ class Prepared:
         return f"sendable draft written: {self.sendable.as_posix()} (prepared {self.activity_id})"
 
 
+def sha256_bytes(data: bytes) -> str:
+    """The hex SHA-256 of some bytes; every digest send records goes through here."""
+    return hashlib.sha256(data).hexdigest()
+
+
 def sha256_file(path: Path) -> str:
     """The hex SHA-256 of a file's bytes."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return sha256_bytes(path.read_bytes())
 
 
 def prepare_send(
@@ -109,7 +114,7 @@ def prepare_send(
     except OSError as exc:
         raise SendError("draft", f"cannot read {draft}: {exc.strerror or exc}") from None
     text = data.decode("utf-8", errors="replace")
-    digest = hashlib.sha256(data).hexdigest()
+    digest = sha256_bytes(data)
     conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
@@ -139,10 +144,11 @@ def prepare_send(
             raise SendError(
                 "out", f"{sendable.as_posix()} already holds a different sendable draft"
             )
-        activity_id = _insert_prepared(
+        activity_id = _insert(
             conn,
             lead_id,
             contact_id,
+            PREPARED_TYPE,
             {
                 "draft": draft.as_posix(),
                 "sha256": digest,
@@ -152,6 +158,7 @@ def prepare_send(
                 "draft_approval_id": draft_approval,
             },
             actor,
+            now,
             now,
         )
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -184,24 +191,6 @@ def _write_atomically(target: Path, data: bytes) -> None:
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
-
-
-def _insert_prepared(
-    conn: sqlite3.Connection,
-    lead_id: int,
-    contact_id: int | None,
-    payload: dict[str, object],
-    actor: str,
-    now: str,
-) -> int:
-    cursor = conn.execute(
-        "INSERT INTO activities (lead_id, contact_id, type, payload, actor, occurred_at,"
-        " recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (lead_id, contact_id, PREPARED_TYPE, json.dumps(payload), actor, now, now),
-    )
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid
 
 
 def _standing_approvals(conn: sqlite3.Connection, lead_id: int, scope: str) -> list[sqlite3.Row]:
