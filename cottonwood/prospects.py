@@ -31,6 +31,8 @@ _SQLITE_MAX_INT = 2**63 - 1
 ELIGIBILITY_UNKNOWN = "unknown"
 ELIGIBILITY_INELIGIBLE = "ineligible"
 _SAVEPOINT = "prospect_record"
+# A record whose own data breaks a database constraint is rejected alone (field "record").
+RULE_CONSTRAINT = "constraint"
 
 
 @dataclass(frozen=True)
@@ -115,7 +117,9 @@ def import_records(
     ``records`` are in file order: a ProspectRecord is matched or written inside its own
     savepoint, so a failure leaves nothing of it, and later records see earlier ones as stored;
     a Rejection (from validation, or a referrer that is not a stored relationship prospect)
-    writes one ``import_rejected`` activity with no lead.
+    writes one ``import_rejected`` activity with no lead. A record that breaks a database
+    constraint (sqlite3.IntegrityError) is rolled back to its savepoint and rejected as
+    ``record: constraint`` while the others go on; any other error rolls back the whole import.
     """
     now = timeutil.utc_now()
     outcomes: list[RecordOutcome] = []
@@ -132,6 +136,12 @@ def import_records(
             conn.execute(f"SAVEPOINT {_SAVEPOINT}")
             try:
                 outcome = _import_one(conn, file_name, record, actor, now)
+            except sqlite3.IntegrityError:
+                conn.execute(f"ROLLBACK TO {_SAVEPOINT}")
+                conn.execute(f"RELEASE {_SAVEPOINT}")
+                rejection = Rejection(record.number, record.record_id, "record", RULE_CONSTRAINT)
+                outcomes.append(_reject(conn, file_name, rejection, actor, now))
+                continue
             except BaseException:
                 conn.execute(f"ROLLBACK TO {_SAVEPOINT}")
                 conn.execute(f"RELEASE {_SAVEPOINT}")
