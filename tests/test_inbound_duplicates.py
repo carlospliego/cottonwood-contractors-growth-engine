@@ -65,6 +65,23 @@ def existing_email(db_path: Path, capsys: pytest.CaptureFixture[str]) -> int:
     return int(_rows(db_path, "SELECT id FROM leads")[0][0])
 
 
+class _NonTtyStdin:
+    """A stdin that is not a terminal; reading an answer from it fails the test."""
+
+    def isatty(self) -> bool:
+        return False
+
+    def readline(self) -> str:
+        raise AssertionError("the non-terminal branch must not read an answer")
+
+
+@pytest.fixture
+def not_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin stdin to a non-terminal, so these tests hold under `pytest -s` too."""
+    monkeypatch.setattr(sys, "stdin", _NonTtyStdin())
+
+
+@pytest.mark.usefixtures("not_a_terminal")
 def test_same_day_email_match_warns_and_refuses_without_confirmation(
     db_path: Path, existing_email: int, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -77,6 +94,7 @@ def test_same_day_email_match_warns_and_refuses_without_confirmation(
     assert _counts(db_path) == before
 
 
+@pytest.mark.usefixtures("not_a_terminal")
 def test_same_day_phone_match_warns_and_refuses(
     db_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

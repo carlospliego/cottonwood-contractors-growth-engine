@@ -162,6 +162,9 @@ def _add_log_inbound_arguments(parser: argparse.ArgumentParser) -> None:
 DUPLICATE_PROMPT = "Save anyway? [y/N] "
 
 
+DUPLICATE_PROMPT = "Save anyway? [y/N] "
+
+
 def _duplicate_confirmed(
     args: argparse.Namespace, inquiry: inbound.Inquiry, duplicates: Sequence[int]
 ) -> bool:
