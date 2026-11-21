@@ -213,4 +213,4 @@ def test_deleted_contact_still_listed_with_cleared_fields(
 
 
 def test_counted_leads_filter_is_the_non_test_condition() -> None:
-    assert review.COUNTED_LEADS_FILTER == "is_test = 0"
+    assert review.COUNTED_LEADS_FILTER == "leads.is_test = 0"
