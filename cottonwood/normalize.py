@@ -56,7 +56,8 @@ def normalize_domain(value: str) -> str:
     host = re.split(r"[/?#]", host, maxsplit=1)[0]
     host = host.rsplit("@", 1)[-1]
     host = host.split(":", 1)[0].rstrip(".")
-    if host.startswith("www."):
+    # Strip www. only when a dotted host remains, so a host such as 'www.io' stays valid.
+    if host.startswith("www.") and "." in host[4:]:
         host = host[4:]
     if not _EMAIL_DOMAIN.match(host):
         raise ValueError(f"domain must be a dotted host name: {value!r}")
