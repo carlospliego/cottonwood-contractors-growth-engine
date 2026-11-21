@@ -249,7 +249,7 @@ def _hours(conn: sqlite3.Connection, period: Period) -> HoursMetrics:
     totals = events.time_totals(conn, period.start, period.end)
     observed = estimated = Decimal(0)
     # The same entries time_totals sums, so the founder split always adds up to its total.
-    for payload in events._entries_in_range(conn, events.TIME_KIND, period.start, period.end):
+    for payload in events.entries_in_range(conn, events.TIME_KIND, period.start, period.end):
         if payload["person"] != FOUNDER:
             continue
         hours = Decimal(str(payload["hours"]))
@@ -573,7 +573,7 @@ def _render_costs(model: ModelCostMetrics, other: events.CostTotals) -> list[str
         lines += ["", "| " + " | ".join(COST_COLUMNS) + " |", "|" + "---|" * len(COST_COLUMNS)]
         for category in sorted(other.by_category):
             amount = money(other.by_category[category])
-            lines.append(f"| {review._cell(category)} | {amount} |")
+            lines.append(f"| {review.table_cell(category)} | {amount} |")
     return lines
 
 
@@ -618,7 +618,11 @@ def _render_referrals(referrals: list[Referral]) -> list[str]:
         lines.append("| " + " | ".join(REFERRAL_COLUMNS) + " |")
         lines.append("|" + "---|" * len(REFERRAL_COLUMNS))
         for referral in referrals:
-            cells = [str(referral.partner_id), review._cell(referral.name), str(referral.count)]
+            cells = [
+                str(referral.partner_id),
+                review.table_cell(referral.name),
+                str(referral.count),
+            ]
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
     lines.append(_line(LABEL_REFERRED, sum(r.count for r in referrals)))

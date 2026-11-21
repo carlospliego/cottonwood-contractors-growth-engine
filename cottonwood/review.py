@@ -97,6 +97,11 @@ def _cell(value: object) -> str:
     return " ".join(text.splitlines())
 
 
+# Public name for other modules: the weekly report renders its tables with it, so it
+# depends on no private review helper (F-maintainability-1).
+table_cell = _cell
+
+
 def _received(value: object) -> str:
     """The received time in America/Denver, or '—' when it is missing."""
     if value is None:
