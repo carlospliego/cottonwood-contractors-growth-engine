@@ -60,7 +60,8 @@ class Approval:
         if self.scope == "claim":
             line += (
                 f"; mark it verified in {claims.DEFAULT_CLAIMS_PATH.as_posix()} with"
-                f" verified_by: {self.approver} and verified_at: {self.approved_on.isoformat()}"
+                f" verified_by: {claims.yaml_value(self.approver)}"
+                f" and verified_at: {self.approved_on.isoformat()}"
             )
         return line
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -99,6 +100,22 @@ def load_claims(path: Path) -> tuple[Claim, ...]:
         seen.add(claim.id)
         claims.append(claim)
     return tuple(claims)
+
+
+def yaml_value(text: str) -> str:
+    """Text to write after ``key: `` in the claims file so it loads back as exactly ``text``.
+
+    Plain when YAML reads it back unchanged (``Founder``); otherwise a double-quoted string, so a
+    name YAML would read as a boolean, a number, a mapping or a comment (``Yes``, ``123``,
+    ``Smith: Jo``, ``Jo #2``) still matches its claim_verified activity.
+    """
+    try:
+        if yaml.safe_load(f"value: {text}") == {"value": text}:
+            return text
+    except yaml.YAMLError:
+        pass
+    dumped: str = yaml.safe_dump(text, default_style='"', allow_unicode=True, width=sys.maxsize)
+    return dumped.strip()
 
 
 def find_claim(claims: tuple[Claim, ...], claim_id: str) -> Claim | None:
