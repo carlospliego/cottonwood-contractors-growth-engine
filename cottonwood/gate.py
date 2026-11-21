@@ -273,6 +273,10 @@ def _apply_claim(
     return Approval(approval_id, "claim", claim_id, approver, lead_id, day)
 
 
+_SQLITE_MIN_INT = -(2**63)
+_SQLITE_MAX_INT = 2**63 - 1
+
+
 def _lead_item(conn: sqlite3.Connection, item: str) -> int:
     text = item.strip()
     if not text.isascii() or not text.isdigit():
@@ -283,6 +287,9 @@ def _lead_item(conn: sqlite3.Connection, item: str) -> int:
 
 
 def _check_lead(conn: sqlite3.Connection, lead_id: int) -> None:
+    # SQLite cannot bind an integer outside 64 bits (OverflowError), and no lead has such an id.
+    if not _SQLITE_MIN_INT <= lead_id <= _SQLITE_MAX_INT:
+        raise GateError("lead", f"no lead {lead_id}")
     if conn.execute("SELECT 1 FROM leads WHERE id = ?", (lead_id,)).fetchone() is None:
         raise GateError("lead", f"no lead {lead_id}")
 
