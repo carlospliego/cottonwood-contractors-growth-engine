@@ -24,6 +24,15 @@ class InquiryError(ValueError):
         self.field = field
 
 
+class DuplicateChangedError(Exception):
+    """A same-day match was saved after the operator's check; ``new`` lists the new lead ids."""
+
+    def __init__(self, new: Sequence[int]) -> None:
+        ids = ", ".join(str(lead_id) for lead_id in new)
+        super().__init__(f"possible duplicate lead(s) {ids} saved since the check")
+        self.new = list(new)
+
+
 @dataclass(frozen=True)
 class RawInquiry:
     """Operator input, before validation. Text fields are None when not supplied."""
@@ -189,10 +198,21 @@ def log_inquiry(
 ) -> int:
     """Store one inquiry (organization, contact, lead, activity) atomically; return the lead id.
 
-    ``duplicate_of`` lists the lead ids the operator confirmed this inquiry duplicates.
+    ``duplicate_of`` lists the lead ids the operator confirmed this inquiry duplicates. The
+    write lock is taken first and the same-day check repeated under it, so a matching
+    inquiry another writer saved after the operator's check is not saved over: it raises
+    DuplicateChangedError and nothing is written (R-2).
     """
     now = timeutil.utc_now()
+    conn.execute("BEGIN IMMEDIATE")
     try:
+        current = find_same_day_duplicates(
+            conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at
+        )
+        confirmed = set(duplicate_of)
+        new = [lead_id for lead_id in current if lead_id not in confirmed]
+        if new:
+            raise DuplicateChangedError(new)
         org_id = None
         if inquiry.company is not None:
             org_id = _organization_id(conn, inquiry.company, now)
