@@ -7,6 +7,7 @@ import re
 _EMAIL_DOMAIN = re.compile(r"^[a-z0-9-]+(\.[a-z0-9-]+)+$")
 _PHONE_ALLOWED = re.compile(r"^\+?[0-9\s().-]+$")
 _SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*://")
+_NAME_APOSTROPHES = re.compile(r"['\u2019]")
 _NAME_PUNCTUATION = re.compile(r"[^\w\s]")
 _WHITESPACE = re.compile(r"\s+")
 
@@ -63,6 +64,10 @@ def normalize_domain(value: str) -> str:
 
 
 def normalize_name(value: str) -> str:
-    """Lower-case a name, drop punctuation and collapse whitespace, for matching only."""
-    name = _NAME_PUNCTUATION.sub("", value.lower())
+    """Lower-case a name for matching only: apostrophes drop, other punctuation is a space.
+
+    So 'Mary-Jane' and 'Mary Jane' match, and "O'Neil" stays one word ('oneil').
+    """
+    name = _NAME_APOSTROPHES.sub("", value.lower())
+    name = _NAME_PUNCTUATION.sub(" ", name)
     return _WHITESPACE.sub(" ", name).strip()
