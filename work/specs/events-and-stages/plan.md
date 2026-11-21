@@ -52,7 +52,8 @@
   - same shape, with `"amount_usd": "<Decimal str>"` in place of hours and no person.
 - **Effective stage change:**
   - a `stage_change` row that no correction voids, whose `event_activity_id` names an activity that no correction voids;
-  - the latest one is chosen by (occurred_at, id) descending.
+  - the latest one is chosen by (occurred_at, id) descending;
+  - `log-event --stage` with an `--at` earlier than the lead's latest effective stage change (reverts aside) is refused with exit 1 and writes nothing, so `leads.stage` always equals that latest change and a correction reverts to the right stage (CCGE-060). The same time is allowed: the new change ranks after it by id.
 - **Counted activities:**
 
   ```sql

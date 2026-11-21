@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -100,10 +101,12 @@ def prepare_send(
     actor: str,
     now: str,
 ) -> Prepared:
-    """Write the sendable draft, or record the refusal and raise PrepareRefused."""
-    lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
-    if lead is None:
-        raise SendError("lead", f"no lead {lead_id}")
+    """Write the sendable draft, or record the refusal and raise PrepareRefused.
+
+    Every R-21 check reads the database inside the BEGIN IMMEDIATE transaction that records
+    the outcome, so an opt-out, approval void or claim change committed by another writer
+    before the lock is taken is seen, and none can land between the checks and the write.
+    """
     try:
         data = draft.read_bytes()
     except FileNotFoundError:
@@ -112,15 +115,18 @@ def prepare_send(
         raise SendError("draft", f"cannot read {draft}: {exc.strerror or exc}") from None
     text = data.decode("utf-8", errors="replace")
     digest = sha256_bytes(data)
-    contact_id = lead["contact_id"]
-    refusals: list[Refusal] = []
-    lead_approval, draft_approval = _approvals(conn, lead_id, digest, refusals)
-    _contact_checks(conn, contact_id, refusals)
-    claim_ids = _claim_checks(conn, claims_path, claims_list, refusals)
-    _evidence_check(conn, lead_id, settings.review.max_evidence_age_days, today, refusals)
-    _content_checks(text, settings.sending, refusals)
     conn.execute("BEGIN IMMEDIATE")
     try:
+        lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise SendError("lead", f"no lead {lead_id}")
+        contact_id = lead["contact_id"]
+        refusals: list[Refusal] = []
+        lead_approval, draft_approval = _approvals(conn, lead_id, digest, refusals)
+        _contact_checks(conn, contact_id, refusals)
+        claim_ids = _claim_checks(conn, claims_path, claims_list, refusals)
+        _evidence_check(conn, lead_id, settings.review.max_evidence_age_days, today, refusals)
+        _content_checks(text, settings.sending, refusals)
         if refusals:
             refused_id = events._insert_activity(
                 conn,
@@ -156,11 +162,13 @@ def prepare_send(
             now,
         )
         out_dir.mkdir(parents=True, exist_ok=True)
-        sendable.write_bytes(data)
+        existed = sendable.exists()
+        _write_atomically(sendable, data)
         try:
             conn.commit()
         except BaseException:
-            sendable.unlink(missing_ok=True)
+            if not existed:
+                sendable.unlink(missing_ok=True)
             raise
     except PrepareRefused:
         raise
@@ -168,6 +176,21 @@ def prepare_send(
         conn.rollback()
         raise
     return Prepared(activity_id, sendable)
+
+
+def _write_atomically(target: Path, data: bytes) -> None:
+    """Write data to target so a failure never leaves a partial file under target's name.
+
+    The bytes go to a temporary file in the same folder, which is renamed over target only
+    once it is complete; on any failure the temporary file is removed.
+    """
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.partial")
+    try:
+        temporary.write_bytes(data)
+        os.replace(temporary, target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _standing_approvals(conn: sqlite3.Connection, lead_id: int, scope: str) -> list[sqlite3.Row]:

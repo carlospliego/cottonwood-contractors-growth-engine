@@ -26,7 +26,6 @@ from cottonwood import claims, events, normalize, timeutil
 APPROVAL_TYPE = "approval"
 SUPPRESS_SOURCE = "suppress"
 SCOPES = ("lead", "draft", "claim", "audience", "offer")
-TEXT_SCOPES = ("audience", "offer")
 
 
 class GateError(ValueError):
@@ -60,7 +59,8 @@ class Approval:
         if self.scope == "claim":
             line += (
                 f"; mark it verified in {claims.DEFAULT_CLAIMS_PATH.as_posix()} with"
-                f" verified_by: {self.approver} and verified_at: {self.approved_on.isoformat()}"
+                f" verified_by: {claims.yaml_value(self.approver)}"
+                f" and verified_at: {self.approved_on.isoformat()}"
             )
         return line
 
@@ -202,13 +202,13 @@ def _apply(
             "approved_on": day.isoformat(),
         }
     )
-    activity_id = events._insert_activity(
+    activity_id = events.insert_activity(
         conn,
         lead_id,
         APPROVAL_TYPE,
         payload,
         actor,
-        events._day_start(day),
+        events.day_start(day),
         now,
     )
     return Approval(activity_id, scope, text, approver, lead_id, day)
@@ -240,8 +240,8 @@ def _apply_claim(
         )
     if lead_id is not None:
         _check_lead(conn, lead_id)
-    occurred_at = events._day_start(day)
-    approval_id = events._insert_activity(
+    occurred_at = events.day_start(day)
+    approval_id = events.insert_activity(
         conn,
         lead_id,
         APPROVAL_TYPE,
@@ -256,7 +256,7 @@ def _apply_claim(
         occurred_at,
         now,
     )
-    events._insert_activity(
+    events.insert_activity(
         conn,
         None,
         claims.CLAIM_VERIFIED_TYPE,
@@ -273,6 +273,10 @@ def _apply_claim(
     return Approval(approval_id, "claim", claim_id, approver, lead_id, day)
 
 
+_SQLITE_MIN_INT = -(2**63)
+_SQLITE_MAX_INT = 2**63 - 1
+
+
 def _lead_item(conn: sqlite3.Connection, item: str) -> int:
     text = item.strip()
     if not text.isascii() or not text.isdigit():
@@ -283,6 +287,9 @@ def _lead_item(conn: sqlite3.Connection, item: str) -> int:
 
 
 def _check_lead(conn: sqlite3.Connection, lead_id: int) -> None:
+    # SQLite cannot bind an integer outside 64 bits (OverflowError), and no lead has such an id.
+    if not _SQLITE_MIN_INT <= lead_id <= _SQLITE_MAX_INT:
+        raise GateError("lead", f"no lead {lead_id}")
     if conn.execute("SELECT 1 FROM leads WHERE id = ?", (lead_id,)).fetchone() is None:
         raise GateError("lead", f"no lead {lead_id}")
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -26,7 +27,8 @@ DEFAULT_CLAIMS_PATH = Path("config/claims.yaml")
 CLAIM_VERIFIED_TYPE = "claim_verified"
 NOT_APPROVED_NOTE = "marked verified but no matching claim approval"
 
-_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+# Matched with fullmatch: $ would also accept one trailing newline, an id no approval could match.
+_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -82,6 +84,8 @@ def load_claims(path: Path) -> tuple[Claim, ...]:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise ClaimsError(path, "file", "not found") from None
+    except UnicodeDecodeError as exc:
+        raise ClaimsError(path, "file", f"is not UTF-8 text (byte {exc.start})") from None
     except OSError as exc:
         raise ClaimsError(path, "file", f"cannot be read: {exc.strerror or exc}") from None
     try:
@@ -101,6 +105,22 @@ def load_claims(path: Path) -> tuple[Claim, ...]:
     return tuple(claims)
 
 
+def yaml_value(text: str) -> str:
+    """Text to write after ``key: `` in the claims file so it loads back as exactly ``text``.
+
+    Plain when YAML reads it back unchanged (``Founder``); otherwise a double-quoted string, so a
+    name YAML would read as a boolean, a number, a mapping or a comment (``Yes``, ``123``,
+    ``Smith: Jo``, ``Jo #2``) still matches its claim_verified activity.
+    """
+    try:
+        if yaml.safe_load(f"value: {text}") == {"value": text}:
+            return text
+    except yaml.YAMLError:
+        pass
+    dumped: str = yaml.safe_dump(text, default_style='"', allow_unicode=True, width=sys.maxsize)
+    return dumped.strip()
+
+
 def find_claim(claims: tuple[Claim, ...], claim_id: str) -> Claim | None:
     """The claim with this id, or None."""
     return next((claim for claim in claims if claim.id == claim_id), None)
@@ -110,7 +130,7 @@ def standing_verification(conn: sqlite3.Connection, claim_id: str) -> Verificati
     """The latest claim_verified activity for the claim that no correction voids, or None."""
     rows = conn.execute(
         "SELECT a.id, a.payload FROM activities AS a"
-        f" WHERE a.type = ? AND NOT {events._voided_sql('a.id')}"
+        f" WHERE a.type = ? AND NOT {events.voided_sql('a.id')}"
         " ORDER BY a.id DESC",
         (CLAIM_VERIFIED_TYPE,),
     )
@@ -160,7 +180,7 @@ def _claim(path: Path, index: int, entry: object) -> Claim:
     claim_id = entry.get("id")
     if claim_id is None or (isinstance(claim_id, str) and not claim_id.strip()):
         raise ClaimsError(path, where, "id: is missing")
-    if not isinstance(claim_id, str) or not _ID.match(claim_id):
+    if not isinstance(claim_id, str) or not _ID.fullmatch(claim_id):
         raise ClaimsError(
             path, where, f"id: must be lower-kebab-case like service-area, got {claim_id!r}"
         )

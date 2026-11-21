@@ -10,12 +10,14 @@ from pathlib import Path
 
 import yaml
 
+from cottonwood import events
+
 DEFAULT_CONFIG_PATH = Path("config") / "pilot.yaml"
 CONFIG_ENV_VAR = "COTTONWOOD_CONFIG"
 # Used when the file has no paths.backup_dir.
 DEFAULT_BACKUP_DIR = Path("data") / "backups"
 # The candidate queues that have a checklist in review.checklists (R-13).
-REVIEW_QUEUES = ("direct_candidate", "relationship_prospect")
+REVIEW_QUEUES = (events.DIRECT_CANDIDATE, events.RELATIONSHIP_PROSPECT)
 CHECKLIST_KEY_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 
 
@@ -99,6 +101,8 @@ def load_config(path: Path | None = None) -> Config:
         text = config_path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigError(f"config file does not exist: {config_path}") from exc
+    except UnicodeDecodeError as exc:
+        raise ConfigError(f"config file is not valid UTF-8: {config_path}: {exc}") from exc
     except OSError as exc:
         raise ConfigError(f"cannot read config file {config_path}: {exc}") from exc
     try:
@@ -123,7 +127,7 @@ def load_config(path: Path | None = None) -> Config:
     if not isinstance(report, dict):
         raise ConfigError(f"report must be a mapping in {config_path}")
     return Config(
-        backup_dir=Path(backup_dir),
+        backup_dir=Path(backup_dir.strip()).expanduser(),
         model_cost_cap_usd=_cost_cap(report.get("model_cost_cap_usd"), config_path),
         sending_blocked_by=_blocked_by(report.get("sending_blocked_by"), config_path),
         review=_review(data.get("review"), config_path),
