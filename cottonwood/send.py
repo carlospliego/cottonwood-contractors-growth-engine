@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -149,11 +150,13 @@ def prepare_send(
             now,
         )
         out_dir.mkdir(parents=True, exist_ok=True)
-        sendable.write_bytes(data)
+        existed = sendable.exists()
+        _write_atomically(sendable, data)
         try:
             conn.commit()
         except BaseException:
-            sendable.unlink(missing_ok=True)
+            if not existed:
+                sendable.unlink(missing_ok=True)
             raise
     except PrepareRefused:
         raise
@@ -161,6 +164,21 @@ def prepare_send(
         conn.rollback()
         raise
     return Prepared(activity_id, sendable)
+
+
+def _write_atomically(target: Path, data: bytes) -> None:
+    """Write data to target so a failure never leaves a partial file under target's name.
+
+    The bytes go to a temporary file in the same folder, which is renamed over target only
+    once it is complete; on any failure the temporary file is removed.
+    """
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.partial")
+    try:
+        temporary.write_bytes(data)
+        os.replace(temporary, target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _insert_prepared(
