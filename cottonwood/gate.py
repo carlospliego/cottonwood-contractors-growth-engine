@@ -202,13 +202,13 @@ def _apply(
             "approved_on": day.isoformat(),
         }
     )
-    activity_id = events._insert_activity(
+    activity_id = events.insert_activity(
         conn,
         lead_id,
         APPROVAL_TYPE,
         payload,
         actor,
-        events._day_start(day),
+        events.day_start(day),
         now,
     )
     return Approval(activity_id, scope, text, approver, lead_id, day)
@@ -240,8 +240,8 @@ def _apply_claim(
         )
     if lead_id is not None:
         _check_lead(conn, lead_id)
-    occurred_at = events._day_start(day)
-    approval_id = events._insert_activity(
+    occurred_at = events.day_start(day)
+    approval_id = events.insert_activity(
         conn,
         lead_id,
         APPROVAL_TYPE,
@@ -256,7 +256,7 @@ def _apply_claim(
         occurred_at,
         now,
     )
-    events._insert_activity(
+    events.insert_activity(
         conn,
         None,
         claims.CLAIM_VERIFIED_TYPE,

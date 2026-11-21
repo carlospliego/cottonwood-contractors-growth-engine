@@ -130,7 +130,7 @@ def standing_verification(conn: sqlite3.Connection, claim_id: str) -> Verificati
     """The latest claim_verified activity for the claim that no correction voids, or None."""
     rows = conn.execute(
         "SELECT a.id, a.payload FROM activities AS a"
-        f" WHERE a.type = ? AND NOT {events._voided_sql('a.id')}"
+        f" WHERE a.type = ? AND NOT {events.voided_sql('a.id')}"
         " ORDER BY a.id DESC",
         (CLAIM_VERIFIED_TYPE,),
     )
