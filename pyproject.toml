@@ -47,3 +47,6 @@ files = ["cottonwood", "tests"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# Import the checkout pytest runs in ahead of the editable install's .pth entry, which
+# names one checkout; a copy run with that interpreter must test its own code (CCGE-063).
+pythonpath = ["."]
