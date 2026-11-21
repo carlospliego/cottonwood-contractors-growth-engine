@@ -99,6 +99,8 @@ def load_config(path: Path | None = None) -> Config:
         text = config_path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigError(f"config file does not exist: {config_path}") from exc
+    except UnicodeDecodeError as exc:
+        raise ConfigError(f"config file is not valid UTF-8: {config_path}: {exc}") from exc
     except OSError as exc:
         raise ConfigError(f"cannot read config file {config_path}: {exc}") from exc
     try:
