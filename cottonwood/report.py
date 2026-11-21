@@ -11,7 +11,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 
 from cottonwood import config, events, inbound, review, timeutil
 
@@ -539,8 +539,15 @@ def render_report(report: Report) -> str:
 
 
 def money(value: Decimal) -> str:
-    """A USD amount to 2 places for display (sums stay exact), e.g. 1.75 or 100.00."""
-    return f"{value.quantize(_MONEY_PLACES, ROUND_HALF_UP):f}"
+    """A USD amount to 2 places for display (sums stay exact), e.g. 1.75 or 100.00.
+
+    quantize needs every digit of the result to fit the context precision, so a huge cap or
+    run cost (1E+30 needs 33) would raise InvalidOperation in the default 28-digit context; a
+    local context wide enough for the value keeps it printable (F-correctness-1).
+    """
+    with localcontext() as ctx:
+        ctx.prec = max(ctx.prec, value.adjusted() + 1 + 2)
+        return f"{value.quantize(_MONEY_PLACES, ROUND_HALF_UP):f}"
 
 
 def _mtd_value(model: ModelCostMetrics) -> str:
