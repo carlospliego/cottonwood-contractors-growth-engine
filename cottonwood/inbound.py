@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from cottonwood import normalize, timeutil
+from cottonwood._shared import _clean, _rowid
 
 CHANNELS = ("form", "phone")
 SEGMENTS = ("commercial", "residential", "unknown")
@@ -70,14 +71,6 @@ class Inquiry:
     budget: str | None
     is_test: bool
     actor: str
-
-
-def _clean(value: str | None) -> str | None:
-    """Strip a text option; blank means the inquirer did not supply it."""
-    if value is None:
-        return None
-    text = value.strip()
-    return text or None
 
 
 def _parse_budget(value: str) -> str:
@@ -177,13 +170,6 @@ def _organization_id(conn: sqlite3.Connection, company: str, now: str) -> int:
         (company, name_norm, now),
     )
     return _rowid(cursor)
-
-
-def _rowid(cursor: sqlite3.Cursor) -> int:
-    """Return the id of the row an INSERT just wrote."""
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid
 
 
 def find_same_day_duplicates(

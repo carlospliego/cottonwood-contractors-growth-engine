@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from cottonwood import normalize, timeutil
+from cottonwood._shared import _rowid
 from cottonwood.validate import (
     RELATIONSHIP,
     ProspectEvidence,
@@ -547,10 +548,3 @@ def _activity(
             (lead_id, contact_id, activity_type, json.dumps(payload), actor, now, now),
         )
     )
-
-
-def _rowid(cursor: sqlite3.Cursor) -> int:
-    """Return the id of the row an INSERT just wrote."""
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid
