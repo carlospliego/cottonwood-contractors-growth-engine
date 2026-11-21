@@ -95,10 +95,12 @@ def prepare_send(
     actor: str,
     now: str,
 ) -> Prepared:
-    """Write the sendable draft, or record the refusal and raise PrepareRefused."""
-    lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
-    if lead is None:
-        raise SendError("lead", f"no lead {lead_id}")
+    """Write the sendable draft, or record the refusal and raise PrepareRefused.
+
+    Every R-21 check reads the database inside the BEGIN IMMEDIATE transaction that records
+    the outcome, so an opt-out, approval void or claim change committed by another writer
+    before the lock is taken is seen, and none can land between the checks and the write.
+    """
     try:
         data = draft.read_bytes()
     except FileNotFoundError:
@@ -107,15 +109,18 @@ def prepare_send(
         raise SendError("draft", f"cannot read {draft}: {exc.strerror or exc}") from None
     text = data.decode("utf-8", errors="replace")
     digest = hashlib.sha256(data).hexdigest()
-    contact_id = lead["contact_id"]
-    refusals: list[Refusal] = []
-    lead_approval, draft_approval = _approvals(conn, lead_id, digest, refusals)
-    _contact_checks(conn, contact_id, refusals)
-    claim_ids = _claim_checks(conn, claims_path, claims_list, refusals)
-    _evidence_check(conn, lead_id, settings.review.max_evidence_age_days, today, refusals)
-    _content_checks(text, settings.sending, refusals)
     conn.execute("BEGIN IMMEDIATE")
     try:
+        lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
+        if lead is None:
+            raise SendError("lead", f"no lead {lead_id}")
+        contact_id = lead["contact_id"]
+        refusals: list[Refusal] = []
+        lead_approval, draft_approval = _approvals(conn, lead_id, digest, refusals)
+        _contact_checks(conn, contact_id, refusals)
+        claim_ids = _claim_checks(conn, claims_path, claims_list, refusals)
+        _evidence_check(conn, lead_id, settings.review.max_evidence_age_days, today, refusals)
+        _content_checks(text, settings.sending, refusals)
         if refusals:
             refused_id = events._insert_activity(
                 conn,
