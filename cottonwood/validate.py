@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 
 from jsonschema import Draft202012Validator, ValidationError
 
-from cottonwood import normalize
+from cottonwood import normalize, terminal
 
 SCHEMA_RESOURCE = ("schemas", "research-record.schema.json")
 FILE_SUFFIXES = (".json", ".csv")
@@ -34,6 +34,7 @@ DEFAULT_EVIDENCE_KIND = "fact"
 RULE_URL = "url"
 RULE_DATE = "date"
 RULE_NOT_FUTURE = "not-future"
+RULE_RECORD_ID = "record-id"
 RULE_EMAIL = "email"
 RULE_PHONE = "phone"
 RULE_DOMAIN = "domain"
@@ -120,7 +121,7 @@ class Rejection:
 
     def line(self) -> str:
         """The message the import prints for this rejection."""
-        return f"rejected {self.label()}: {self.field}: {self.rule}"
+        return terminal.printable(f"rejected {self.label()}: {self.field}: {self.rule}")
 
 
 @dataclass(frozen=True)
@@ -353,11 +354,20 @@ def validate_record(
     return _record(raw.number, record_id, data)
 
 
+# A record_id is a short file-local label: it is printed and kept in append-only activities.
+_RECORD_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
+
+
 def _record_id(data: object) -> str | None:
+    """The record's record_id, trimmed of spaces, when it is a valid one, else None.
+
+    Only spaces are trimmed: str.strip() would also drop a leading or trailing newline, tab
+    or other control character, and an id carrying one is invalid, never echoed.
+    """
     if isinstance(data, dict):
         value = data.get("record_id")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+        if isinstance(value, str) and _RECORD_ID.fullmatch(value.strip(" ")):
+            return value.strip(" ")
     return None
 
 
@@ -427,6 +437,8 @@ def _python_failures(
                 rule = _date_rule(item[key], today)
                 if rule is not None:
                     yield ("evidence", index, key), rule
+    if "record_id" in data and _record_id(data) is None:
+        yield ("record_id",), RULE_RECORD_ID
 
 
 def _normalizes(normalizer: Callable[[str], str], value: str) -> bool:
