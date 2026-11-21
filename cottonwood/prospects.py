@@ -339,7 +339,9 @@ def _shown(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, float):
-        return f"{value:g}"
+        # Whole hours as an integer, anything else in the shortest form that reads back exactly:
+        # {value:g} kept 6 significant digits, so 1234567 and 1234568 printed alike.
+        return str(int(value)) if value.is_integer() else repr(value)
     if isinstance(value, list | tuple):
         return "; ".join(str(item) for item in value)
     return str(value)
