@@ -26,7 +26,6 @@ from cottonwood import claims, events, normalize, timeutil
 APPROVAL_TYPE = "approval"
 SUPPRESS_SOURCE = "suppress"
 SCOPES = ("lead", "draft", "claim", "audience", "offer")
-TEXT_SCOPES = ("audience", "offer")
 
 
 class GateError(ValueError):
