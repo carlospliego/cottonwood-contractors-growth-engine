@@ -16,9 +16,11 @@ from pathlib import Path
 
 from cottonwood import claims, config, evidence, hand_review, inbound, timeutil
 
-# SQL condition for leads that count. Test inquiries are listed but never counted (R-3);
-# the report reuses this so both outputs agree on what a test is.
-COUNTED_LEADS_FILTER = "is_test = 0"
+# SQL condition for leads that count. Test inquiries are listed but never counted (R-3).
+# The review counts and report.py's inbound and referral counts all use it, so every output
+# agrees on what a test is. It names leads.is_test, so a query that joins another table
+# with an is_test column still filters on the lead.
+COUNTED_LEADS_FILTER = "leads.is_test = 0"
 
 EMPTY = "—"
 TEST_LABEL = "TEST"
@@ -42,7 +44,13 @@ COLUMNS = (
 
 @dataclass(frozen=True)
 class InboundCounts:
-    """Non-test inquiries by channel and segment, plus how many tests were left out."""
+    """Non-test inquiries by channel and segment, plus how many tests were left out.
+
+    ``by_channel`` and ``by_segment`` hold only the known values (inbound.CHANNELS and
+    inbound.SEGMENTS). ``total`` counts every non-test inquiry, so a row stored with any
+    other channel or segment (log-inbound cannot write one; a hand edit or an older import
+    could) is in ``total`` but in neither breakdown, and the breakdowns can sum to less.
+    """
 
     total: int
     by_channel: dict[str, int]
@@ -60,19 +68,24 @@ def inbound_rows(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         " FROM leads"
         " LEFT JOIN contacts ON contacts.id = leads.contact_id"
         " LEFT JOIN organizations ON organizations.id = leads.organization_id"
-        " WHERE leads.type = 'inbound_inquiry'"
-        " ORDER BY leads.received_at IS NULL, leads.received_at DESC, leads.id DESC"
+        " WHERE leads.type = ?"
+        " ORDER BY leads.received_at IS NULL, leads.received_at DESC, leads.id DESC",
+        (inbound.LEAD_TYPE,),
     ).fetchall()
 
 
 def inbound_counts(conn: sqlite3.Connection) -> InboundCounts:
-    """Count non-test inquiries by channel and segment; every known key starts at 0."""
+    """Count non-test inquiries by channel and segment; every known key starts at 0.
+
+    Values outside the known channels and segments count toward ``total`` only (see
+    InboundCounts), so the breakdowns may not sum to it.
+    """
     by_channel = dict.fromkeys(inbound.CHANNELS, 0)
     by_segment = dict.fromkeys(inbound.SEGMENTS, 0)
     total = 0
     for row in conn.execute(
-        "SELECT channel, segment FROM leads"
-        f" WHERE type = 'inbound_inquiry' AND {COUNTED_LEADS_FILTER}"
+        f"SELECT channel, segment FROM leads WHERE type = ? AND {COUNTED_LEADS_FILTER}",
+        (inbound.LEAD_TYPE,),
     ):
         total += 1
         if row[0] in by_channel:
@@ -80,21 +93,36 @@ def inbound_counts(conn: sqlite3.Connection) -> InboundCounts:
         if row[1] in by_segment:
             by_segment[row[1]] += 1
     tests = conn.execute(
-        "SELECT count(*) FROM leads"
-        f" WHERE type = 'inbound_inquiry' AND NOT ({COUNTED_LEADS_FILTER})"
+        f"SELECT count(*) FROM leads WHERE type = ? AND NOT ({COUNTED_LEADS_FILTER})",
+        (inbound.LEAD_TYPE,),
     ).fetchone()[0]
     return InboundCounts(total, by_channel, by_segment, int(tests))
 
 
+# Characters that would let inquirer-supplied text become a link, an image, emphasis, code or
+# raw HTML in the founder's review; each is backslash-escaped so it shows as typed.
+_MARKDOWN_ESCAPES = "\\|[]()<>!`*_"
+
+
 def _cell(value: object) -> str:
-    """One Markdown table cell: '—' when empty, pipes and backslashes escaped, one line."""
+    """One Markdown table cell: '—' when empty, one line, Markdown and HTML shown literally.
+
+    Backslashes, pipes and the Markdown/HTML metacharacters in _MARKDOWN_ESCAPES are
+    backslash-escaped, so a value such as ``[click](https://evil.example)`` or ``<img>``
+    reaches the review as text rather than a link or markup.
+    """
     if value is None:
         return EMPTY
     text = str(value).strip()
     if not text:
         return EMPTY
-    text = text.replace("\\", "\\\\").replace("|", "\\|")
+    text = "".join(f"\\{char}" if char in _MARKDOWN_ESCAPES else char for char in text)
     return " ".join(text.splitlines())
+
+
+# Public name for other modules: the weekly report renders its tables with it, so it
+# depends on no private review helper (F-maintainability-1).
+table_cell = _cell
 
 
 def _received(value: object) -> str:

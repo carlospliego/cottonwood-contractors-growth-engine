@@ -90,39 +90,50 @@ When a person asks to have their data deleted (R-35):
 1. Take a backup first: `uv run cottonwood backup`.
 2. Find the contact: `SELECT id, name, email, email_norm FROM contacts WHERE email_norm =
    'jane@example.com';` (lower-case, trimmed address).
-3. Make sure the address is suppressed **before** clearing it, so they are never contacted
-   again. This keeps an existing entry and adds one if there is none:
+3. Run the request for that contact id: `uv run cottonwood deletion-request --contact 42`
+   (`--actor` defaults to `founder`). It prints what it changed, for example
+   `contact 42 deleted: personal fields cleared, 2 activity record(s) redacted, kept the
+   existing suppression of jane@example.com; recorded as activity 311`. An unknown id is
+   refused and changes nothing.
 
-   ```sql
-   INSERT OR IGNORE INTO suppression (email_norm, reason, source, added_at)
-       VALUES ('jane@example.com', 'deletion_request', 'founder', '2026-11-15T10:00:00Z');
-   ```
+In one transaction the command:
 
-4. Clear the contact's personal fields and set `deleted_at` (the row stays, so leads and
-   activities that point at it remain valid):
+- makes sure the address is suppressed **before** clearing it, so they are never contacted
+  again (an existing entry is kept as it is; one is added with reason `deletion_request` if
+  there is none);
+- clears the contact's personal fields and sets `deleted_at` (the row stays, so leads and
+  activities that point at it remain valid), as this SQL would:
 
-   ```sql
-   UPDATE contacts
-   SET name = NULL, email = NULL, email_norm = NULL, phone_e164 = NULL, role = NULL,
-       source_url = NULL, deleted_at = '2026-11-15T10:00:00Z'
-   WHERE id = 42;
-   ```
+  ```sql
+  UPDATE contacts
+  SET name = NULL, email = NULL, email_norm = NULL, phone_e164 = NULL, role = NULL,
+      source_url = NULL, address = NULL, deleted_at = '2026-11-15T10:00:00Z'
+  WHERE id = 42;
+  ```
 
-5. Clear personal notes about them in their leads' free-text fields (`hypothesis`,
-   `next_action`, `property_location`) with an `UPDATE leads … WHERE contact_id = 42`.
-6. Activities are append-only (R-17): past activity payloads cannot be edited or deleted. Record
-   the request as a new activity instead, with no personal details in it:
+- clears what they told us in their leads: the free-text fields (`hypothesis`,
+  `next_action`, `property_location`, and the `project_scope` log-inbound records) and a
+  budget they stated themselves (`value_basis` `buyer-stated`), as this SQL would:
 
-   ```sql
-   INSERT INTO activities (contact_id, type, payload, actor, occurred_at, recorded_at)
-       VALUES (42, 'correction', '{"reason": "deletion_request"}', 'founder',
-               '2026-11-15T10:00:00Z', '2026-11-15T10:00:00Z');
-   ```
+  ```sql
+  UPDATE leads
+  SET hypothesis = NULL, next_action = NULL, property_location = NULL, project_scope = NULL
+  WHERE contact_id = 42;
+  UPDATE leads
+  SET value_amount = NULL, value_basis = NULL
+  WHERE contact_id = 42 AND value_basis = 'buyer-stated';
+  ```
 
-   Notes already written into earlier activity payloads stay in the database. This is a known
-   gap between R-35 ("remove … notes") and R-17 (append-only); tell the person if it applies.
-7. **Keep the suppression entry.** It is never deleted (R-24), even on a deletion request: it is
-   what stops the address from being imported or contacted again.
+  A value we estimated ourselves (any other basis) is not something they told us and stays;
+- removes their details from activity records: the one exception to append-only activities
+  (R-17). In every activity of the contact or its leads, the `note` and `need` payload values
+  are cleared and any other occurrence of their name, email or phone becomes `[removed]`. No
+  activity is deleted, and the append-only trigger is back in place when the command ends;
+- records the removal as a new `deletion_request` activity whose payload holds only the
+  reason and how many activity records were redacted.
+
+**Keep the suppression entry.** It is never deleted (R-24), even on a deletion request: it is
+what stops the address from being imported or contacted again.
 
 Backups taken before the request still hold the old fields until those backup files are
 deleted; nothing removes them automatically, so say so if the person asks.
@@ -186,11 +197,13 @@ a separate inquiry, re-run with `--confirm-duplicate` (or answer `y` at the prom
 either, it refuses with exit 1 and saves nothing.
 
 Opt-outs are suppressed the same day they arrive (R-24). Until the `suppress` command exists,
-add the entry directly; an address already suppressed is kept as it is:
+add the entry directly; an address already suppressed is kept as it is. `email_norm` must be
+the trimmed, lower-cased address, or the suppression will not match the contact; let SQLite do
+it by pasting the address as written into `lower(trim(...))`:
 
 ```sql
 INSERT OR IGNORE INTO suppression (email_norm, reason, source, added_at)
-    VALUES ('pat@example.com', 'opt_out', 'relay', '2026-11-16T21:05:00Z');
+    VALUES (lower(trim(' Pat@Example.com ')), 'opt_out', 'relay', '2026-11-16T21:05:00Z');
 ```
 
 Send the founder the review after logging: `uv run cottonwood review --out out/review.md`. The
