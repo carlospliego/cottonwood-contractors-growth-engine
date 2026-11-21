@@ -95,7 +95,14 @@ def _voided_by(conn: sqlite3.Connection, activity_id: int) -> int | None:
 
 
 class EventError(ValueError):
-    """An event field failed validation or a refusal rule; ``field`` names it."""
+    """A field failed validation or a refusal rule; ``field`` names it.
+
+    Despite the name it is not only for R-15 events: it also covers corrections
+    (validate_correction, log_correction) and time and cost entries (validate_time,
+    validate_cost, void_entry, R-30), and hand_review raises it too. The CLI prints it as
+    ``error: <field>: <message>`` and exits 1 for each of those commands, log-time and
+    log-cost included.
+    """
 
     def __init__(self, field: str, message: str) -> None:
         super().__init__(f"{field}: {message}")
