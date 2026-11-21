@@ -120,7 +120,9 @@ def import_records(
     """
     now = timeutil.utc_now()
     outcomes: list[RecordOutcome] = []
-    conn.execute("BEGIN")
+    # Take the write lock up front: a deferred BEGIN that upgrades mid-import can fail at once
+    # with "database is locked" instead of waiting out the busy timeout (CCGE-095).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         for record in records:
             if isinstance(record, Rejection):
