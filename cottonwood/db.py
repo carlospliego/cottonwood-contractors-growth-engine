@@ -18,7 +18,11 @@ BUSY_TIMEOUT_SECONDS = 30.0
 _MIGRATION_NAME = re.compile(r"^(\d{3})_[a-z0-9_]+\.sql$")
 
 
-class MigrationError(Exception):
+class DatabaseError(Exception):
+    """The database could not be opened or used; base of every db error."""
+
+
+class MigrationError(DatabaseError):
     """A migration could not be found, read or applied."""
 
 
@@ -65,12 +69,12 @@ def connect(db_path: Path) -> sqlite3.Connection:
     try:
         conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_SECONDS)
     except sqlite3.Error as exc:
-        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+        raise DatabaseError(f"cannot open database {db_path}: {exc}") from exc
     try:
         conn.execute("PRAGMA foreign_keys = ON")
     except sqlite3.Error as exc:
         conn.close()
-        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+        raise DatabaseError(f"cannot open database {db_path}: {exc}") from exc
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -120,16 +124,72 @@ def _read_version(conn: sqlite3.Connection, db_path: Path) -> int:
         raise MigrationError(f"cannot read database {db_path}: {exc}") from exc
 
 
+_TRANSACTION_KEYWORDS = frozenset({"BEGIN", "COMMIT", "END", "ROLLBACK", "SAVEPOINT", "RELEASE"})
+_FIRST_WORD = re.compile(r"[A-Za-z]+")
+
+
+def _statements(sql: str) -> list[str]:
+    """Split ``sql`` into complete statements.
+
+    sqlite3.complete_statement knows strings, comments and CREATE TRIGGER ... BEGIN ... END
+    bodies, so a ';' inside any of them does not end a statement.
+    """
+    statements: list[str] = []
+    pending = ""
+    for piece in sql.split(";"):
+        pending += piece + ";"
+        if sqlite3.complete_statement(pending):
+            statements.append(pending)
+            pending = ""
+    if pending.strip(" \t\r\n;"):
+        statements.append(pending)
+    return statements
+
+
+def _first_keyword(statement: str) -> str:
+    """Return a statement's first word in upper case, after leading comments."""
+    text = statement.lstrip()
+    while text.startswith(("--", "/*")):
+        if text.startswith("--"):
+            end = text.find("\n")
+            text = "" if end == -1 else text[end + 1 :]
+        else:
+            end = text.find("*/")
+            text = "" if end == -1 else text[end + 2 :]
+        text = text.lstrip()
+    match = _FIRST_WORD.match(text)
+    return match.group(0).upper() if match else ""
+
+
+def _transaction_control(sql: str) -> str | None:
+    """Return the first transaction-control keyword a statement in ``sql`` starts with."""
+    for statement in _statements(sql):
+        keyword = _first_keyword(statement)
+        if keyword in _TRANSACTION_KEYWORDS:
+            return keyword
+    return None
+
+
 def _apply(conn: sqlite3.Connection, migration: Migration) -> bool:
     """Run one migration and set user_version to its number, in one transaction.
 
     The write lock is taken first and user_version re-read under it, so a migration
     another run applied meanwhile is skipped; returns False in that case.
+
+    A file with its own transaction control (BEGIN, COMMIT, ...) is refused before it
+    runs: a COMMIT inside it would commit part of the file and the version bump
+    outside the runner's transaction, where a later error could not roll them back.
     """
     try:
         sql = migration.path.read_text(encoding="utf-8")
     except OSError as exc:
         raise MigrationError(f"cannot read migration {migration.path}: {exc}") from exc
+    keyword = _transaction_control(sql)
+    if keyword is not None:
+        raise MigrationError(
+            f"migration {migration.path.name} failed: it contains {keyword}; "
+            "the runner wraps each file in its own transaction"
+        )
     script = f"{sql}\n;\nPRAGMA user_version = {migration.number};\nCOMMIT;\n"
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -137,10 +197,22 @@ def _apply(conn: sqlite3.Connection, migration: Migration) -> bool:
             conn.execute("ROLLBACK")
             return False
         conn.executescript(script)
+        # The script's own COMMIT must have closed the transaction and set the version.
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+            raise MigrationError(
+                f"migration {migration.path.name} failed: a transaction was still open after it ran"
+            )
+        found = user_version(conn)
     except sqlite3.Error as exc:
         if conn.in_transaction:
             conn.execute("ROLLBACK")
         raise MigrationError(f"migration {migration.path.name} failed: {exc}") from exc
+    if found != migration.number:
+        raise MigrationError(
+            f"migration {migration.path.name} failed: user_version is {found} after it ran,"
+            f" expected {migration.number}"
+        )
     return True
 
 

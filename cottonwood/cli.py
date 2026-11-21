@@ -20,6 +20,7 @@ from cottonwood import (
     claims,
     config,
     db,
+    deletion,
     draft_claims,
     eligibility,
     events,
@@ -67,7 +68,7 @@ def _run_migrate(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         result = db.migrate(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     print(f"database {db_path} at version {result.to_version} (applied {len(result.applied)})")
@@ -107,7 +108,7 @@ def _run_backup(args: argparse.Namespace) -> int:
             args.to if args.to is not None else config.load_config(args.config).backup_dir
         )
         written = backup.backup(db_path, dest_dir)
-    except (backup.BackupError, config.ConfigError) as exc:
+    except (backup.BackupError, db.DatabaseMissingError, config.ConfigError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     print(f"backup written: {written}")
@@ -200,7 +201,7 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -276,7 +277,7 @@ def _run_review(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -314,7 +315,7 @@ def _run_lead_export(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -394,7 +395,7 @@ def _run_report(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -497,7 +498,7 @@ def _run_correction(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -546,7 +547,7 @@ def _run_log_event(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -679,7 +680,7 @@ def _run_entry(args: argparse.Namespace, kind: str, amount_name: str) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -784,7 +785,7 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     if args.check:
@@ -850,7 +851,7 @@ def _run_set_eligibility(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -909,7 +910,7 @@ def _run_mark_reviewed(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1009,7 +1010,7 @@ def _run_record_run(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1078,7 +1079,7 @@ def _run_approve(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1132,7 +1133,7 @@ def _run_claims(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1202,7 +1203,7 @@ def _run_prepare_send(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1271,7 +1272,7 @@ def _run_log_outreach(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1331,7 +1332,7 @@ def _run_log_reply(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1380,7 +1381,7 @@ def _run_suppress(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1390,6 +1391,46 @@ def _run_suppress(args: argparse.Namespace) -> int:
         return EXIT_REFUSED
     except sqlite3.Error as exc:
         print(f"error: could not record the suppression: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(result.line())
+    return EXIT_OK
+
+
+def _add_deletion_request_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the deletion-request command's arguments."""
+    parser.add_argument(
+        "--contact", type=int, required=True, help="id of the contact who asked to be deleted"
+    )
+    parser.add_argument(
+        "--actor",
+        default=deletion.DEFAULT_ACTOR,
+        help=f"who carries out the request (default: {deletion.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_deletion_request(args: argparse.Namespace) -> int:
+    """Remove a contact's personal details, including from activity records (R-35, R-17)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        result = deletion.delete_contact(conn, args.contact, args.actor, timeutil.utc_now())
+    except deletion.DeletionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not carry out the deletion request: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     finally:
         conn.close()
@@ -1488,6 +1529,12 @@ COMMANDS: list[Command] = [
         "Add an email address to suppression without a lead; existing entries never change.",
         _add_suppress_arguments,
         _run_suppress,
+    ),
+    Command(
+        "deletion-request",
+        "Remove a contact's personal details, including from activity records; keeps suppression.",
+        _add_deletion_request_arguments,
+        _run_deletion_request,
     ),
     Command(
         "prepare-send",
