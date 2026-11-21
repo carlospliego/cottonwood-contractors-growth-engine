@@ -1360,17 +1360,12 @@ def _add_deletion_request_arguments(parser: argparse.ArgumentParser) -> None:
         default=deletion.DEFAULT_ACTOR,
         help=f"who carries out the request (default: {deletion.DEFAULT_ACTOR})",
     )
-    parser.add_argument(
-        "--db",
-        type=Path,
-        default=None,
-        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
-    )
+    _add_db_argument(parser)
 
 
 def _run_deletion_request(args: argparse.Namespace) -> int:
     """Remove a contact's personal details, including from activity records (R-35, R-17)."""
-    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    db_path = _db_path(args)
     try:
         conn = db.connect(db_path)
     except db.MigrationError as exc:
