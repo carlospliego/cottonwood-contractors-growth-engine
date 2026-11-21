@@ -114,6 +114,14 @@ def validate(raw: RawInquiry) -> Inquiry:
         except ValueError as exc:
             raise InquiryError("phone", str(exc)) from None
 
+    company = _clean(raw.company)
+    if company is not None and not normalize.normalize_name(company):
+        # All-punctuation names share the empty match key, so every one would reuse the
+        # same organization; refuse rather than merge unrelated inquiries.
+        raise InquiryError(
+            "company", f"needs at least one letter or digit to match on: {raw.company!r}"
+        )
+
     budget_text = _clean(raw.budget)
     budget = None if budget_text is None else _parse_budget(budget_text)
     actor = _clean(raw.actor)
@@ -128,7 +136,7 @@ def validate(raw: RawInquiry) -> Inquiry:
         email=email,
         email_norm=email_norm,
         phone_e164=phone_e164,
-        company=_clean(raw.company),
+        company=company,
         location=_clean(raw.location),
         scope=_clean(raw.scope),
         budget=budget,
