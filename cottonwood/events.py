@@ -192,9 +192,13 @@ def validate_event(raw: RawEvent, now: str) -> Event:
 
 
 def _is_http_url(value: str) -> bool:
-    """True for an absolute http(s) URL with a host."""
+    """True for an absolute http(s) URL with a host.
+
+    The host is checked, not netloc: 'http://:80' and 'http://user@' have a netloc but no host
+    (F-correctness-7).
+    """
     parsed = urlparse(value)
-    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    return parsed.scheme in ("http", "https") and bool(parsed.hostname)
 
 
 def _rowid(cursor: sqlite3.Cursor) -> int:
