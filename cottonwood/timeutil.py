@@ -45,7 +45,11 @@ def parse_received(value: str) -> str:
             naive = datetime.strptime(text, "%Y-%m-%d %H:%M")
         except ValueError:
             raise ValueError(f"not a valid local date and time: {value!r}") from None
-        stored = to_utc_iso(naive.replace(tzinfo=DENVER, fold=0))
+        try:
+            stored = to_utc_iso(naive.replace(tzinfo=DENVER, fold=0))
+        except OverflowError:
+            # Near year 1 or 9999 the offset pushes the UTC time outside datetime's range.
+            raise ValueError(f"date and time is out of range: {value!r}") from None
         # A time skipped by the spring-forward change (02:00-02:59 on that Sunday) does not
         # exist in Denver; zoneinfo would quietly shift it an hour. Refuse it instead.
         if to_local(stored).replace(tzinfo=None) != naive:
@@ -56,7 +60,7 @@ def parse_received(value: str) -> str:
         return stored
     try:
         return to_utc_iso(parse_utc(text))
-    except ValueError:
+    except (ValueError, OverflowError):
         raise ValueError(
             f"expected 'YYYY-MM-DD HH:MM' (America/Denver) or a UTC time ending in Z: {value!r}"
         ) from None
