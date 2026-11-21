@@ -20,6 +20,7 @@ from cottonwood import (
     claims,
     config,
     db,
+    deletion,
     draft_claims,
     eligibility,
     events,
@@ -1397,6 +1398,46 @@ def _run_suppress(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _add_deletion_request_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the deletion-request command's arguments."""
+    parser.add_argument(
+        "--contact", type=int, required=True, help="id of the contact who asked to be deleted"
+    )
+    parser.add_argument(
+        "--actor",
+        default=deletion.DEFAULT_ACTOR,
+        help=f"who carries out the request (default: {deletion.DEFAULT_ACTOR})",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help=f"database file (default: ${db.DB_ENV_VAR}, else {db.DEFAULT_DB_PATH})",
+    )
+
+
+def _run_deletion_request(args: argparse.Namespace) -> int:
+    """Remove a contact's personal details, including from activity records (R-35, R-17)."""
+    db_path: Path = args.db if args.db is not None else db.default_db_path()
+    try:
+        conn = db.connect(db_path)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        result = deletion.delete_contact(conn, args.contact, args.actor, timeutil.utc_now())
+    except deletion.DeletionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except sqlite3.Error as exc:
+        print(f"error: could not carry out the deletion request: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    finally:
+        conn.close()
+    print(result.line())
+    return EXIT_OK
+
+
 # Subcommands register here; build_parser() adds each one in order.
 COMMANDS: list[Command] = [
     Command(
@@ -1488,6 +1529,12 @@ COMMANDS: list[Command] = [
         "Add an email address to suppression without a lead; existing entries never change.",
         _add_suppress_arguments,
         _run_suppress,
+    ),
+    Command(
+        "deletion-request",
+        "Remove a contact's personal details, including from activity records; keeps suppression.",
+        _add_deletion_request_arguments,
+        _run_deletion_request,
     ),
     Command(
         "prepare-send",

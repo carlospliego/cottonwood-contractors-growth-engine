@@ -408,7 +408,7 @@ footer { border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.85re
             <tr><td>contacts</td><td>People: name, email, E.164 phone, role, source URL, eligibility</td><td>Fields nullable so a deletion request can clear them; row stays</td></tr>
             <tr><td>leads</td><td>Type, stage, segment, channel, checklist, verified facts, hypothesis, value with basis, <code>referred_by</code>, <code>is_test</code></td><td>Stage CHECK per type; money is exact decimal text with a basis</td></tr>
             <tr><td>evidence</td><td>URL, observed date, excerpt or observation, fact vs hypothesis</td><td>Newest observed date drives evidence age</td></tr>
-            <tr><td>activities</td><td>Every write: inquiries, imports, approvals, events, sends, replies, refusals, corrections</td><td><span class="lock">Append-only.</span> Triggers block UPDATE, DELETE and REPLACE. A correction is a new row that voids an old one; voided rows drop out of all counts</td></tr>
+            <tr><td>activities</td><td>Every write: inquiries, imports, approvals, events, sends, replies, refusals, corrections</td><td><span class="lock">Append-only.</span> Triggers block UPDATE, DELETE and REPLACE. A correction is a new row that voids an old one; voided rows drop out of all counts. The one exception: a deletion request removes the person's details from their payloads and logs that it did</td></tr>
             <tr><td>agent_runs</td><td>Each skill run: version, model, times, input/output, validation, tokens, cost and its source</td><td>Cost marked estimated when not exact</td></tr>
             <tr><td>suppression</td><td>Opted-out or deleted addresses, keyed on normalized email</td><td><span class="lock">Never changed or deleted.</span> Re-inserting an address is silently ignored, so the original row stays</td></tr>
           </tbody>
@@ -453,7 +453,7 @@ footer { border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.85re
           <dt>backup</dt><dd>Consistent copy via the SQLite backup API to <code>data/backups/</code>, timestamped in UTC</dd>
         </dl></div>
       </div>
-      <p class="note">Restore and deletion requests are deliberately manual procedures in <code>docs/runbook.md</code>. After any restore, suppression entries added since the backup are copied back in so no opt-out is lost.</p>
+      <p class="note">Restore is a deliberately manual procedure in <code>docs/runbook.md</code>; a deletion request is one command, <code>cottonwood deletion-request</code>, after a backup. After any restore, suppression entries added since the backup are copied back in so no opt-out is lost.</p>
     </section>
 
     <section id="report">
