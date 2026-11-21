@@ -496,8 +496,10 @@ DEFAULT_PERSON = "founder"
 TIME_KIND = "time_logged"
 COST_KIND = "cost_logged"
 MAX_HOURS = Decimal(24)
-_PLAIN_DECIMAL = re.compile(r"^\d+(?:\.\d+)?$")
-_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# ASCII digits only: \d also matches other scripts' digits (Arabic-Indic, fullwidth, ...),
+# which Decimal() and date.fromisoformat() would then accept (F-correctness-5).
+_PLAIN_DECIMAL = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
+_ISO_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 
 @dataclass(frozen=True)
