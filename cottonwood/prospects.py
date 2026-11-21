@@ -14,7 +14,8 @@ import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from cottonwood import normalize, timeutil
+from cottonwood import events, normalize, terminal, timeutil
+from cottonwood._shared import _rowid
 from cottonwood.validate import (
     RELATIONSHIP,
     ProspectEvidence,
@@ -25,7 +26,7 @@ from cottonwood.validate import (
 
 IMPORTED = "imported"
 IMPORT_REJECTED = "import_rejected"
-IMPORTED_STAGE = "researched"
+IMPORTED_STAGE = events.RESEARCHED_STAGE
 RULE_REFERRER = "referrer"
 _SQLITE_MAX_INT = 2**63 - 1
 ELIGIBILITY_UNKNOWN = "unknown"
@@ -34,6 +35,8 @@ _SAVEPOINT = "prospect_record"
 # Placeholders for the activities a --check run writes and then rolls back.
 CHECK_FILE = "(check)"
 CHECK_ACTOR = "check"
+# A record whose own data breaks a database constraint is rejected alone (field "record").
+RULE_CONSTRAINT = "constraint"
 
 
 @dataclass(frozen=True)
@@ -120,12 +123,17 @@ def import_records(
     ``records`` are in file order: a ProspectRecord is matched or written inside its own
     savepoint, so a failure leaves nothing of it, and later records see earlier ones as stored;
     a Rejection (from validation, or a referrer that is not a stored relationship prospect)
-    writes one ``import_rejected`` activity with no lead. With ``dry_run`` the transaction is
-    rolled back instead of committed, so the result is the import's own and nothing is kept.
+    writes one ``import_rejected`` activity with no lead. A record that breaks a database
+    constraint (sqlite3.IntegrityError) is rolled back to its savepoint and rejected as
+    ``record: constraint`` while the others go on; any other error rolls back the whole import.
+    With ``dry_run`` the transaction is rolled back instead of committed, so the result is the
+    import's own and nothing is kept.
     """
     now = timeutil.utc_now()
     outcomes: list[RecordOutcome] = []
-    conn.execute("BEGIN")
+    # Take the write lock up front: a deferred BEGIN that upgrades mid-import can fail at once
+    # with "database is locked" instead of waiting out the busy timeout (CCGE-095).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         for record in records:
             if isinstance(record, Rejection):
@@ -138,6 +146,12 @@ def import_records(
             conn.execute(f"SAVEPOINT {_SAVEPOINT}")
             try:
                 outcome = _import_one(conn, file_name, record, actor, now)
+            except sqlite3.IntegrityError:
+                conn.execute(f"ROLLBACK TO {_SAVEPOINT}")
+                conn.execute(f"RELEASE {_SAVEPOINT}")
+                rejection = Rejection(record.number, record.record_id, "record", RULE_CONSTRAINT)
+                outcomes.append(_reject(conn, file_name, rejection, actor, now))
+                continue
             except BaseException:
                 conn.execute(f"ROLLBACK TO {_SAVEPOINT}")
                 conn.execute(f"RELEASE {_SAVEPOINT}")
@@ -341,7 +355,9 @@ def _shown(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, float):
-        return f"{value:g}"
+        # Whole hours as an integer, anything else in the shortest form that reads back exactly:
+        # {value:g} kept 6 significant digits, so 1234567 and 1234568 printed alike.
+        return str(int(value)) if value.is_integer() else repr(value)
     if isinstance(value, list | tuple):
         return "; ".join(str(item) for item in value)
     return str(value)
@@ -430,7 +446,7 @@ def _differences(
         (f"checklist.{key}", stored_checklist.get(key), answer) for key, answer in record.checklist
     ]
     return tuple(
-        Difference(field, _shown(stored), _shown(incoming))
+        Difference(field, terminal.printable(_shown(stored)), terminal.printable(_shown(incoming)))
         for field, stored, incoming in pairs
         if incoming is not None and incoming != "" and incoming != stored
     )
@@ -549,10 +565,3 @@ def _activity(
             (lead_id, contact_id, activity_type, json.dumps(payload), actor, now, now),
         )
     )
-
-
-def _rowid(cursor: sqlite3.Cursor) -> int:
-    """Return the id of the row an INSERT just wrote."""
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid

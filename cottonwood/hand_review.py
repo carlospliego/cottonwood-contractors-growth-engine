@@ -18,7 +18,7 @@ from cottonwood import events
 
 ACTIVITY_TYPE = "hand_review"
 RESULTS = ("relevant", "irrelevant", "fabricated")
-REVIEWABLE_TYPES = ("direct_candidate", "relationship_prospect")
+REVIEWABLE_TYPES = (events.DIRECT_CANDIDATE, events.RELATIONSHIP_PROSPECT)
 REPLACE_NOTE = "replaced by mark-reviewed --replace"
 CORRECTION_TYPE = "correction"  # the activity type events' void predicate recognizes
 
