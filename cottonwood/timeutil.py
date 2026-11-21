@@ -61,8 +61,20 @@ def to_local(value: str) -> datetime:
 def display_local(value: str) -> str:
     """Render a stored UTC string in America/Denver, e.g. 2026-01-15 12:00 -07:00."""
     local = to_local(value)
-    offset = local.strftime("%z")
-    return f"{local:%Y-%m-%d %H:%M} {offset[:3]}:{offset[3:]}"
+    return f"{local:%Y-%m-%d %H:%M} {_offset_text(local)}"
+
+
+def _offset_text(moment: datetime) -> str:
+    """The UTC offset as +HH:MM, with :SS only when the offset has seconds (e.g. LMT)."""
+    offset = moment.utcoffset()
+    if offset is None:
+        raise ValueError(f"datetime must be timezone-aware: {moment!r}")
+    seconds = int(offset.total_seconds())
+    sign = "-" if seconds < 0 else "+"
+    hours, rest = divmod(abs(seconds), 3600)
+    minutes, secs = divmod(rest, 60)
+    text = f"{sign}{hours:02d}:{minutes:02d}"
+    return f"{text}:{secs:02d}" if secs else text
 
 
 def local_date(value: str) -> date:
