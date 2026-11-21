@@ -58,6 +58,11 @@ STAGES_BY_LEAD_TYPE = {
 # R-16: the only way into this stage is an event stating the need or a procurement URL.
 QUALIFIED_STAGE = "buyer_need_confirmed"
 
+# The activity types this module writes besides R-15 events (time_logged and cost_logged
+# are TIME_KIND and COST_KIND below). The SQL fragments are built from these names.
+CORRECTION_KIND = "correction"
+STAGE_CHANGE_KIND = "stage_change"
+
 # The stage_change payload key naming the activity that CAUSED the move (AC-4.3). Despite the
 # name it is not always an R-15 event: log_event writes the event's id, but log_correction
 # writes the correction's id for a revert. Tell the two apart by the type of the row it names
@@ -69,7 +74,8 @@ STAGE_CHANGE_CAUSE_KEY = "event_activity_id"
 _CAUSE_SQL = f"json_extract(a.payload, '$.{STAGE_CHANGE_CAUSE_KEY}')"
 # True when the stage_change row aliased ``a`` is a revert: its cause is a correction.
 _IS_REVERT_SQL = (
-    f"EXISTS (SELECT 1 FROM activities r WHERE r.type = 'correction' AND r.id = {_CAUSE_SQL})"
+    "EXISTS (SELECT 1 FROM activities r"
+    f" WHERE r.type = '{CORRECTION_KIND}' AND r.id = {_CAUSE_SQL})"
 )
 
 
@@ -78,7 +84,7 @@ _IS_REVERT_SQL = (
 # and the already-void refusals) is built from this predicate; change void semantics here only.
 def _voiding_sql(target: str) -> str:
     """SQL true when the correction row aliased ``c`` voids the activity id ``target``."""
-    return f"c.type = 'correction' AND c.voids_activity_id = {target}"
+    return f"c.type = '{CORRECTION_KIND}' AND c.voids_activity_id = {target}"
 
 
 def _voided_sql(target: str) -> str:
@@ -278,7 +284,7 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
             stage_change_id = _insert_activity(
                 conn,
                 event.lead_id,
-                "stage_change",
+                STAGE_CHANGE_KIND,
                 {"from": from_stage, "to": event.stage, STAGE_CHANGE_CAUSE_KEY: event_id},
                 event.actor,
                 event.occurred_at,
@@ -348,9 +354,9 @@ def _insert_activity(
 # the voided move never happened; activities on test leads (R-3) do not count, entries with no
 # lead do. "Void" itself is defined once, by _voiding_sql.
 COUNTED_ACTIVITIES_SQL = (
-    "a.type <> 'correction'"
+    f"a.type <> '{CORRECTION_KIND}'"
     f" AND NOT {_voided_sql('a.id')}"
-    f" AND NOT (a.type = 'stage_change' AND ({_voided_sql(_CAUSE_SQL)}"
+    f" AND NOT (a.type = '{STAGE_CHANGE_KIND}' AND ({_voided_sql(_CAUSE_SQL)}"
     f" OR {_IS_REVERT_SQL}))"
     " AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l"
     " WHERE l.id = a.lead_id AND l.is_test = 0))"
@@ -359,7 +365,8 @@ COUNTED_ACTIVITIES_SQL = (
 # A stage change still in force: nothing voids it and nothing voids the activity that caused
 # it (an event; a revert's cause is a correction, which is never voidable, so it stays).
 _EFFECTIVE_STAGE_CHANGE_SQL = (
-    f"a.type = 'stage_change' AND NOT {_voided_sql('a.id')} AND NOT {_voided_sql(_CAUSE_SQL)}"
+    f"a.type = '{STAGE_CHANGE_KIND}' AND NOT {_voided_sql('a.id')}"
+    f" AND NOT {_voided_sql(_CAUSE_SQL)}"
 )
 
 
@@ -369,7 +376,8 @@ def is_revert(conn: sqlite3.Connection, stage_change_id: int) -> bool:
     False for a move caused by an R-15 event, and for an id that is not a stage_change.
     """
     row = conn.execute(
-        f"SELECT {_IS_REVERT_SQL} FROM activities a WHERE a.id = ? AND a.type = 'stage_change'",
+        f"SELECT {_IS_REVERT_SQL} FROM activities a"
+        f" WHERE a.id = ? AND a.type = '{STAGE_CHANGE_KIND}'",
         (stage_change_id,),
     ).fetchone()
     return row is not None and bool(row[0])
@@ -511,7 +519,7 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
         correction_id = _insert_activity(
             conn,
             lead_id,
-            "correction",
+            CORRECTION_KIND,
             payload,
             correction.actor,
             correction.occurred_at,
@@ -529,7 +537,7 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
             stage_change_id = _insert_activity(
                 conn,
                 lead_id,
-                "stage_change",
+                STAGE_CHANGE_KIND,
                 {"from": from_stage, "to": to_stage, STAGE_CHANGE_CAUSE_KEY: correction_id},
                 correction.actor,
                 correction.occurred_at,
@@ -760,7 +768,7 @@ def void_entry(
             payload["note"] = cleaned
         now = timeutil.utc_now()
         correction_id = _insert_activity(
-            conn, None, "correction", payload, who, now, now, voids_activity_id=voids_id
+            conn, None, CORRECTION_KIND, payload, who, now, now, voids_activity_id=voids_id
         )
         conn.commit()
     except BaseException:

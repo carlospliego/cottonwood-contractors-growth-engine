@@ -67,7 +67,7 @@ def _time(conn: sqlite3.Connection, hours: str) -> int:
 def test_void_predicate_is_written_once_in_the_module() -> None:
     source = inspect.getsource(events)
     assert source.count("voids_activity_id = ") == 1
-    assert source.count("c.type = 'correction'") == 1
+    assert source.count("c.type = '{CORRECTION_KIND}'") == 1
 
 
 def test_one_void_definition_agrees_with_counts_and_refusals(conn: sqlite3.Connection) -> None:
