@@ -13,6 +13,7 @@ import pytest
 from cottonwood import config, db, timeutil
 from cottonwood.cli import EXIT_OK, EXIT_REFUSED, main
 
+LATEST_VERSION = len(db.discover_migrations())
 NOW = "2026-12-01T00:00:00Z"  # Denver today: 2026-11-30
 TABLES = ("organizations", "contacts", "leads", "evidence", "activities")
 CONFIG = (
@@ -294,7 +295,7 @@ def test_fresh_migrate_is_version_6_with_a_checklist_column(tmp_path: Path) -> N
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
     conn = sqlite3.connect(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST_VERSION
         columns = [row[1] for row in conn.execute("PRAGMA table_info(leads)")]
     finally:
         conn.close()

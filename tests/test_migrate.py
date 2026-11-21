@@ -10,6 +10,8 @@ import pytest
 from cottonwood import db
 from cottonwood.cli import EXIT_OK, EXIT_REFUSED, main
 
+LATEST_VERSION = len(db.discover_migrations())
+
 
 def _version(path: Path) -> int:
     conn = sqlite3.connect(path)
@@ -56,9 +58,9 @@ def test_migrate_creates_the_core_schema(
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
 
     assert path.is_file()
-    assert _version(path) == 6
+    assert _version(path) == LATEST_VERSION
     assert _tables(path) == CORE_TABLES
-    assert "at version 6 (applied 6)" in capsys.readouterr().out
+    assert f"at version {LATEST_VERSION} (applied {LATEST_VERSION})" in capsys.readouterr().out
 
 
 def test_package_ships_baseline_core_then_inbound_migration() -> None:
@@ -80,8 +82,8 @@ def test_second_migrate_applies_nothing(tmp_path: Path, capsys: pytest.CaptureFi
 
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
 
-    assert _version(path) == 6
-    assert "at version 6 (applied 0)" in capsys.readouterr().out
+    assert _version(path) == LATEST_VERSION
+    assert f"at version {LATEST_VERSION} (applied 0)" in capsys.readouterr().out
 
 
 def test_migrations_apply_in_numeric_order(tmp_path: Path) -> None:
@@ -184,7 +186,7 @@ def test_env_var_sets_the_database_path(
     assert main(["migrate"]) == EXIT_OK
 
     assert path.is_file()
-    assert _version(path) == 6
+    assert _version(path) == LATEST_VERSION
     assert not (tmp_path / "data").exists()
     assert str(path) in capsys.readouterr().out
 
@@ -199,7 +201,7 @@ def test_default_path_is_data_cottonwood_db(
     assert main(["migrate"]) == EXIT_OK
 
     assert (tmp_path / "data" / "cottonwood.db").is_file()
-    assert _version(tmp_path / "data" / "cottonwood.db") == 6
+    assert _version(tmp_path / "data" / "cottonwood.db") == LATEST_VERSION
 
 
 def test_db_flag_overrides_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
