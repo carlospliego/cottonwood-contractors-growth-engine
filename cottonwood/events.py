@@ -249,6 +249,7 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         from_stage = str(lead[2])
         if event.stage is not None:
             _check_stage(str(lead[1]), from_stage, event.stage)
+            _check_not_before_latest_stage_change(conn, event)
         _check_qualification(event)
         payload: dict[str, object] = {"event": event.type}
         if event.note is not None:
@@ -278,6 +279,29 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         conn.rollback()
         raise
     return LoggedEvent(event_id, stage_change_id, from_stage if stage_change_id else None)
+
+
+def _check_not_before_latest_stage_change(conn: sqlite3.Connection, event: Event) -> None:
+    """Refuse a stage change backdated before the lead's latest effective one (CCGE-060).
+
+    leads.stage is the latest effective stage change by (occurred_at, id) (plan: "Effective
+    stage change"). A move dated earlier than that one would set leads.stage while ranking
+    below it, so a later correction would revert to the wrong stage; it is refused instead.
+    A move at the same time ranks after it by id, so it is allowed.
+    """
+    latest = conn.execute(
+        f"SELECT a.id, a.occurred_at FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+        f" AND a.lead_id = ? AND NOT {_IS_REVERT_SQL}"
+        " ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+        (event.lead_id,),
+    ).fetchone()
+    if latest is not None and event.occurred_at < str(latest[1]):
+        raise EventError(
+            "at",
+            f"is earlier than lead {event.lead_id}'s latest stage change (activity {latest[0]},"
+            f" {timeutil.display_local(str(latest[1]))}); a stage change cannot be dated"
+            " before it",
+        )
 
 
 def _insert_activity(
