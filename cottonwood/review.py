@@ -99,14 +99,24 @@ def inbound_counts(conn: sqlite3.Connection) -> InboundCounts:
     return InboundCounts(total, by_channel, by_segment, int(tests))
 
 
+# Characters that would let inquirer-supplied text become a link, an image, emphasis, code or
+# raw HTML in the founder's review; each is backslash-escaped so it shows as typed.
+_MARKDOWN_ESCAPES = "\\|[]()<>!`*_"
+
+
 def _cell(value: object) -> str:
-    """One Markdown table cell: '—' when empty, pipes and backslashes escaped, one line."""
+    """One Markdown table cell: '—' when empty, one line, Markdown and HTML shown literally.
+
+    Backslashes, pipes and the Markdown/HTML metacharacters in _MARKDOWN_ESCAPES are
+    backslash-escaped, so a value such as ``[click](https://evil.example)`` or ``<img>``
+    reaches the review as text rather than a link or markup.
+    """
     if value is None:
         return EMPTY
     text = str(value).strip()
     if not text:
         return EMPTY
-    text = text.replace("\\", "\\\\").replace("|", "\\|")
+    text = "".join(f"\\{char}" if char in _MARKDOWN_ESCAPES else char for char in text)
     return " ".join(text.splitlines())
 
 
