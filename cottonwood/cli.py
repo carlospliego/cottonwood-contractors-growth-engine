@@ -158,6 +158,9 @@ def _add_log_inbound_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+DUPLICATE_PROMPT = "Save anyway? [y/N] "
+
+
 def _duplicate_confirmed(
     args: argparse.Namespace, inquiry: inbound.Inquiry, duplicates: Sequence[int]
 ) -> bool:
@@ -170,9 +173,11 @@ def _duplicate_confirmed(
     # A prompt would hang a script, so without a terminal (or with stdin closed) the answer is no.
     if sys.stdin is None or not sys.stdin.isatty():
         return False
+    # The prompt goes to stderr with the warning, so it stays visible when stdout is redirected.
+    print(DUPLICATE_PROMPT, end="", file=sys.stderr, flush=True)
     try:
-        answer = input("Save anyway? [y/N] ")
-    except (EOFError, KeyboardInterrupt):
+        answer = sys.stdin.readline()
+    except KeyboardInterrupt:
         return False
     return answer.strip().lower() in ("y", "yes")
 
