@@ -67,7 +67,7 @@ def _run_migrate(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         result = db.migrate(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     print(f"database {db_path} at version {result.to_version} (applied {len(result.applied)})")
@@ -200,7 +200,7 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -276,7 +276,7 @@ def _run_review(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -314,7 +314,7 @@ def _run_lead_export(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -394,7 +394,7 @@ def _run_report(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -497,7 +497,7 @@ def _run_correction(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -546,7 +546,7 @@ def _run_log_event(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -679,7 +679,7 @@ def _run_entry(args: argparse.Namespace, kind: str, amount_name: str) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -784,7 +784,7 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     if args.check:
@@ -850,7 +850,7 @@ def _run_set_eligibility(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -909,7 +909,7 @@ def _run_mark_reviewed(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1009,7 +1009,7 @@ def _run_record_run(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1078,7 +1078,7 @@ def _run_approve(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1132,7 +1132,7 @@ def _run_claims(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1202,7 +1202,7 @@ def _run_prepare_send(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1271,7 +1271,7 @@ def _run_log_outreach(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1331,7 +1331,7 @@ def _run_log_reply(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
@@ -1380,7 +1380,7 @@ def _run_suppress(args: argparse.Namespace) -> int:
     db_path: Path = args.db if args.db is not None else db.default_db_path()
     try:
         conn = db.connect(db_path)
-    except db.MigrationError as exc:
+    except db.DatabaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
