@@ -211,7 +211,12 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
         if duplicates and not _duplicate_confirmed(args, inquiry, duplicates):
             print("refused: duplicate not confirmed (use --confirm-duplicate)", file=sys.stderr)
             return EXIT_REFUSED
+        # log_inquiry takes the write lock and repeats the check, so a match saved while the
+        # prompt above was open refuses instead of slipping in (R-2).
         lead_id = inbound.log_inquiry(conn, inquiry, duplicate_of=duplicates)
+    except inbound.DuplicateChangedError as exc:
+        print(f"refused: {exc}; run log-inbound again to review it", file=sys.stderr)
+        return EXIT_REFUSED
     except sqlite3.Error as exc:
         print(f"error: could not save the inquiry: {exc}", file=sys.stderr)
         return EXIT_REFUSED
