@@ -26,7 +26,8 @@ DEFAULT_CLAIMS_PATH = Path("config/claims.yaml")
 CLAIM_VERIFIED_TYPE = "claim_verified"
 NOT_APPROVED_NOTE = "marked verified but no matching claim approval"
 
-_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+# Matched with fullmatch: $ would also accept one trailing newline, an id no approval could match.
+_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -160,7 +161,7 @@ def _claim(path: Path, index: int, entry: object) -> Claim:
     claim_id = entry.get("id")
     if claim_id is None or (isinstance(claim_id, str) and not claim_id.strip()):
         raise ClaimsError(path, where, "id: is missing")
-    if not isinstance(claim_id, str) or not _ID.match(claim_id):
+    if not isinstance(claim_id, str) or not _ID.fullmatch(claim_id):
         raise ClaimsError(
             path, where, f"id: must be lower-kebab-case like service-area, got {claim_id!r}"
         )
