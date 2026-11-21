@@ -18,7 +18,11 @@ BUSY_TIMEOUT_SECONDS = 30.0
 _MIGRATION_NAME = re.compile(r"^(\d{3})_[a-z0-9_]+\.sql$")
 
 
-class MigrationError(Exception):
+class DatabaseError(Exception):
+    """The database could not be opened or used; base of every db error."""
+
+
+class MigrationError(DatabaseError):
     """A migration could not be found, read or applied."""
 
 
@@ -65,12 +69,12 @@ def connect(db_path: Path) -> sqlite3.Connection:
     try:
         conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_SECONDS)
     except sqlite3.Error as exc:
-        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+        raise DatabaseError(f"cannot open database {db_path}: {exc}") from exc
     try:
         conn.execute("PRAGMA foreign_keys = ON")
     except sqlite3.Error as exc:
         conn.close()
-        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+        raise DatabaseError(f"cannot open database {db_path}: {exc}") from exc
     conn.row_factory = sqlite3.Row
     return conn
 
