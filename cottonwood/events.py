@@ -453,6 +453,21 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
                     f"lead {lead_id} has a later stage change (activity {latest['id']});"
                     " void the event behind it first",
                 )
+            # The revert is a stage change dated at the correction. Dated before the lead's
+            # latest effective stage change (reverts included), it would set leads.stage while
+            # ranking below that change by (occurred_at, id), so it is refused (F-correctness-4).
+            newest = conn.execute(
+                f"SELECT a.id, a.occurred_at FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+                " AND a.lead_id = ? ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+                (lead_id,),
+            ).fetchone()
+            if newest is not None and correction.occurred_at < str(newest["occurred_at"]):
+                raise EventError(
+                    "at",
+                    f"is earlier than lead {lead_id}'s latest stage change (activity"
+                    f" {newest['id']}, {timeutil.display_local(str(newest['occurred_at']))});"
+                    " a correction that reverts a stage cannot be dated before it",
+                )
         payload: dict[str, object] = {}
         if correction.note is not None:
             payload["note"] = correction.note
