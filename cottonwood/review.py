@@ -62,8 +62,9 @@ def inbound_rows(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         " FROM leads"
         " LEFT JOIN contacts ON contacts.id = leads.contact_id"
         " LEFT JOIN organizations ON organizations.id = leads.organization_id"
-        " WHERE leads.type = 'inbound_inquiry'"
-        " ORDER BY leads.received_at IS NULL, leads.received_at DESC, leads.id DESC"
+        " WHERE leads.type = ?"
+        " ORDER BY leads.received_at IS NULL, leads.received_at DESC, leads.id DESC",
+        (inbound.LEAD_TYPE,),
     ).fetchall()
 
 
@@ -73,8 +74,8 @@ def inbound_counts(conn: sqlite3.Connection) -> InboundCounts:
     by_segment = dict.fromkeys(inbound.SEGMENTS, 0)
     total = 0
     for row in conn.execute(
-        "SELECT channel, segment FROM leads"
-        f" WHERE type = 'inbound_inquiry' AND {COUNTED_LEADS_FILTER}"
+        f"SELECT channel, segment FROM leads WHERE type = ? AND {COUNTED_LEADS_FILTER}",
+        (inbound.LEAD_TYPE,),
     ):
         total += 1
         if row[0] in by_channel:
@@ -82,8 +83,8 @@ def inbound_counts(conn: sqlite3.Connection) -> InboundCounts:
         if row[1] in by_segment:
             by_segment[row[1]] += 1
     tests = conn.execute(
-        "SELECT count(*) FROM leads"
-        f" WHERE type = 'inbound_inquiry' AND NOT ({COUNTED_LEADS_FILTER})"
+        f"SELECT count(*) FROM leads WHERE type = ? AND NOT ({COUNTED_LEADS_FILTER})",
+        (inbound.LEAD_TYPE,),
     ).fetchone()[0]
     return InboundCounts(total, by_channel, by_segment, int(tests))
 
