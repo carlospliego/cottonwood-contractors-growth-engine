@@ -283,7 +283,7 @@ def _run_review(args: argparse.Namespace) -> int:
     if args.lead is not None or args.json:
         return _run_lead_export(args)
     try:
-        review_config = _import_review_config(args.config)
+        review_config = _load_review_config(args.config)
     except config.ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
@@ -770,7 +770,7 @@ def _add_prospects_import_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _import_review_config(path: Path | None) -> config.ReviewConfig:
+def _load_review_config(path: Path | None) -> config.ReviewConfig:
     """The review settings (checklists, max evidence age) for prospects-import and review.
 
     An explicit --config must load, and so must a config named by $COTTONWOOD_CONFIG. Without
@@ -787,7 +787,7 @@ def _run_prospects_import(args: argparse.Namespace) -> int:
     """Validate and import research records; refuse each invalid record by name (R-5, R-6)."""
     path: Path = args.file
     try:
-        review_config = _import_review_config(args.config)
+        review_config = _load_review_config(args.config)
         raw_records = validate.load_records(path)
     except (config.ConfigError, validate.FileError) as exc:
         print(f"error: {exc}", file=sys.stderr)
