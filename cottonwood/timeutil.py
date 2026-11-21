@@ -16,7 +16,10 @@ def to_utc_iso(moment: datetime) -> str:
     """Return ``moment`` as UTC ISO-8601 with second precision, e.g. 2026-01-15T19:00:00Z."""
     if moment.tzinfo is None or moment.utcoffset() is None:
         raise ValueError(f"datetime must be timezone-aware: {moment!r}")
-    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # isoformat, not strftime("%Y"): glibc's %Y does not zero-pad years below 1000, so
+    # strftime gives '1-01-01...' on Linux where macOS gives '0001-01-01...'.
+    utc = moment.astimezone(UTC).replace(microsecond=0, tzinfo=None)
+    return utc.isoformat() + "Z"
 
 
 def utc_now() -> str:
