@@ -16,9 +16,11 @@ from pathlib import Path
 
 from cottonwood import claims, config, evidence, hand_review, inbound, timeutil
 
-# SQL condition for leads that count. Test inquiries are listed but never counted (R-3);
-# the report reuses this so both outputs agree on what a test is.
-COUNTED_LEADS_FILTER = "is_test = 0"
+# SQL condition for leads that count. Test inquiries are listed but never counted (R-3).
+# The review counts and report.py's inbound and referral counts all use it, so every output
+# agrees on what a test is. It names leads.is_test, so a query that joins another table
+# with an is_test column still filters on the lead.
+COUNTED_LEADS_FILTER = "leads.is_test = 0"
 
 EMPTY = "—"
 TEST_LABEL = "TEST"

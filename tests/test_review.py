@@ -123,14 +123,61 @@ def test_counts_exclude_tests(db_path: Path, capsys: pytest.CaptureFixture[str])
     ) in text
 
 
-def test_empty_database_prints_zero_counts(
+EMPTY_REVIEW = """\
+# Review
+
+Generated: 2026-11-18 10:00 -07:00
+
+## Inbound inquiries
+
+Inquiries: 0 (form 0, phone 0; commercial 0, residential 0, unknown 0). Test inquiries excluded: 0.
+
+No inbound inquiries logged.
+
+## Direct candidates
+
+Order: most yes answers first; ties: lower founder time first (unknown last); then lowest lead id.
+Max evidence age: not configured
+
+No direct candidates.
+
+## Relationship prospects
+
+Order: most yes answers first; ties: lower founder time first (unknown last); then lowest lead id.
+Max evidence age: not configured
+
+No relationship prospects.
+"""
+
+
+def test_empty_database_prints_the_whole_empty_review(
     db_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # The pinned clock (17:00Z) is shown in Denver time on the Generated line.
+    assert _review(db_path, capsys) == EMPTY_REVIEW
+
+
+def test_generated_line_follows_the_clock(
+    db_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(timeutil, "utc_now", lambda: "2026-07-04T06:30:00Z")
+    assert "\nGenerated: 2026-07-04 00:30 -06:00\n" in _review(db_path, capsys)
+
+
+def test_backslash_in_a_cell_is_escaped(db_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _log(
+        db_path,
+        "form",
+        "2026-11-16 09:30",
+        "--segment",
+        "commercial",
+        "--name",
+        "P",
+        "--company",
+        "A\\B | C",
+    )
     text = _review(db_path, capsys)
-    assert (
-        "Inquiries: 0 (form 0, phone 0; commercial 0, residential 0, unknown 0)."
-        " Test inquiries excluded: 0."
-    ) in text
+    assert "| A\\\\B \\| C |" in text
 
 
 def test_out_writes_the_same_markdown_and_creates_folders(
@@ -212,5 +259,16 @@ def test_deleted_contact_still_listed_with_cleared_fields(
     assert rows[0][5:8] == ["—", "—", "—"]
 
 
-def test_counted_leads_filter_is_the_non_test_condition() -> None:
-    assert review.COUNTED_LEADS_FILTER == "is_test = 0"
+def test_counted_leads_filter_selects_only_non_test_leads(db_path: Path) -> None:
+    _log(db_path, "form", "2026-11-16 09:30", "--segment", "commercial", "--name", "Real")
+    _log(db_path, "form", "2026-11-16 10:30", "--segment", "commercial", "--name", "T", "--test")
+    conn = db.connect(db_path)
+    try:
+        counted = conn.execute(
+            f"SELECT leads.id FROM leads WHERE {review.COUNTED_LEADS_FILTER}"
+        ).fetchall()
+        tests = conn.execute("SELECT id FROM leads WHERE is_test = 1").fetchall()
+    finally:
+        conn.close()
+    assert [row[0] for row in counted] == [1]
+    assert [row[0] for row in tests] == [2]
