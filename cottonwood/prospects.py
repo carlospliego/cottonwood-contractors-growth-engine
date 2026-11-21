@@ -14,7 +14,7 @@ import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from cottonwood import events, normalize, timeutil
+from cottonwood import events, normalize, terminal, timeutil
 from cottonwood._shared import _rowid
 from cottonwood.validate import (
     RELATIONSHIP,
@@ -433,7 +433,7 @@ def _differences(
         (f"checklist.{key}", stored_checklist.get(key), answer) for key, answer in record.checklist
     ]
     return tuple(
-        Difference(field, _shown(stored), _shown(incoming))
+        Difference(field, terminal.printable(_shown(stored)), terminal.printable(_shown(incoming)))
         for field, stored, incoming in pairs
         if incoming is not None and incoming != "" and incoming != stored
     )

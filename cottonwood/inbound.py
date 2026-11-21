@@ -8,14 +8,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from cottonwood import normalize, timeutil
+from cottonwood import events, normalize, timeutil
 from cottonwood._shared import _clean, _rowid
 
 CHANNELS = ("form", "phone")
 SEGMENTS = ("commercial", "residential", "unknown")
 BUDGET_BASIS = "buyer-stated"
 # leads.type for every inquiry this module stores; queries bind it rather than repeat it.
-LEAD_TYPE = "inbound_inquiry"
+LEAD_TYPE = events.INBOUND_INQUIRY
 DEFAULT_ACTOR = "developer"
 
 
