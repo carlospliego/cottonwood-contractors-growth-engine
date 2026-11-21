@@ -13,6 +13,7 @@ import pytest
 from cottonwood import backup, db
 from cottonwood.cli import EXIT_OK, main
 
+LATEST_VERSION = len(db.discover_migrations())
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RUNBOOK = REPO_ROOT / "docs" / "runbook.md"
 # The file names the runbook's example commands and SQL use.
@@ -116,7 +117,7 @@ def test_documented_restore_recovers_backup_and_newer_suppression(
 
     # Step 6: cottonwood migrate on the restored file.
     assert main(["migrate", "--db", str(live)]) == EXIT_OK
-    assert "at version 6" in capsys.readouterr().out
+    assert f"at version {LATEST_VERSION}" in capsys.readouterr().out
 
     # Step 7: the runbook's own re-apply SQL, run against the restored database.
     conn = db.connect(live)
