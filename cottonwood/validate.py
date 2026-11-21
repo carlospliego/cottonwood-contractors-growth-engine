@@ -71,6 +71,9 @@ CSV_COLUMNS = (
     "evidence_observation",
     "evidence_kind",
 )
+# Required columns whose empty cell is a real empty value, as JSON allows ("hypothesis": "",
+# "verified_facts": []), rather than an absent key that the schema rejects as required.
+CSV_EMPTY_ALLOWED: dict[str, object] = {"hypothesis": "", "verified_facts": []}
 CSV_REQUIRED = (
     "type",
     "organization_name",
@@ -268,13 +271,20 @@ def _csv_records(path: Path, text: str) -> list[RawRecord]:
 
 
 def _csv_record(cells: Mapping[str, str]) -> dict[str, object]:
-    """One CSV row in the JSON record shape: empty cells are absent; one evidence item."""
+    """One CSV row in the JSON record shape: empty cells are absent; one evidence item.
+
+    An empty hypothesis or verified_facts cell is the empty value (CSV_EMPTY_ALLOWED), so a CSV
+    row can say "no hypothesis" or "no facts yet" just as a JSON record can.
+    """
     record: dict[str, object] = {}
     evidence: dict[str, object] = {}
     groups: dict[str, dict[str, object]] = {}
     for column in CSV_COLUMNS:
         value = cells.get(column, "")
         if not value.strip():
+            if column in CSV_EMPTY_ALLOWED and column in cells:
+                empty = CSV_EMPTY_ALLOWED[column]
+                record[column] = list(empty) if isinstance(empty, list) else empty
             continue
         if column.startswith("evidence_"):
             evidence[column.removeprefix("evidence_")] = value
