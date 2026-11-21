@@ -111,8 +111,20 @@ In one transaction the command:
   WHERE id = 42;
   ```
 
-- clears personal notes about them in their leads' free-text fields (`hypothesis`,
-  `next_action`, `property_location`);
+- clears what they told us in their leads: the free-text fields (`hypothesis`,
+  `next_action`, `property_location`, and the `project_scope` log-inbound records) and a
+  budget they stated themselves (`value_basis` `buyer-stated`), as this SQL would:
+
+  ```sql
+  UPDATE leads
+  SET hypothesis = NULL, next_action = NULL, property_location = NULL, project_scope = NULL
+  WHERE contact_id = 42;
+  UPDATE leads
+  SET value_amount = NULL, value_basis = NULL
+  WHERE contact_id = 42 AND value_basis = 'buyer-stated';
+  ```
+
+  A value we estimated ourselves (any other basis) is not something they told us and stays;
 - removes their details from activity records: the one exception to append-only activities
   (R-17). In every activity of the contact or its leads, the `note` and `need` payload values
   are cleared and any other occurrence of their name, email or phone becomes `[removed]`. No
@@ -185,11 +197,13 @@ a separate inquiry, re-run with `--confirm-duplicate` (or answer `y` at the prom
 either, it refuses with exit 1 and saves nothing.
 
 Opt-outs are suppressed the same day they arrive (R-24). Until the `suppress` command exists,
-add the entry directly; an address already suppressed is kept as it is:
+add the entry directly; an address already suppressed is kept as it is. `email_norm` must be
+the trimmed, lower-cased address, or the suppression will not match the contact; let SQLite do
+it by pasting the address as written into `lower(trim(...))`:
 
 ```sql
 INSERT OR IGNORE INTO suppression (email_norm, reason, source, added_at)
-    VALUES ('pat@example.com', 'opt_out', 'relay', '2026-11-16T21:05:00Z');
+    VALUES (lower(trim(' Pat@Example.com ')), 'opt_out', 'relay', '2026-11-16T21:05:00Z');
 ```
 
 Send the founder the review after logging: `uv run cottonwood review --out out/review.md`. The

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from cottonwood import gate
+from cottonwood.inbound import BUDGET_BASIS
 
 DEFAULT_ACTOR = "founder"
 ACTIVITY_TYPE = "deletion_request"
@@ -30,7 +31,7 @@ FREE_TEXT_KEYS = ("note", "need")
 UPDATE_TRIGGER = "activities_no_update"
 
 _CONTACT_FIELDS = ("name", "email", "email_norm", "phone_e164", "role", "source_url", "address")
-_LEAD_FIELDS = ("hypothesis", "next_action", "property_location")
+_LEAD_FIELDS = ("hypothesis", "next_action", "property_location", "project_scope")
 
 
 class DeletionError(ValueError):
@@ -136,6 +137,13 @@ def _delete(conn: sqlite3.Connection, contact_id: int, actor: str, now: str) -> 
     )
     lead_assignments = ", ".join(f"{field} = NULL" for field in _LEAD_FIELDS)
     conn.execute(f"UPDATE leads SET {lead_assignments} WHERE contact_id = ?", (contact_id,))
+    # A budget the inquirer stated (log-inbound) is something they told us, so it goes; a
+    # value we estimated ourselves (any other basis) stays (R-9, R-35).
+    conn.execute(
+        "UPDATE leads SET value_amount = NULL, value_basis = NULL"
+        " WHERE contact_id = ? AND value_basis = ?",
+        (contact_id, BUDGET_BASIS),
+    )
 
     activity_id = _insert_removal(conn, contact_id, redacted, actor, now)
     return DeletionResult(contact_id, activity_id, redacted, suppressed, added)
