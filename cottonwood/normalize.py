@@ -17,8 +17,10 @@ def normalize_email(value: str) -> str:
     if email.count("@") != 1:
         raise ValueError(f"email must contain exactly one @: {value!r}")
     local, domain = email.split("@")
-    if not local or any(ch.isspace() for ch in email):
-        raise ValueError(f"email has an empty or spaced local part: {value!r}")
+    if any(ch.isspace() for ch in email):
+        raise ValueError(f"email must not contain whitespace: {value!r}")
+    if not local:
+        raise ValueError(f"email has an empty local part: {value!r}")
     if not _EMAIL_DOMAIN.match(domain):
         raise ValueError(f"email domain must be a dotted name: {value!r}")
     return email
