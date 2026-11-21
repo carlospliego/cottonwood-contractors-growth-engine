@@ -32,6 +32,9 @@ _SQLITE_MAX_INT = 2**63 - 1
 ELIGIBILITY_UNKNOWN = "unknown"
 ELIGIBILITY_INELIGIBLE = "ineligible"
 _SAVEPOINT = "prospect_record"
+# Placeholders for the activities a --check run writes and then rolls back.
+CHECK_FILE = "(check)"
+CHECK_ACTOR = "check"
 # A record whose own data breaks a database constraint is rejected alone (field "record").
 RULE_CONSTRAINT = "constraint"
 
@@ -112,6 +115,8 @@ def import_records(
     file_name: str,
     records: Sequence[ProspectRecord | Rejection],
     actor: str,
+    *,
+    dry_run: bool = False,
 ) -> ImportResult:
     """Import validated records and record rejections, committing once at the end.
 
@@ -121,6 +126,8 @@ def import_records(
     writes one ``import_rejected`` activity with no lead. A record that breaks a database
     constraint (sqlite3.IntegrityError) is rolled back to its savepoint and rejected as
     ``record: constraint`` while the others go on; any other error rolls back the whole import.
+    With ``dry_run`` the transaction is rolled back instead of committed, so the result is the
+    import's own and nothing is kept.
     """
     now = timeutil.utc_now()
     outcomes: list[RecordOutcome] = []
@@ -151,7 +158,10 @@ def import_records(
                 raise
             conn.execute(f"RELEASE {_SAVEPOINT}")
             outcomes.append(outcome)
-        conn.commit()
+        if dry_run:
+            conn.rollback()
+        else:
+            conn.commit()
     except BaseException:
         conn.rollback()
         raise
@@ -163,18 +173,11 @@ def check_records(
 ) -> list[Rejection]:
     """The rejections import_records would report for ``records``, writing nothing (R-25).
 
-    Validation rejections are returned as they are; a valid record is also checked for a
-    referrer that is not a stored relationship prospect, with a read-only query.
+    The import itself runs and is rolled back, so a later record sees what earlier records of
+    the same file would store (a referrer one of them creates, say), exactly as on import.
     """
-    rejections: list[Rejection] = []
-    for record in records:
-        if isinstance(record, Rejection):
-            rejections.append(record)
-            continue
-        rejection = _referrer_rejection(conn, record)
-        if rejection is not None:
-            rejections.append(rejection)
-    return rejections
+    result = import_records(conn, CHECK_FILE, records, CHECK_ACTOR, dry_run=True)
+    return [outcome.rejection for outcome in result.outcomes if outcome.rejection is not None]
 
 
 def _referrer_rejection(conn: sqlite3.Connection, record: ProspectRecord) -> Rejection | None:
