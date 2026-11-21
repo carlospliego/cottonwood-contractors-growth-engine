@@ -415,6 +415,11 @@ def _run_report(args: argparse.Namespace) -> int:
     except sqlite3.Error as exc:
         print(f"error: could not read the database: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+    except ValueError as exc:
+        # A stored value that does not parse (a timestamp, say): name it instead of a
+        # traceback (F-correctness-2).
+        print(f"error: a stored value could not be read: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
     finally:
         conn.close()
     if args.out is None:
