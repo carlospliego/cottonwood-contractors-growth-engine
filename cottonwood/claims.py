@@ -83,6 +83,8 @@ def load_claims(path: Path) -> tuple[Claim, ...]:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise ClaimsError(path, "file", "not found") from None
+    except UnicodeDecodeError as exc:
+        raise ClaimsError(path, "file", f"is not UTF-8 text (byte {exc.start})") from None
     except OSError as exc:
         raise ClaimsError(path, "file", f"cannot be read: {exc.strerror or exc}") from None
     try:
