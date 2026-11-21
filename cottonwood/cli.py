@@ -107,7 +107,7 @@ def _run_backup(args: argparse.Namespace) -> int:
             args.to if args.to is not None else config.load_config(args.config).backup_dir
         )
         written = backup.backup(db_path, dest_dir)
-    except (backup.BackupError, config.ConfigError) as exc:
+    except (backup.BackupError, db.DatabaseMissingError, config.ConfigError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     print(f"backup written: {written}")

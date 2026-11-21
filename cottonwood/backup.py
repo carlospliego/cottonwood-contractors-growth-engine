@@ -9,6 +9,10 @@ from pathlib import Path
 
 from cottonwood.db import BUSY_TIMEOUT_SECONDS
 
+# Re-exported: db holds the one definition, so backup.DatabaseMissingError and
+# db.DatabaseMissingError are the same class and callers can catch either.
+from cottonwood.db import DatabaseMissingError as DatabaseMissingError
+
 
 class BackupError(Exception):
     """A backup could not be written."""
@@ -20,14 +24,6 @@ class BackupFolderMissingError(BackupError):
     def __init__(self, folder: Path) -> None:
         super().__init__(f"backup folder does not exist: {folder}")
         self.folder = folder
-
-
-class DatabaseMissingError(BackupError):
-    """The database to back up does not exist."""
-
-    def __init__(self, path: Path) -> None:
-        super().__init__(f"database does not exist: {path}")
-        self.path = path
 
 
 def _utc_now() -> datetime:
