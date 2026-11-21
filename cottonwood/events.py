@@ -31,10 +31,17 @@ EVENT_TYPES = (
 )
 DEFAULT_ACTOR = "developer"
 
+# The lead types, named once here and imported wherever a module needs one.
+INBOUND_INQUIRY = "inbound_inquiry"
+DIRECT_CANDIDATE = "direct_candidate"
+RELATIONSHIP_PROSPECT = "relationship_prospect"
+# The stage prospects-import creates leads in; both stage lists have it.
+RESEARCHED_STAGE = "researched"
+
 # R-14: direct and inbound leads share one list; relationship prospects have their own.
 DIRECT_STAGES = (
     "candidate",
-    "researched",
+    RESEARCHED_STAGE,
     "contacted_or_replied",
     "buyer_need_confirmed",
     "walkthrough",
@@ -45,16 +52,16 @@ DIRECT_STAGES = (
 )
 RELATIONSHIP_STAGES = (
     "identified",
-    "researched",
+    RESEARCHED_STAGE,
     "introduced",
     "responded",
     "active_relationship",
     "closed_no_fit",
 )
 STAGES_BY_LEAD_TYPE = {
-    "inbound_inquiry": DIRECT_STAGES,
-    "direct_candidate": DIRECT_STAGES,
-    "relationship_prospect": RELATIONSHIP_STAGES,
+    INBOUND_INQUIRY: DIRECT_STAGES,
+    DIRECT_CANDIDATE: DIRECT_STAGES,
+    RELATIONSHIP_PROSPECT: RELATIONSHIP_STAGES,
 }
 # R-16: the only way into this stage is an event stating the need or a procurement URL.
 QUALIFIED_STAGE = "buyer_need_confirmed"

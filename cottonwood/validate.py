@@ -23,11 +23,11 @@ from urllib.parse import urlsplit
 
 from jsonschema import Draft202012Validator, ValidationError
 
-from cottonwood import normalize
+from cottonwood import events, normalize
 
 SCHEMA_RESOURCE = ("schemas", "research-record.schema.json")
 FILE_SUFFIXES = (".json", ".csv")
-RELATIONSHIP = "relationship_prospect"
+RELATIONSHIP = events.RELATIONSHIP_PROSPECT
 DEFAULT_EVIDENCE_KIND = "fact"
 
 # Rules Python checks after the schema passes (the schema keyword names the others).
