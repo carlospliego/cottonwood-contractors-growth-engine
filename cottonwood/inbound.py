@@ -13,6 +13,8 @@ from cottonwood import normalize, timeutil
 CHANNELS = ("form", "phone")
 SEGMENTS = ("commercial", "residential", "unknown")
 BUDGET_BASIS = "buyer-stated"
+# leads.type for every inquiry this module stores; queries bind it rather than repeat it.
+LEAD_TYPE = "inbound_inquiry"
 DEFAULT_ACTOR = "developer"
 
 
@@ -22,6 +24,15 @@ class InquiryError(ValueError):
     def __init__(self, field: str, message: str) -> None:
         super().__init__(f"{field}: {message}")
         self.field = field
+
+
+class DuplicateChangedError(Exception):
+    """A same-day match was saved after the operator's check; ``new`` lists the new lead ids."""
+
+    def __init__(self, new: Sequence[int]) -> None:
+        ids = ", ".join(str(lead_id) for lead_id in new)
+        super().__init__(f"possible duplicate lead(s) {ids} saved since the check")
+        self.new = list(new)
 
 
 @dataclass(frozen=True)
@@ -70,7 +81,14 @@ def _clean(value: str | None) -> str | None:
 
 
 def _parse_budget(value: str) -> str:
-    """Return a stated budget as exact decimal text; reject non-numbers and negatives."""
+    """Return a stated budget as exact decimal text; reject non-numbers and negatives.
+
+    The stored text is plain fixed-point digits with the precision the inquirer gave
+    ('1500', '1500.50', '0.0000001'), never scientific notation. Exponent form (1e5) is
+    refused rather than rewritten, so the stored figure is the one that was typed.
+    """
+    if "e" in value.lower():
+        raise InquiryError("budget", f"write the amount in plain digits, not 1e5 form: {value!r}")
     try:
         amount = Decimal(value)
     except InvalidOperation:
@@ -81,7 +99,8 @@ def _parse_budget(value: str) -> str:
         raise InquiryError("budget", f"must not be negative: {value!r}")
     if amount == 0:
         return "0"
-    return str(amount)
+    # str(Decimal) switches to exponent form for small values ('1E-7'); 'f' never does.
+    return format(amount, "f")
 
 
 def validate(raw: RawInquiry) -> Inquiry:
@@ -114,6 +133,14 @@ def validate(raw: RawInquiry) -> Inquiry:
         except ValueError as exc:
             raise InquiryError("phone", str(exc)) from None
 
+    company = _clean(raw.company)
+    if company is not None and not normalize.normalize_name(company):
+        # All-punctuation names share the empty match key, so every one would reuse the
+        # same organization; refuse rather than merge unrelated inquiries.
+        raise InquiryError(
+            "company", f"needs at least one letter or digit to match on: {raw.company!r}"
+        )
+
     budget_text = _clean(raw.budget)
     budget = None if budget_text is None else _parse_budget(budget_text)
     actor = _clean(raw.actor)
@@ -128,7 +155,7 @@ def validate(raw: RawInquiry) -> Inquiry:
         email=email,
         email_norm=email_norm,
         phone_e164=phone_e164,
-        company=_clean(raw.company),
+        company=company,
         location=_clean(raw.location),
         scope=_clean(raw.scope),
         budget=budget,
@@ -171,10 +198,10 @@ def find_same_day_duplicates(
     rows = conn.execute(
         "SELECT leads.id, leads.received_at FROM leads"
         " JOIN contacts ON contacts.id = leads.contact_id"
-        " WHERE leads.type = 'inbound_inquiry'"
+        " WHERE leads.type = ?"
         " AND (contacts.email_norm = ? OR contacts.phone_e164 = ?)"
         " ORDER BY leads.id",
-        (email_norm, phone_e164),
+        (LEAD_TYPE, email_norm, phone_e164),
     ).fetchall()
     day = timeutil.local_date(received_at)
     return [
@@ -189,10 +216,21 @@ def log_inquiry(
 ) -> int:
     """Store one inquiry (organization, contact, lead, activity) atomically; return the lead id.
 
-    ``duplicate_of`` lists the lead ids the operator confirmed this inquiry duplicates.
+    ``duplicate_of`` lists the lead ids the operator confirmed this inquiry duplicates. The
+    write lock is taken first and the same-day check repeated under it, so a matching
+    inquiry another writer saved after the operator's check is not saved over: it raises
+    DuplicateChangedError and nothing is written (R-2).
     """
     now = timeutil.utc_now()
+    conn.execute("BEGIN IMMEDIATE")
     try:
+        current = find_same_day_duplicates(
+            conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at
+        )
+        confirmed = set(duplicate_of)
+        new = [lead_id for lead_id in current if lead_id not in confirmed]
+        if new:
+            raise DuplicateChangedError(new)
         org_id = None
         if inquiry.company is not None:
             org_id = _organization_id(conn, inquiry.company, now)
@@ -208,8 +246,9 @@ def log_inquiry(
                 "INSERT INTO leads (type, organization_id, contact_id, stage, segment, channel,"
                 " property_location, project_scope, value_amount, value_basis, is_test,"
                 " received_at)"
-                " VALUES ('inbound_inquiry', ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?)",
+                " VALUES (?, ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
+                    LEAD_TYPE,
                     org_id,
                     contact_id,
                     inquiry.segment,

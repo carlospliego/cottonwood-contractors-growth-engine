@@ -44,7 +44,7 @@ The month-one KPI is (qualified direct conversations + partner conversations) ÷
 - R-14: Lead stages are limited to: direct/inbound `candidate`, `researched`, `contacted_or_replied`, `buyer_need_confirmed`, `walkthrough`, `proposal`, `won`, `lost`, `closed_no_fit`; relationship `identified`, `researched`, `introduced`, `responded`, `active_relationship`, `closed_no_fit`; any other value is rejected.
 - R-15: `cottonwood log-event <lead-id> <type>` records an event of type `acknowledgement`, `call`, `missed_call`, `call_returned`, `remote_screen`, `walkthrough`, `proposal`, `won`, `lost`, `partner_conversation`, `handoff` or `note`, with its time, and optionally moves the lead to a new stage; every stage change is recorded as an activity naming the event that caused it.
 - R-16: A lead enters `buyer_need_confirmed` only through a logged event stating either the prospect's confirmed need or the URL of an accessible active procurement.
-- R-17: Activities cannot be edited or deleted; `cottonwood log-event <lead-id> correction --voids <activity-id>` marks an earlier activity void, and void activities are excluded from all counts.
+- R-17: Activities cannot be edited or deleted; `cottonwood log-event <lead-id> correction --voids <activity-id>` marks an earlier activity void, and void activities are excluded from all counts. A deletion request (R-35) is the one exception under which activity records are changed: `cottonwood deletion-request` removes that contact's personal details from their activity payloads and records the removal as a new activity with no personal data; activities are still never deleted.
 
 ### Approval, claims and sending
 - R-18: `cottonwood approve` records a founder approval with approver, time, scope (`lead`, `draft`, `claim`, `audience` or `offer`), the item approved, and a reference to the founder's written approval (for example the email's date and subject); approvals cannot be recorded without that reference.
@@ -70,7 +70,7 @@ The month-one KPI is (qualified direct conversations + partner conversations) ÷
 - R-32: All timestamps are stored in UTC and displayed in America/Denver time.
 - R-33: `cottonwood backup` writes a consistent copy of the SQLite database to a configured local backup folder under a timestamped name, and fails with a clear message if the folder does not exist; `docs/runbook.md` documents the restore steps, including copying the current database aside first and checking the backup opens and contains the suppression table.
 - R-34: The database file and backups are git-ignored, and secrets are read only from `.env`, with `.env.example` committed.
-- R-35: `docs/runbook.md` documents the deletion-request procedure: remove the person's contact fields and notes, and keep their suppression entry.
+- R-35: `docs/runbook.md` documents the deletion-request procedure: remove the person's contact fields and notes, remove the person's details from activity records (the one exception to R-17), log the removal without personal data, and keep their suppression entry.
 
 ## Decisions already made
 - **Cottonwood only.** One application for this one business; no generic, multi-tenant or configurable-industry design. Cottonwood values live in `config/pilot.yaml`.

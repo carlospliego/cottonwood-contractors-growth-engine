@@ -58,6 +58,11 @@ STAGES_BY_LEAD_TYPE = {
 # R-16: the only way into this stage is an event stating the need or a procurement URL.
 QUALIFIED_STAGE = "buyer_need_confirmed"
 
+# The activity types this module writes besides R-15 events (time_logged and cost_logged
+# are TIME_KIND and COST_KIND below). The SQL fragments are built from these names.
+CORRECTION_KIND = "correction"
+STAGE_CHANGE_KIND = "stage_change"
+
 # The stage_change payload key naming the activity that CAUSED the move (AC-4.3). Despite the
 # name it is not always an R-15 event: log_event writes the event's id, but log_correction
 # writes the correction's id for a revert. Tell the two apart by the type of the row it names
@@ -69,7 +74,8 @@ STAGE_CHANGE_CAUSE_KEY = "event_activity_id"
 _CAUSE_SQL = f"json_extract(a.payload, '$.{STAGE_CHANGE_CAUSE_KEY}')"
 # True when the stage_change row aliased ``a`` is a revert: its cause is a correction.
 _IS_REVERT_SQL = (
-    f"EXISTS (SELECT 1 FROM activities r WHERE r.type = 'correction' AND r.id = {_CAUSE_SQL})"
+    "EXISTS (SELECT 1 FROM activities r"
+    f" WHERE r.type = '{CORRECTION_KIND}' AND r.id = {_CAUSE_SQL})"
 )
 
 
@@ -78,7 +84,7 @@ _IS_REVERT_SQL = (
 # and the already-void refusals) is built from this predicate; change void semantics here only.
 def _voiding_sql(target: str) -> str:
     """SQL true when the correction row aliased ``c`` voids the activity id ``target``."""
-    return f"c.type = 'correction' AND c.voids_activity_id = {target}"
+    return f"c.type = '{CORRECTION_KIND}' AND c.voids_activity_id = {target}"
 
 
 def _voided_sql(target: str) -> str:
@@ -95,7 +101,14 @@ def _voided_by(conn: sqlite3.Connection, activity_id: int) -> int | None:
 
 
 class EventError(ValueError):
-    """An event field failed validation or a refusal rule; ``field`` names it."""
+    """A field failed validation or a refusal rule; ``field`` names it.
+
+    Despite the name it is not only for R-15 events: it also covers corrections
+    (validate_correction, log_correction) and time and cost entries (validate_time,
+    validate_cost, void_entry, R-30), and hand_review raises it too. The CLI prints it as
+    ``error: <field>: <message>`` and exits 1 for each of those commands, log-time and
+    log-cost included.
+    """
 
     def __init__(self, field: str, message: str) -> None:
         super().__init__(f"{field}: {message}")
@@ -174,8 +187,12 @@ def validate_event(raw: RawEvent, now: str) -> Event:
     actor = _clean(raw.actor)
     if actor is None:
         raise EventError("actor", "must not be empty")
+    # A --stage that is given but blank is refused rather than read as "no move": leaving the
+    # option out is the way to log an event without a move (F-maintainability-4).
+    if raw.stage is not None and not raw.stage.strip():
+        raise EventError("stage", "must not be blank; leave --stage out to log no move")
     # The R-16 rule needs the lead's type (an out-of-list stage is refused first, with the
-    # type's allowed stages), so it is checked in log_event; here blank text only stays blank.
+    # type's allowed stages), so it is checked in log_event.
     stage = _clean(raw.stage)
     need = None if raw.need is None else raw.need.strip()
     procurement_url = None if raw.procurement_url is None else raw.procurement_url.strip()
@@ -192,9 +209,13 @@ def validate_event(raw: RawEvent, now: str) -> Event:
 
 
 def _is_http_url(value: str) -> bool:
-    """True for an absolute http(s) URL with a host."""
+    """True for an absolute http(s) URL with a host.
+
+    The host is checked, not netloc: 'http://:80' and 'http://user@' have a netloc but no host
+    (F-correctness-7).
+    """
     parsed = urlparse(value)
-    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    return parsed.scheme in ("http", "https") and bool(parsed.hostname)
 
 
 def _rowid(cursor: sqlite3.Cursor) -> int:
@@ -240,6 +261,8 @@ def _check_qualification(event: Event) -> None:
 def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
     """Append the event and, with a stage, the move and its stage_change, in one transaction."""
     now = timeutil.utc_now()
+    # Take the write lock before the first read, so the checks and the inserts see one state.
+    conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute(
             "SELECT id, type, stage FROM leads WHERE id = ?", (event.lead_id,)
@@ -249,6 +272,7 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         from_stage = str(lead[2])
         if event.stage is not None:
             _check_stage(str(lead[1]), from_stage, event.stage)
+            _check_not_before_latest_stage_change(conn, event)
         _check_qualification(event)
         payload: dict[str, object] = {"event": event.type}
         if event.note is not None:
@@ -267,7 +291,7 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
             stage_change_id = _insert_activity(
                 conn,
                 event.lead_id,
-                "stage_change",
+                STAGE_CHANGE_KIND,
                 {"from": from_stage, "to": event.stage, STAGE_CHANGE_CAUSE_KEY: event_id},
                 event.actor,
                 event.occurred_at,
@@ -278,6 +302,29 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         conn.rollback()
         raise
     return LoggedEvent(event_id, stage_change_id, from_stage if stage_change_id else None)
+
+
+def _check_not_before_latest_stage_change(conn: sqlite3.Connection, event: Event) -> None:
+    """Refuse a stage change backdated before the lead's latest effective one (CCGE-060).
+
+    leads.stage is the latest effective stage change by (occurred_at, id) (plan: "Effective
+    stage change"). A move dated earlier than that one would set leads.stage while ranking
+    below it, so a later correction would revert to the wrong stage; it is refused instead.
+    A move at the same time ranks after it by id, so it is allowed.
+    """
+    latest = conn.execute(
+        f"SELECT a.id, a.occurred_at FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+        f" AND a.lead_id = ? AND NOT {_IS_REVERT_SQL}"
+        " ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+        (event.lead_id,),
+    ).fetchone()
+    if latest is not None and event.occurred_at < str(latest[1]):
+        raise EventError(
+            "at",
+            f"is earlier than lead {event.lead_id}'s latest stage change (activity {latest[0]},"
+            f" {timeutil.display_local(str(latest[1]))}); a stage change cannot be dated"
+            " before it",
+        )
 
 
 def _insert_activity(
@@ -314,9 +361,9 @@ def _insert_activity(
 # the voided move never happened; activities on test leads (R-3) do not count, entries with no
 # lead do. "Void" itself is defined once, by _voiding_sql.
 COUNTED_ACTIVITIES_SQL = (
-    "a.type <> 'correction'"
+    f"a.type <> '{CORRECTION_KIND}'"
     f" AND NOT {_voided_sql('a.id')}"
-    f" AND NOT (a.type = 'stage_change' AND ({_voided_sql(_CAUSE_SQL)}"
+    f" AND NOT (a.type = '{STAGE_CHANGE_KIND}' AND ({_voided_sql(_CAUSE_SQL)}"
     f" OR {_IS_REVERT_SQL}))"
     " AND (a.lead_id IS NULL OR EXISTS (SELECT 1 FROM leads l"
     " WHERE l.id = a.lead_id AND l.is_test = 0))"
@@ -325,7 +372,8 @@ COUNTED_ACTIVITIES_SQL = (
 # A stage change still in force: nothing voids it and nothing voids the activity that caused
 # it (an event; a revert's cause is a correction, which is never voidable, so it stays).
 _EFFECTIVE_STAGE_CHANGE_SQL = (
-    f"a.type = 'stage_change' AND NOT {_voided_sql('a.id')} AND NOT {_voided_sql(_CAUSE_SQL)}"
+    f"a.type = '{STAGE_CHANGE_KIND}' AND NOT {_voided_sql('a.id')}"
+    f" AND NOT {_voided_sql(_CAUSE_SQL)}"
 )
 
 
@@ -335,7 +383,8 @@ def is_revert(conn: sqlite3.Connection, stage_change_id: int) -> bool:
     False for a move caused by an R-15 event, and for an id that is not a stage_change.
     """
     row = conn.execute(
-        f"SELECT {_IS_REVERT_SQL} FROM activities a WHERE a.id = ? AND a.type = 'stage_change'",
+        f"SELECT {_IS_REVERT_SQL} FROM activities a"
+        f" WHERE a.id = ? AND a.type = '{STAGE_CHANGE_KIND}'",
         (stage_change_id,),
     ).fetchone()
     return row is not None and bool(row[0])
@@ -409,6 +458,9 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
     now = timeutil.utc_now()
     lead_id = correction.lead_id
     voids_id = correction.voids_id
+    # The write lock comes before the already-void check, so two concurrent corrections
+    # cannot both void the same activity (F-correctness-1).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute("SELECT stage FROM leads WHERE id = ?", (lead_id,)).fetchone()
         if lead is None:
@@ -453,13 +505,28 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
                     f"lead {lead_id} has a later stage change (activity {latest['id']});"
                     " void the event behind it first",
                 )
+            # The revert is a stage change dated at the correction. Dated before the lead's
+            # latest effective stage change (reverts included), it would set leads.stage while
+            # ranking below that change by (occurred_at, id), so it is refused (F-correctness-4).
+            newest = conn.execute(
+                f"SELECT a.id, a.occurred_at FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+                " AND a.lead_id = ? ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+                (lead_id,),
+            ).fetchone()
+            if newest is not None and correction.occurred_at < str(newest["occurred_at"]):
+                raise EventError(
+                    "at",
+                    f"is earlier than lead {lead_id}'s latest stage change (activity"
+                    f" {newest['id']}, {timeutil.display_local(str(newest['occurred_at']))});"
+                    " a correction that reverts a stage cannot be dated before it",
+                )
         payload: dict[str, object] = {}
         if correction.note is not None:
             payload["note"] = correction.note
         correction_id = _insert_activity(
             conn,
             lead_id,
-            "correction",
+            CORRECTION_KIND,
             payload,
             correction.actor,
             correction.occurred_at,
@@ -477,7 +544,7 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
             stage_change_id = _insert_activity(
                 conn,
                 lead_id,
-                "stage_change",
+                STAGE_CHANGE_KIND,
                 {"from": from_stage, "to": to_stage, STAGE_CHANGE_CAUSE_KEY: correction_id},
                 correction.actor,
                 correction.occurred_at,
@@ -496,8 +563,14 @@ DEFAULT_PERSON = "founder"
 TIME_KIND = "time_logged"
 COST_KIND = "cost_logged"
 MAX_HOURS = Decimal(24)
-_PLAIN_DECIMAL = re.compile(r"^\d+(?:\.\d+)?$")
-_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# The most one cost entry may be. An amount has at most 2 places, so an entry has at most
+# 9 significant digits and sums of entries stay far inside Decimal's 28-digit default
+# context: cost_totals are exact (F-correctness-6). Larger spend goes in several entries.
+MAX_COST_USD = Decimal(1_000_000)
+# ASCII digits only: \d also matches other scripts' digits (Arabic-Indic, fullwidth, ...),
+# which Decimal() and date.fromisoformat() would then accept (F-correctness-5).
+_PLAIN_DECIMAL = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
+_ISO_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 
 @dataclass(frozen=True)
@@ -607,8 +680,12 @@ def validate_time(raw: RawTime, today: date) -> TimeEntry:
 
 
 def validate_cost(raw: RawCost, today: date) -> CostEntry:
-    """Check a cost entry: amount > 0 with 2 places; date not after ``today``."""
+    """Check a cost entry: 0 < amount <= MAX_COST_USD, 2 places; date not after ``today``."""
     amount = _parse_amount("amount", raw.amount_usd)
+    if amount > MAX_COST_USD:
+        raise EventError(
+            "amount", f"at most {MAX_COST_USD} US dollars in one entry, got {raw.amount_usd!r}"
+        )
     day = _parse_entry_date(raw.date, today)
     category, note, actor = _entry_fields(raw.category, raw.note, raw.actor)
     return CostEntry(amount, day, category, raw.estimated, note, actor)
@@ -666,15 +743,19 @@ def void_entry(
     voids_id: int,
     kind: str,
     actor: str,
-    now: str,
     note: str | None = None,
 ) -> int:
-    """Void one time or cost entry with an appended correction (no lead); return its id."""
+    """Void one time or cost entry with an appended correction (no lead); return its id.
+
+    Like the other log functions, it reads the current time itself (timeutil.utc_now).
+    """
     if kind not in (TIME_KIND, COST_KIND):
         raise EventError("voids", f"kind must be {TIME_KIND} or {COST_KIND}")
     who = _clean(actor)
     if who is None:
         raise EventError("actor", "must not be empty")
+    # The write lock comes before the already-void check (F-correctness-1).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         target = conn.execute(
             "SELECT id, type FROM activities WHERE id = ?", (voids_id,)
@@ -692,8 +773,9 @@ def void_entry(
         cleaned = _clean(note)
         if cleaned is not None:
             payload["note"] = cleaned
+        now = timeutil.utc_now()
         correction_id = _insert_activity(
-            conn, None, "correction", payload, who, now, now, voids_activity_id=voids_id
+            conn, None, CORRECTION_KIND, payload, who, now, now, voids_activity_id=voids_id
         )
         conn.commit()
     except BaseException:
