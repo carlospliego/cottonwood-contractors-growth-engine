@@ -574,6 +574,8 @@ def _add_entry_arguments(parser: argparse.ArgumentParser, *, amount: str, help_t
     parser.add_argument("amount", nargs="?", default=None, metavar=amount, help=help_text)
     parser.add_argument("--date", default=None, help="the day it happened, YYYY-MM-DD (Denver)")
     parser.add_argument("--category", default=None, help="what it was for (stored lowercase)")
+    # default=None, not False: None means --estimated was not given, and the --voids conflict
+    # check (_entry_option_problem) relies on that to refuse --voids together with --estimated.
     parser.add_argument(
         "--estimated",
         action="store_true",
@@ -606,6 +608,9 @@ def _add_entry_arguments(parser: argparse.ArgumentParser, *, amount: str, help_t
 def _add_log_time_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the log-time command's arguments."""
     _add_entry_arguments(parser, amount="HOURS", help_text="hours spent, e.g. 1.5 (at most 24)")
+    # default=None, not DEFAULT_PERSON: None means --person was not given (the default is applied
+    # later), and the --voids conflict check (_entry_option_problem) relies on that to refuse
+    # --voids together with --person.
     parser.add_argument(
         "--person",
         choices=events.PEOPLE,
@@ -619,8 +624,12 @@ def _add_log_cost_arguments(parser: argparse.ArgumentParser) -> None:
     _add_entry_arguments(parser, amount="AMOUNT", help_text="US dollars spent, e.g. 49.00")
 
 
-def _void_entry_conflict(args: argparse.Namespace, amount_name: str) -> str | None:
-    """With --voids, name the first entry option also given; without it, the first missing."""
+def _entry_option_problem(args: argparse.Namespace, amount_name: str) -> str | None:
+    """Name the first problem with the log-time/log-cost options, or return None.
+
+    It does two jobs: with --voids, it names the first entry option also given (a conflict);
+    without --voids, it names the first required entry option that is missing.
+    """
     given = [
         (amount_name, args.amount),
         ("date", args.date),
@@ -640,7 +649,7 @@ def _void_entry_conflict(args: argparse.Namespace, amount_name: str) -> str | No
 
 def _run_entry(args: argparse.Namespace, kind: str, amount_name: str) -> int:
     """Validate, connect and write one time or cost entry, or void one."""
-    problem = _void_entry_conflict(args, amount_name)
+    problem = _entry_option_problem(args, amount_name)
     if problem is not None:
         print(f"error: {problem}", file=sys.stderr)
         return EXIT_REFUSED
