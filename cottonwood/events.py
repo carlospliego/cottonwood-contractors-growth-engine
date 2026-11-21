@@ -240,6 +240,8 @@ def _check_qualification(event: Event) -> None:
 def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
     """Append the event and, with a stage, the move and its stage_change, in one transaction."""
     now = timeutil.utc_now()
+    # Take the write lock before the first read, so the checks and the inserts see one state.
+    conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute(
             "SELECT id, type, stage FROM leads WHERE id = ?", (event.lead_id,)
@@ -409,6 +411,9 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
     now = timeutil.utc_now()
     lead_id = correction.lead_id
     voids_id = correction.voids_id
+    # The write lock comes before the already-void check, so two concurrent corrections
+    # cannot both void the same activity (F-correctness-1).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute("SELECT stage FROM leads WHERE id = ?", (lead_id,)).fetchone()
         if lead is None:
@@ -675,6 +680,8 @@ def void_entry(
     who = _clean(actor)
     if who is None:
         raise EventError("actor", "must not be empty")
+    # The write lock comes before the already-void check (F-correctness-1).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         target = conn.execute(
             "SELECT id, type FROM activities WHERE id = ?", (voids_id,)
