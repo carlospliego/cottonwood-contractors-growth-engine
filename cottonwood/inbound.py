@@ -13,6 +13,8 @@ from cottonwood import normalize, timeutil
 CHANNELS = ("form", "phone")
 SEGMENTS = ("commercial", "residential", "unknown")
 BUDGET_BASIS = "buyer-stated"
+# leads.type for every inquiry this module stores; queries bind it rather than repeat it.
+LEAD_TYPE = "inbound_inquiry"
 DEFAULT_ACTOR = "developer"
 
 
@@ -171,10 +173,10 @@ def find_same_day_duplicates(
     rows = conn.execute(
         "SELECT leads.id, leads.received_at FROM leads"
         " JOIN contacts ON contacts.id = leads.contact_id"
-        " WHERE leads.type = 'inbound_inquiry'"
+        " WHERE leads.type = ?"
         " AND (contacts.email_norm = ? OR contacts.phone_e164 = ?)"
         " ORDER BY leads.id",
-        (email_norm, phone_e164),
+        (LEAD_TYPE, email_norm, phone_e164),
     ).fetchall()
     day = timeutil.local_date(received_at)
     return [
@@ -208,8 +210,9 @@ def log_inquiry(
                 "INSERT INTO leads (type, organization_id, contact_id, stage, segment, channel,"
                 " property_location, project_scope, value_amount, value_basis, is_test,"
                 " received_at)"
-                " VALUES ('inbound_inquiry', ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?)",
+                " VALUES (?, ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
+                    LEAD_TYPE,
                     org_id,
                     contact_id,
                     inquiry.segment,

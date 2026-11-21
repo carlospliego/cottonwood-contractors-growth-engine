@@ -198,8 +198,9 @@ def _inbound(conn: sqlite3.Connection, period: Period) -> InboundMetrics:
     total = within = outside = missing = 0
     for row in conn.execute(
         "SELECT id, channel, segment, received_at FROM leads"
-        f" WHERE type = 'inbound_inquiry' AND {review.COUNTED_LEADS_FILTER}"
-        " AND received_at IS NOT NULL ORDER BY id"
+        f" WHERE type = ? AND {review.COUNTED_LEADS_FILTER}"
+        " AND received_at IS NOT NULL ORDER BY id",
+        (inbound.LEAD_TYPE,),
     ):
         received = timeutil.local_date(str(row["received_at"]))
         if not period.contains(received):
