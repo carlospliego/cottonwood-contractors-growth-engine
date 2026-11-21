@@ -1071,7 +1071,7 @@ def _run_approve(args: argparse.Namespace) -> int:
     """Record one founder approval with its written-approval reference (R-18)."""
     today = events.denver_today()
     try:
-        day = today if args.date is None else events._parse_entry_date(args.date, today)
+        day = today if args.date is None else events.parse_entry_date(args.date, today)
     except events.EventError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED

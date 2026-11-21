@@ -764,3 +764,11 @@ def cost_totals(conn: sqlite3.Connection, start: date, end: date) -> CostTotals:
         else:
             observed += amount
     return CostTotals(total, by_category, observed, estimated)
+
+
+# The helpers other modules use, under public names so their contract is explicit (gate, claims
+# and the approve command call these; the underscored definitions stay for existing callers).
+insert_activity = _insert_activity
+day_start = _day_start
+voided_sql = _voided_sql
+parse_entry_date = _parse_entry_date
