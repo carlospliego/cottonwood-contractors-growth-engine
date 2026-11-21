@@ -174,8 +174,12 @@ def validate_event(raw: RawEvent, now: str) -> Event:
     actor = _clean(raw.actor)
     if actor is None:
         raise EventError("actor", "must not be empty")
+    # A --stage that is given but blank is refused rather than read as "no move": leaving the
+    # option out is the way to log an event without a move (F-maintainability-4).
+    if raw.stage is not None and not raw.stage.strip():
+        raise EventError("stage", "must not be blank; leave --stage out to log no move")
     # The R-16 rule needs the lead's type (an out-of-list stage is refused first, with the
-    # type's allowed stages), so it is checked in log_event; here blank text only stays blank.
+    # type's allowed stages), so it is checked in log_event.
     stage = _clean(raw.stage)
     need = None if raw.need is None else raw.need.strip()
     procurement_url = None if raw.procurement_url is None else raw.procurement_url.strip()
