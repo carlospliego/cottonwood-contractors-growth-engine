@@ -75,7 +75,12 @@ def test_reapply_section_copies_newer_rows_from_the_set_aside_database() -> None
 
 def test_deletion_section_backs_up_clears_fields_and_keeps_suppression() -> None:
     section = _section("Deletion requests")
-    assert section.find("cottonwood backup") < section.find("UPDATE contacts")
+    backup_at = section.find("cottonwood backup")
+    clear_at = section.find("UPDATE contacts")
+    # find() returns -1 for a missing phrase, which would sort first; require both.
+    assert backup_at != -1, "deletion section no longer says to run `cottonwood backup`"
+    assert clear_at != -1, "deletion section no longer shows the UPDATE contacts step"
+    assert backup_at < clear_at
     for field in ("name = NULL", "email = NULL", "email_norm = NULL", "phone_e164 = NULL"):
         assert field in section
     assert "deleted_at" in section

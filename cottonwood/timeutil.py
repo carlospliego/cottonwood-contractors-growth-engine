@@ -36,7 +36,8 @@ def parse_received(value: str) -> str:
 
     Accepts America/Denver local time as ``YYYY-MM-DD HH:MM`` or a UTC ISO-8601 timestamp
     ending in Z or +00:00. A local time repeated at the end of daylight saving time takes its
-    first occurrence (fold=0); give the UTC form to pick the other one.
+    first occurrence (fold=0); give the UTC form to pick the other one. A local time skipped
+    when daylight saving time starts does not exist and raises ValueError.
     """
     text = value.strip()
     if _LOCAL_MINUTE.match(text):
@@ -44,10 +45,22 @@ def parse_received(value: str) -> str:
             naive = datetime.strptime(text, "%Y-%m-%d %H:%M")
         except ValueError:
             raise ValueError(f"not a valid local date and time: {value!r}") from None
-        return to_utc_iso(naive.replace(tzinfo=DENVER, fold=0))
+        try:
+            stored = to_utc_iso(naive.replace(tzinfo=DENVER, fold=0))
+        except OverflowError:
+            # Near year 1 or 9999 the offset pushes the UTC time outside datetime's range.
+            raise ValueError(f"date and time is out of range: {value!r}") from None
+        # A time skipped by the spring-forward change (02:00-02:59 on that Sunday) does not
+        # exist in Denver; zoneinfo would quietly shift it an hour. Refuse it instead.
+        if to_local(stored).replace(tzinfo=None) != naive:
+            raise ValueError(
+                f"{text} does not exist in America/Denver (clocks skip it when daylight saving"
+                " time starts); give the UTC time instead"
+            )
+        return stored
     try:
         return to_utc_iso(parse_utc(text))
-    except ValueError:
+    except (ValueError, OverflowError):
         raise ValueError(
             f"expected 'YYYY-MM-DD HH:MM' (America/Denver) or a UTC time ending in Z: {value!r}"
         ) from None
@@ -61,8 +74,20 @@ def to_local(value: str) -> datetime:
 def display_local(value: str) -> str:
     """Render a stored UTC string in America/Denver, e.g. 2026-01-15 12:00 -07:00."""
     local = to_local(value)
-    offset = local.strftime("%z")
-    return f"{local:%Y-%m-%d %H:%M} {offset[:3]}:{offset[3:]}"
+    return f"{local:%Y-%m-%d %H:%M} {_offset_text(local)}"
+
+
+def _offset_text(moment: datetime) -> str:
+    """The UTC offset as +HH:MM, with :SS only when the offset has seconds (e.g. LMT)."""
+    offset = moment.utcoffset()
+    if offset is None:
+        raise ValueError(f"datetime must be timezone-aware: {moment!r}")
+    seconds = int(offset.total_seconds())
+    sign = "-" if seconds < 0 else "+"
+    hours, rest = divmod(abs(seconds), 3600)
+    minutes, secs = divmod(rest, 60)
+    text = f"{sign}{hours:02d}:{minutes:02d}"
+    return f"{text}:{secs:02d}" if secs else text
 
 
 def local_date(value: str) -> date:
