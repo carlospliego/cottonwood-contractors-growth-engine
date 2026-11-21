@@ -85,9 +85,11 @@ CSV_CHECKLIST_PREFIX = "checklist."
 # CSV column prefix → nested record key; the rest of the column name is the inner key.
 _CSV_GROUPS = {"organization_": "organization", "contact_": "contact", "value_": "value"}
 
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_PLAIN_DECIMAL = re.compile(r"^\d+(\.\d+)?$")
-_INTEGER = re.compile(r"^\d+$")
+# [0-9] and \A...\Z, not \d and ^...$: \d also matches non-ASCII digits such as '١٠٠' and $ also
+# matches before a trailing newline, so '100\n' would pass and be stored (F-correctness-2).
+_DATE = re.compile(r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
+_PLAIN_DECIMAL = re.compile(r"\A[0-9]+(\.[0-9]+)?\Z")
+_INTEGER = re.compile(r"\A[0-9]+\Z")
 _BOOLEANS = {"true": True, "1": True, "false": False, "0": False}
 
 FieldPath = tuple[str | int, ...]
