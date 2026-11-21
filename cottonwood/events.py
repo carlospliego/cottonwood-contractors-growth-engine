@@ -240,6 +240,8 @@ def _check_qualification(event: Event) -> None:
 def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
     """Append the event and, with a stage, the move and its stage_change, in one transaction."""
     now = timeutil.utc_now()
+    # Take the write lock before the first read, so the checks and the inserts see one state.
+    conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute(
             "SELECT id, type, stage FROM leads WHERE id = ?", (event.lead_id,)
@@ -249,6 +251,7 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         from_stage = str(lead[2])
         if event.stage is not None:
             _check_stage(str(lead[1]), from_stage, event.stage)
+            _check_not_before_latest_stage_change(conn, event)
         _check_qualification(event)
         payload: dict[str, object] = {"event": event.type}
         if event.note is not None:
@@ -278,6 +281,29 @@ def log_event(conn: sqlite3.Connection, event: Event) -> LoggedEvent:
         conn.rollback()
         raise
     return LoggedEvent(event_id, stage_change_id, from_stage if stage_change_id else None)
+
+
+def _check_not_before_latest_stage_change(conn: sqlite3.Connection, event: Event) -> None:
+    """Refuse a stage change backdated before the lead's latest effective one (CCGE-060).
+
+    leads.stage is the latest effective stage change by (occurred_at, id) (plan: "Effective
+    stage change"). A move dated earlier than that one would set leads.stage while ranking
+    below it, so a later correction would revert to the wrong stage; it is refused instead.
+    A move at the same time ranks after it by id, so it is allowed.
+    """
+    latest = conn.execute(
+        f"SELECT a.id, a.occurred_at FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+        f" AND a.lead_id = ? AND NOT {_IS_REVERT_SQL}"
+        " ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+        (event.lead_id,),
+    ).fetchone()
+    if latest is not None and event.occurred_at < str(latest[1]):
+        raise EventError(
+            "at",
+            f"is earlier than lead {event.lead_id}'s latest stage change (activity {latest[0]},"
+            f" {timeutil.display_local(str(latest[1]))}); a stage change cannot be dated"
+            " before it",
+        )
 
 
 def _insert_activity(
@@ -409,6 +435,9 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
     now = timeutil.utc_now()
     lead_id = correction.lead_id
     voids_id = correction.voids_id
+    # The write lock comes before the already-void check, so two concurrent corrections
+    # cannot both void the same activity (F-correctness-1).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         lead = conn.execute("SELECT stage FROM leads WHERE id = ?", (lead_id,)).fetchone()
         if lead is None:
@@ -452,6 +481,21 @@ def log_correction(conn: sqlite3.Connection, correction: Correction) -> LoggedCo
                     "voids",
                     f"lead {lead_id} has a later stage change (activity {latest['id']});"
                     " void the event behind it first",
+                )
+            # The revert is a stage change dated at the correction. Dated before the lead's
+            # latest effective stage change (reverts included), it would set leads.stage while
+            # ranking below that change by (occurred_at, id), so it is refused (F-correctness-4).
+            newest = conn.execute(
+                f"SELECT a.id, a.occurred_at FROM activities a WHERE {_EFFECTIVE_STAGE_CHANGE_SQL}"
+                " AND a.lead_id = ? ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1",
+                (lead_id,),
+            ).fetchone()
+            if newest is not None and correction.occurred_at < str(newest["occurred_at"]):
+                raise EventError(
+                    "at",
+                    f"is earlier than lead {lead_id}'s latest stage change (activity"
+                    f" {newest['id']}, {timeutil.display_local(str(newest['occurred_at']))});"
+                    " a correction that reverts a stage cannot be dated before it",
                 )
         payload: dict[str, object] = {}
         if correction.note is not None:
@@ -685,6 +729,8 @@ def void_entry(
     who = _clean(actor)
     if who is None:
         raise EventError("actor", "must not be empty")
+    # The write lock comes before the already-void check (F-correctness-1).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         target = conn.execute(
             "SELECT id, type FROM activities WHERE id = ?", (voids_id,)

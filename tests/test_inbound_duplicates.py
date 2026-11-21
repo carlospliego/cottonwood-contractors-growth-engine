@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sqlite3
 import sys
@@ -64,6 +65,23 @@ def existing_email(db_path: Path, capsys: pytest.CaptureFixture[str]) -> int:
     return int(_rows(db_path, "SELECT id FROM leads")[0][0])
 
 
+class _NonTtyStdin:
+    """A stdin that is not a terminal; reading an answer from it fails the test."""
+
+    def isatty(self) -> bool:
+        return False
+
+    def readline(self) -> str:
+        raise AssertionError("the non-terminal branch must not read an answer")
+
+
+@pytest.fixture
+def not_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin stdin to a non-terminal, so these tests hold under `pytest -s` too."""
+    monkeypatch.setattr(sys, "stdin", _NonTtyStdin())
+
+
+@pytest.mark.usefixtures("not_a_terminal")
 def test_same_day_email_match_warns_and_refuses_without_confirmation(
     db_path: Path, existing_email: int, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -76,6 +94,7 @@ def test_same_day_email_match_warns_and_refuses_without_confirmation(
     assert _counts(db_path) == before
 
 
+@pytest.mark.usefixtures("not_a_terminal")
 def test_same_day_phone_match_warns_and_refuses(
     db_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -98,20 +117,24 @@ def test_confirm_duplicate_saves_and_records_the_matches(
     assert _last_payload(db_path)["duplicate_of"] == [existing_email, second]
 
 
+class _TtyStdin(io.StringIO):
+    """A stdin that says it is a terminal and holds the operator's typed answer."""
+
+    def isatty(self) -> bool:
+        return True
+
+
 @pytest.mark.parametrize("answer", ["y", "YES", " yes "])
 def test_tty_yes_saves(
-    db_path: Path, existing_email: int, monkeypatch: pytest.MonkeyPatch, answer: str
+    db_path: Path,
+    existing_email: int,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    answer: str,
 ) -> None:
-    prompts: list[str] = []
-
-    def reply(prompt: str) -> str:
-        prompts.append(prompt)
-        return answer
-
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("builtins.input", reply)
+    monkeypatch.setattr(sys, "stdin", _TtyStdin(answer + "\n"))
     assert _log(db_path, "2026-11-16 15:00", "--email", "pat@example.com") == EXIT_OK
-    assert prompts == ["Save anyway? [y/N] "]
+    assert capsys.readouterr().err.count("Save anyway? [y/N] ") == 1
     assert _counts(db_path)["leads"] == 2
     assert _last_payload(db_path)["duplicate_of"] == [existing_email]
 
@@ -120,8 +143,7 @@ def test_tty_yes_saves(
 def test_tty_other_answers_refuse(
     db_path: Path, existing_email: int, monkeypatch: pytest.MonkeyPatch, answer: str
 ) -> None:
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("builtins.input", lambda prompt: answer)
+    monkeypatch.setattr(sys, "stdin", _TtyStdin(answer + "\n"))
     before = _counts(db_path)
     assert _log(db_path, "2026-11-16 15:00", "--email", "pat@example.com") == EXIT_REFUSED
     assert _counts(db_path) == before
@@ -130,11 +152,7 @@ def test_tty_other_answers_refuse(
 def test_tty_eof_refuses(
     db_path: Path, existing_email: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def eof(prompt: str) -> str:
-        raise EOFError
-
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("builtins.input", eof)
+    monkeypatch.setattr(sys, "stdin", _TtyStdin(""))  # readline() at EOF returns ""
     assert _log(db_path, "2026-11-16 15:00", "--email", "pat@example.com") == EXIT_REFUSED
     assert _counts(db_path)["leads"] == 1
 
