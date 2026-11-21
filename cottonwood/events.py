@@ -666,10 +666,12 @@ def void_entry(
     voids_id: int,
     kind: str,
     actor: str,
-    now: str,
     note: str | None = None,
 ) -> int:
-    """Void one time or cost entry with an appended correction (no lead); return its id."""
+    """Void one time or cost entry with an appended correction (no lead); return its id.
+
+    Like the other log functions, it reads the current time itself (timeutil.utc_now).
+    """
     if kind not in (TIME_KIND, COST_KIND):
         raise EventError("voids", f"kind must be {TIME_KIND} or {COST_KIND}")
     who = _clean(actor)
@@ -692,6 +694,7 @@ def void_entry(
         cleaned = _clean(note)
         if cleaned is not None:
             payload["note"] = cleaned
+        now = timeutil.utc_now()
         correction_id = _insert_activity(
             conn, None, "correction", payload, who, now, now, voids_activity_id=voids_id
         )

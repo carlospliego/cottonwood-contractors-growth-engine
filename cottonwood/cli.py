@@ -688,9 +688,7 @@ def _run_entry(args: argparse.Namespace, kind: str, amount_name: str) -> int:
         elif isinstance(entry, events.CostEntry):
             activity_id = events.log_cost(conn, entry)
         else:
-            activity_id = events.void_entry(
-                conn, args.voids, kind, args.actor, timeutil.utc_now(), args.note
-            )
+            activity_id = events.void_entry(conn, args.voids, kind, args.actor, args.note)
     except events.EventError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED

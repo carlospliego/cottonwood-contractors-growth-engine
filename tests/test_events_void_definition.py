@@ -80,7 +80,7 @@ def test_one_void_definition_agrees_with_counts_and_refusals(conn: sqlite3.Conne
 
         call_fix = _correct(conn, voided_call)
         move_fix = _correct(conn, moved)
-        time_fix = events.void_entry(conn, voided_time, events.TIME_KIND, "founder", NOW)
+        time_fix = events.void_entry(conn, voided_time, events.TIME_KIND, "founder")
 
         voided = {voided_call: call_fix, moved: move_fix, voided_time: time_fix}
         for activity_id in (kept_call, kept_time):
@@ -107,6 +107,6 @@ def test_one_void_definition_agrees_with_counts_and_refusals(conn: sqlite3.Conne
         with pytest.raises(events.EventError, match=f"correction {call_fix}\\)"):
             _correct(conn, voided_call)
         with pytest.raises(events.EventError, match=f"correction {time_fix}\\)"):
-            events.void_entry(conn, voided_time, events.TIME_KIND, "founder", NOW)
+            events.void_entry(conn, voided_time, events.TIME_KIND, "founder")
     finally:
         conn.close()
