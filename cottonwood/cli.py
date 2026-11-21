@@ -167,8 +167,8 @@ def _duplicate_confirmed(
     print(f"warning: possible duplicate of lead(s) {ids} received {day}", file=sys.stderr)
     if args.confirm_duplicate:
         return True
-    # A prompt would hang a script, so without a terminal the answer is no.
-    if not sys.stdin.isatty():
+    # A prompt would hang a script, so without a terminal (or with stdin closed) the answer is no.
+    if sys.stdin is None or not sys.stdin.isatty():
         return False
     try:
         answer = input("Save anyway? [y/N] ")
