@@ -125,7 +125,7 @@ def load_config(path: Path | None = None) -> Config:
     if not isinstance(report, dict):
         raise ConfigError(f"report must be a mapping in {config_path}")
     return Config(
-        backup_dir=Path(backup_dir),
+        backup_dir=Path(backup_dir.strip()).expanduser(),
         model_cost_cap_usd=_cost_cap(report.get("model_cost_cap_usd"), config_path),
         sending_blocked_by=_blocked_by(report.get("sending_blocked_by"), config_path),
         review=_review(data.get("review"), config_path),
