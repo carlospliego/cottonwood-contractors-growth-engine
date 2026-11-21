@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from cottonwood import events, normalize, timeutil
+from cottonwood._shared import _rowid
 from cottonwood.validate import (
     RELATIONSHIP,
     ProspectEvidence,
@@ -119,7 +120,9 @@ def import_records(
     """
     now = timeutil.utc_now()
     outcomes: list[RecordOutcome] = []
-    conn.execute("BEGIN")
+    # Take the write lock up front: a deferred BEGIN that upgrades mid-import can fail at once
+    # with "database is locked" instead of waiting out the busy timeout (CCGE-095).
+    conn.execute("BEGIN IMMEDIATE")
     try:
         for record in records:
             if isinstance(record, Rejection):
@@ -339,7 +342,9 @@ def _shown(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, float):
-        return f"{value:g}"
+        # Whole hours as an integer, anything else in the shortest form that reads back exactly:
+        # {value:g} kept 6 significant digits, so 1234567 and 1234568 printed alike.
+        return str(int(value)) if value.is_integer() else repr(value)
     if isinstance(value, list | tuple):
         return "; ".join(str(item) for item in value)
     return str(value)
@@ -547,10 +552,3 @@ def _activity(
             (lead_id, contact_id, activity_type, json.dumps(payload), actor, now, now),
         )
     )
-
-
-def _rowid(cursor: sqlite3.Cursor) -> int:
-    """Return the id of the row an INSERT just wrote."""
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid

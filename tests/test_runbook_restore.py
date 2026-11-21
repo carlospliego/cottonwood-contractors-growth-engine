@@ -13,6 +13,7 @@ import pytest
 from cottonwood import backup, db
 from cottonwood.cli import EXIT_OK, main
 
+LATEST_VERSION = len(db.discover_migrations())
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RUNBOOK = REPO_ROOT / "docs" / "runbook.md"
 # The file names the runbook's example commands and SQL use.
@@ -75,7 +76,12 @@ def test_reapply_section_copies_newer_rows_from_the_set_aside_database() -> None
 
 def test_deletion_section_backs_up_clears_fields_and_keeps_suppression() -> None:
     section = _section("Deletion requests")
-    assert section.find("cottonwood backup") < section.find("UPDATE contacts")
+    backup_at = section.find("cottonwood backup")
+    clear_at = section.find("UPDATE contacts")
+    # find() returns -1 for a missing phrase, which would sort first; require both.
+    assert backup_at != -1, "deletion section no longer says to run `cottonwood backup`"
+    assert clear_at != -1, "deletion section no longer shows the UPDATE contacts step"
+    assert backup_at < clear_at
     for field in ("name = NULL", "email = NULL", "email_norm = NULL", "phone_e164 = NULL"):
         assert field in section
     assert "deleted_at" in section
@@ -111,7 +117,7 @@ def test_documented_restore_recovers_backup_and_newer_suppression(
 
     # Step 6: cottonwood migrate on the restored file.
     assert main(["migrate", "--db", str(live)]) == EXIT_OK
-    assert "at version 6" in capsys.readouterr().out
+    assert f"at version {LATEST_VERSION}" in capsys.readouterr().out
 
     # Step 7: the runbook's own re-apply SQL, run against the restored database.
     conn = db.connect(live)

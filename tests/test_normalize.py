@@ -22,6 +22,15 @@ def test_invalid_email_is_rejected(bad: str) -> None:
         normalize_email(bad)
 
 
+def test_email_with_whitespace_inside_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        normalize_email("jane doe@example.com")
+
+
+def test_domain_drops_userinfo_before_the_host() -> None:
+    assert normalize_domain("https://user@Example.com/x") == "example.com"
+
+
 @pytest.mark.parametrize(
     "raw",
     ["(801) 555-0134", "801.555.0134", "1-801-555-0134", "+1 801 555 0134", "8015550134"],
@@ -61,3 +70,20 @@ def test_invalid_domain_is_rejected(bad: str) -> None:
 
 def test_name_drops_punctuation_and_collapses_whitespace() -> None:
     assert normalize_name("  Jane   O'Neil, Jr. ") == "jane oneil jr"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        pytest.param("+44 20", id="too-short-4-digits"),
+        pytest.param("+4412345678901234", id="too-long-16-digits"),
+    ],
+)
+def test_international_numbers_outside_8_to_15_digits_are_refused(bad: str) -> None:
+    with pytest.raises(ValueError, match="international numbers"):
+        normalize_phone(bad)
+
+
+def test_international_numbers_at_the_8_and_15_digit_bounds_are_kept() -> None:
+    assert normalize_phone("+44 123 456") == "+44123456"
+    assert normalize_phone("+441234567890123") == "+441234567890123"
