@@ -228,8 +228,7 @@ def _qualified(conn: sqlite3.Connection, period: Period) -> int:
     leads = {
         int(row["lead_id"])
         for row in _counted_in_period(conn, "stage_change", period)
-        if row["lead_id"] is not None
-        and json.loads(str(row["payload"])).get("to") == events.QUALIFIED_STAGE
+        if row["lead_id"] is not None and _payload(row).get("to") == events.QUALIFIED_STAGE
     }
     return len(leads)
 
@@ -273,8 +272,15 @@ def kpi(qualified: int, partner: int, founder_hours: Decimal) -> Decimal | None:
 
 
 def _payload(row: sqlite3.Row) -> dict[str, object]:
-    """An activity row's JSON payload as a dict (empty when it is not an object)."""
-    value = json.loads(str(row["payload"]))
+    """An activity row's JSON payload as a dict (empty when it is not an object or not JSON).
+
+    Every payload read in this module goes through here, so one malformed stored row reads as
+    an empty payload instead of crashing the whole report (F-correctness-2).
+    """
+    try:
+        value = json.loads(str(row["payload"]))
+    except ValueError:  # json.JSONDecodeError is a ValueError
+        return {}
     return value if isinstance(value, dict) else {}
 
 
@@ -406,7 +412,8 @@ class ModelCostMetrics:
 def _run_costs(conn: sqlite3.Connection) -> list[tuple[date, Decimal, bool]]:
     """(Denver start date, cost, estimated) for every agent run with a readable cost_usd.
 
-    A NULL or non-decimal cost_usd is skipped; cost_estimated 1 is estimated, 0 or NULL observed.
+    A NULL or non-decimal cost_usd, or an unparseable started_at, is skipped; cost_estimated 1
+    is estimated, 0 or NULL observed.
     """
     runs = []
     for row in conn.execute("SELECT started_at, cost_usd, cost_estimated FROM agent_runs"):
@@ -418,7 +425,10 @@ def _run_costs(conn: sqlite3.Connection) -> list[tuple[date, Decimal, bool]]:
             continue
         if not cost.is_finite():
             continue
-        started = timeutil.local_date(str(row["started_at"]))
+        try:
+            started = timeutil.local_date(str(row["started_at"]))
+        except ValueError:  # an unparseable start time is skipped like an unreadable cost
+            continue
         runs.append((started, cost, row["cost_estimated"] == 1))
     return runs
 
