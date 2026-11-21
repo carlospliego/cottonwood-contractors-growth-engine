@@ -12,6 +12,7 @@ from typing import NamedTuple
 from urllib.parse import urlparse
 
 from cottonwood import timeutil
+from cottonwood._shared import _clean, _rowid
 
 # R-15, in the spec's order.
 EVENT_TYPES = (
@@ -149,14 +150,6 @@ class LoggedEvent(NamedTuple):
     from_stage: str | None
 
 
-def _clean(value: str | None) -> str | None:
-    """Strip a text option; blank means not supplied."""
-    if value is None:
-        return None
-    text = value.strip()
-    return text or None
-
-
 def validate_event(raw: RawEvent, now: str) -> Event:
     """Check an event against R-15; ``now`` is the current UTC time as stored."""
     if raw.type not in EVENT_TYPES:
@@ -195,13 +188,6 @@ def _is_http_url(value: str) -> bool:
     """True for an absolute http(s) URL with a host."""
     parsed = urlparse(value)
     return parsed.scheme in ("http", "https") and bool(parsed.netloc)
-
-
-def _rowid(cursor: sqlite3.Cursor) -> int:
-    """Return the id of the row an INSERT just wrote."""
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid
 
 
 def _check_stage(lead_type: str, current: str, stage: str) -> None:
