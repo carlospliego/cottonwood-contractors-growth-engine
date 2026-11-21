@@ -41,6 +41,9 @@ RULE_NAME = "name"
 RULE_DECIMAL = "decimal"
 RULE_REQUIRED = "required"
 RULE_CHECKLIST_ITEM = "checklist-item"
+# A CSV row with text in more cells than the header has columns: those cells would be lost.
+FIELD_ROW = "row"
+RULE_EXTRA_CELLS = "extra-cells"
 
 CSV_COLUMNS = (
     "record_id",
@@ -99,10 +102,15 @@ class FileError(ValueError):
 
 @dataclass(frozen=True)
 class RawRecord:
-    """One record as read from the file, before validation; ``number`` is 1-based."""
+    """One record as read from the file, before validation; ``number`` is 1-based.
+
+    ``problem`` is a (field, rule) found while reading, such as a CSV row with extra cells; the
+    record is rejected with it before any schema check.
+    """
 
     number: int
     data: object
+    problem: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -261,7 +269,15 @@ def _csv_records(path: Path, text: str) -> list[RawRecord]:
                 for key, value in row.items()
                 if isinstance(key, str) and isinstance(value, str)
             }
-            records.append(RawRecord(number, _csv_record(cells)))
+            # DictReader puts cells past the last header column in a list under the key None;
+            # dropping them would import a truncated row, so a row with text there is rejected.
+            extra = row.get(None) or []
+            problem = (
+                (FIELD_ROW, RULE_EXTRA_CELLS)
+                if any(isinstance(cell, str) and cell.strip() for cell in extra)
+                else None
+            )
+            records.append(RawRecord(number, _csv_record(cells), problem))
     except csv.Error as exc:
         raise FileError(f"{path} is not valid CSV: {exc}") from None
     return records
@@ -338,6 +354,8 @@ def validate_record(
     Only the first failure, in field-path order, is reported, so output is stable.
     """
     record_id = _record_id(raw.data)
+    if raw.problem is not None:
+        return Rejection(raw.number, record_id, *raw.problem)
     errors = [_schema_failure(error) for error in _validator().iter_errors(raw.data)]
     if errors:
         field, rule = min(errors, key=_failure_order)
