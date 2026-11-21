@@ -272,3 +272,7 @@ def test_counted_leads_filter_selects_only_non_test_leads(db_path: Path) -> None
         conn.close()
     assert [row[0] for row in counted] == [1]
     assert [row[0] for row in tests] == [2]
+
+
+def test_counted_leads_filter_is_the_non_test_condition() -> None:
+    assert review.COUNTED_LEADS_FILTER == "leads.is_test = 0"

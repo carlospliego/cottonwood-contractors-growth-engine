@@ -11,6 +11,7 @@ import pytest
 from cottonwood import db, timeutil
 from cottonwood.cli import EXIT_OK, EXIT_REFUSED, main
 
+LATEST_VERSION = len(db.discover_migrations())
 TABLES = ("leads", "contacts", "organizations", "activities")
 
 
@@ -54,7 +55,7 @@ BASIC = (
 def test_migrate_adds_nullable_project_scope(db_path: Path) -> None:
     conn = db.connect(db_path)
     try:
-        assert db.user_version(conn) == 6
+        assert db.user_version(conn) == LATEST_VERSION
         columns = {row["name"]: row for row in conn.execute("PRAGMA table_info(leads)")}
     finally:
         conn.close()

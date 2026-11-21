@@ -11,6 +11,7 @@ import pytest
 from cottonwood import db
 from cottonwood.cli import EXIT_OK, main
 
+LATEST_VERSION = len(db.discover_migrations())
 NOW = "2026-11-15T10:00:00Z"
 
 KEY_COLUMNS: dict[str, set[str]] = {
@@ -158,10 +159,10 @@ def test_migrate_on_new_file_gives_version_3_and_exactly_the_core_tables(
 
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
 
-    assert "at version 6" in capsys.readouterr().out
+    assert f"at version {LATEST_VERSION}" in capsys.readouterr().out
     conn = db.connect(path)
     try:
-        assert db.user_version(conn) == 6
+        assert db.user_version(conn) == LATEST_VERSION
         assert _tables(conn) == sorted(KEY_COLUMNS)
     finally:
         conn.close()
@@ -314,7 +315,7 @@ def test_version_1_database_upgrades_to_3_then_applies_nothing(tmp_path: Path) -
     first = db.migrate(path)
     second = db.migrate(path)
 
-    assert (first.from_version, first.to_version) == (1, 6)
+    assert (first.from_version, first.to_version) == (1, LATEST_VERSION)
     assert [m.path.name for m in first.applied] == [
         "002_core.sql",
         "003_inbound.sql",
@@ -322,7 +323,7 @@ def test_version_1_database_upgrades_to_3_then_applies_nothing(tmp_path: Path) -
         "005_review.sql",
         "006_contact_address.sql",
     ]
-    assert (second.from_version, second.to_version) == (6, 6)
+    assert (second.from_version, second.to_version) == (LATEST_VERSION, LATEST_VERSION)
     assert second.applied == ()
 
 
@@ -333,9 +334,10 @@ def test_migrate_command_on_version_1_reports_applied_then_0(
     _make_version_1(path)
 
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
-    assert "at version 6 (applied 5)" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert f"at version {LATEST_VERSION} (applied {LATEST_VERSION - 1})" in out
     assert main(["migrate", "--db", str(path)]) == EXIT_OK
-    assert "at version 6 (applied 0)" in capsys.readouterr().out
+    assert f"at version {LATEST_VERSION} (applied 0)" in capsys.readouterr().out
 
 
 def test_connect_turns_foreign_keys_on(conn: sqlite3.Connection) -> None:
