@@ -44,7 +44,13 @@ COLUMNS = (
 
 @dataclass(frozen=True)
 class InboundCounts:
-    """Non-test inquiries by channel and segment, plus how many tests were left out."""
+    """Non-test inquiries by channel and segment, plus how many tests were left out.
+
+    ``by_channel`` and ``by_segment`` hold only the known values (inbound.CHANNELS and
+    inbound.SEGMENTS). ``total`` counts every non-test inquiry, so a row stored with any
+    other channel or segment (log-inbound cannot write one; a hand edit or an older import
+    could) is in ``total`` but in neither breakdown, and the breakdowns can sum to less.
+    """
 
     total: int
     by_channel: dict[str, int]
@@ -69,7 +75,11 @@ def inbound_rows(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def inbound_counts(conn: sqlite3.Connection) -> InboundCounts:
-    """Count non-test inquiries by channel and segment; every known key starts at 0."""
+    """Count non-test inquiries by channel and segment; every known key starts at 0.
+
+    Values outside the known channels and segments count toward ``total`` only (see
+    InboundCounts), so the breakdowns may not sum to it.
+    """
     by_channel = dict.fromkeys(inbound.CHANNELS, 0)
     by_segment = dict.fromkeys(inbound.SEGMENTS, 0)
     total = 0
