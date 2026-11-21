@@ -27,7 +27,6 @@ from cottonwood import normalize
 
 SCHEMA_RESOURCE = ("schemas", "research-record.schema.json")
 FILE_SUFFIXES = (".json", ".csv")
-DIRECT = "direct_candidate"
 RELATIONSHIP = "relationship_prospect"
 DEFAULT_EVIDENCE_KIND = "fact"
 
@@ -42,7 +41,6 @@ RULE_NAME = "name"
 RULE_DECIMAL = "decimal"
 # Python reads JSON Infinity/NaN and CSV "inf" as floats; the schema's minimum 0 passes them.
 RULE_FINITE = "finite"
-RULE_REQUIRED = "required"
 RULE_CHECKLIST_ITEM = "checklist-item"
 # A CSV row with text in more cells than the header has columns: those cells would be lost.
 FIELD_ROW = "row"
@@ -192,10 +190,6 @@ class ProspectRecord:
     is_test_given: bool = False  # the record said is_test, so a stored value can differ
     # Checklist answers as (item key, yes/no/unknown) pairs sorted by key; () when absent.
     checklist: tuple[tuple[str, str], ...] = ()
-
-    def label(self) -> str:
-        """``record N`` with the record_id in parentheses when the record has one."""
-        return record_label(self.number, self.record_id)
 
 
 def record_label(number: int, record_id: str | None) -> str:
