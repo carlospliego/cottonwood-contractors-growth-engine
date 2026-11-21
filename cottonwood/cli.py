@@ -616,7 +616,11 @@ def _add_log_time_arguments(parser: argparse.ArgumentParser) -> None:
 
 def _add_log_cost_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the log-cost command's arguments."""
-    _add_entry_arguments(parser, amount="AMOUNT", help_text="US dollars spent, e.g. 49.00")
+    _add_entry_arguments(
+        parser,
+        amount="AMOUNT",
+        help_text=f"US dollars spent, e.g. 49.00 (at most {events.MAX_COST_USD} per entry)",
+    )
 
 
 def _void_entry_conflict(args: argparse.Namespace, amount_name: str) -> str | None:

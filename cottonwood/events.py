@@ -496,8 +496,14 @@ DEFAULT_PERSON = "founder"
 TIME_KIND = "time_logged"
 COST_KIND = "cost_logged"
 MAX_HOURS = Decimal(24)
-_PLAIN_DECIMAL = re.compile(r"^\d+(?:\.\d+)?$")
-_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# The most one cost entry may be. An amount has at most 2 places, so an entry has at most
+# 9 significant digits and sums of entries stay far inside Decimal's 28-digit default
+# context: cost_totals are exact (F-correctness-6). Larger spend goes in several entries.
+MAX_COST_USD = Decimal(1_000_000)
+# ASCII digits only: \d also matches other scripts' digits (Arabic-Indic, fullwidth, ...),
+# which Decimal() and date.fromisoformat() would then accept (F-correctness-5).
+_PLAIN_DECIMAL = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
+_ISO_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 
 @dataclass(frozen=True)
@@ -607,8 +613,12 @@ def validate_time(raw: RawTime, today: date) -> TimeEntry:
 
 
 def validate_cost(raw: RawCost, today: date) -> CostEntry:
-    """Check a cost entry: amount > 0 with 2 places; date not after ``today``."""
+    """Check a cost entry: 0 < amount <= MAX_COST_USD, 2 places; date not after ``today``."""
     amount = _parse_amount("amount", raw.amount_usd)
+    if amount > MAX_COST_USD:
+        raise EventError(
+            "amount", f"at most {MAX_COST_USD} US dollars in one entry, got {raw.amount_usd!r}"
+        )
     day = _parse_entry_date(raw.date, today)
     category, note, actor = _entry_fields(raw.category, raw.note, raw.actor)
     return CostEntry(amount, day, category, raw.estimated, note, actor)
