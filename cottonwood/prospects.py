@@ -14,7 +14,7 @@ import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from cottonwood import normalize, timeutil
+from cottonwood import events, normalize, timeutil
 from cottonwood.validate import (
     RELATIONSHIP,
     ProspectEvidence,
@@ -25,7 +25,7 @@ from cottonwood.validate import (
 
 IMPORTED = "imported"
 IMPORT_REJECTED = "import_rejected"
-IMPORTED_STAGE = "researched"
+IMPORTED_STAGE = events.RESEARCHED_STAGE
 RULE_REFERRER = "referrer"
 _SQLITE_MAX_INT = 2**63 - 1
 ELIGIBILITY_UNKNOWN = "unknown"

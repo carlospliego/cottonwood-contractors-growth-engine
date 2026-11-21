@@ -81,8 +81,8 @@ LABEL_REFERRED = "Referred leads"
 TOTAL = "total"
 
 # The two outreach motions (lead types) that research and hand review are counted by (R-11).
-DIRECT_MOTION = "direct_candidate"
-PARTNER_MOTION = "relationship_prospect"
+DIRECT_MOTION = events.DIRECT_CANDIDATE
+PARTNER_MOTION = events.RELATIONSHIP_PROSPECT
 MOTIONS = (DIRECT_MOTION, PARTNER_MOTION)
 # Payload contract for activities later features write (build assumption 4).
 RESULT_KEY = "result"

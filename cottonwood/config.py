@@ -10,12 +10,14 @@ from pathlib import Path
 
 import yaml
 
+from cottonwood import events
+
 DEFAULT_CONFIG_PATH = Path("config") / "pilot.yaml"
 CONFIG_ENV_VAR = "COTTONWOOD_CONFIG"
 # Used when the file has no paths.backup_dir.
 DEFAULT_BACKUP_DIR = Path("data") / "backups"
 # The candidate queues that have a checklist in review.checklists (R-13).
-REVIEW_QUEUES = ("direct_candidate", "relationship_prospect")
+REVIEW_QUEUES = (events.DIRECT_CANDIDATE, events.RELATIONSHIP_PROSPECT)
 CHECKLIST_KEY_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 
 

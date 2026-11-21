@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from cottonwood import claims, config, evidence, hand_review, inbound, timeutil
+from cottonwood import claims, config, events, evidence, hand_review, inbound, timeutil
 
 # SQL condition for leads that count. Test inquiries are listed but never counted (R-3);
 # the report reuses this so both outputs agree on what a test is.
@@ -120,8 +120,8 @@ ORDER_LINE = (
 UNKNOWN_ANSWER = "unknown"
 YES_ANSWER = "yes"
 SECTIONS = (
-    ("direct_candidate", "Direct candidates", "No direct candidates."),
-    ("relationship_prospect", "Relationship prospects", "No relationship prospects."),
+    (events.DIRECT_CANDIDATE, "Direct candidates", "No direct candidates."),
+    (events.RELATIONSHIP_PROSPECT, "Relationship prospects", "No relationship prospects."),
 )
 CANDIDATE_LEADING_COLUMNS = ("Lead", "Organization", "Contact", "Reach", "Eligibility")
 # How a researched lead can be reached: which contact routes are on file, never their values.
