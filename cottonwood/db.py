@@ -116,6 +116,20 @@ def user_version(conn: sqlite3.Connection) -> int:
     return int(row[0])
 
 
+def require_migrated(
+    conn: sqlite3.Connection, db_path: Path, migrations_dir: Path = MIGRATIONS_DIR
+) -> None:
+    """Refuse a database older than the newest migration, before a command reads or writes it."""
+    migrations = discover_migrations(migrations_dir)
+    newest = migrations[-1].number if migrations else 0
+    current = _read_version(conn, db_path)
+    if current < newest:
+        raise MigrationError(
+            f"database at version {current}, run `cottonwood migrate` "
+            f"(needs version {newest}): {db_path}"
+        )
+
+
 def _read_version(conn: sqlite3.Connection, db_path: Path) -> int:
     """Return user_version, turning a SQLite error into a MigrationError naming ``db_path``."""
     try:

@@ -205,6 +205,7 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
+        db.require_migrated(conn, db_path)
         duplicates = inbound.find_same_day_duplicates(
             conn, inquiry.email_norm, inquiry.phone_e164, inquiry.received_at
         )
@@ -219,6 +220,9 @@ def _run_log_inbound(args: argparse.Namespace) -> int:
         return EXIT_REFUSED
     except sqlite3.Error as exc:
         print(f"error: could not save the inquiry: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     finally:
         conn.close()
@@ -286,7 +290,11 @@ def _run_review(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_REFUSED
     try:
+        db.require_migrated(conn, db_path)
         text = review.render_review(conn, timeutil.utc_now(), review_config)
+    except db.MigrationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
     except sqlite3.Error as exc:
         print(f"error: could not read the database: {exc}", file=sys.stderr)
         return EXIT_REFUSED
