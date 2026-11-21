@@ -524,7 +524,7 @@ class Reply:
     reply_type: str
     activity_id: int
     suppressed_contact: int | None = None
-    eligibility: eligibility.EligibilityChange | None = None
+    eligibility_change: eligibility.EligibilityChange | None = None
 
     def lines(self) -> list[str]:
         """What log-reply prints on stdout."""
@@ -533,8 +533,8 @@ class Reply:
         ]
         if self.suppressed_contact is not None:
             lines.append(f"suppressed: contact {self.suppressed_contact}")
-        if self.eligibility is not None:
-            lines.append(self.eligibility.line())
+        if self.eligibility_change is not None:
+            lines.append(self.eligibility_change.line())
         return lines
 
 
