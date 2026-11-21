@@ -22,6 +22,15 @@ def test_invalid_email_is_rejected(bad: str) -> None:
         normalize_email(bad)
 
 
+def test_email_with_whitespace_inside_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        normalize_email("jane doe@example.com")
+
+
+def test_domain_drops_userinfo_before_the_host() -> None:
+    assert normalize_domain("https://user@Example.com/x") == "example.com"
+
+
 @pytest.mark.parametrize(
     "raw",
     ["(801) 555-0134", "801.555.0134", "1-801-555-0134", "+1 801 555 0134", "8015550134"],
