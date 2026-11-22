@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-024",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test delenvs the config env var (config.CONFIG_ENV_VAR), chdirs to tmp_path, writes config/pilot.yaml with paths.backup_dir, runs main(['backup','--db',live]), and asserts exactly one cottonwood-*.db file lands in that folder and the output reports it. It passed when run (1 passed). I did not check that CONFIG_ENV_VAR equals 'COTTONWOOD_CONFIG'; the name is taken from the constant.",
+          "file": "tests/test_default_config_path.py",
+          "line": 17,
+          "quote": "monkeypatch.delenv(config.CONFIG_ENV_VAR, raising=False)\n    monkeypatch.chdir(tmp_path)"
+        }
+      ],
+      "returns_through": "2026-11-21T05:00:39.284Z"
+    }
+  ]
+}

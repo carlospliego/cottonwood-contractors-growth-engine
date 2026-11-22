@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-124",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran the round trip for each approver on a fresh migrated DB. I ran approve claim, copied the printed verified_by and verified_at text verbatim into a claims file with status verified, then ran cottonwood claims. Founder printed 'verified_by: Founder', and claims output 'service-area: verified' with rc 0. Yes printed 'verified_by: \"Yes\"', and claims output 'service-area: verified' with rc 0. 123 printed 'verified_by: \"123\"', and claims output 'service-area: verified' with rc 0. 'Smith: Jo' printed 'verified_by: \"Smith: Jo\"', and claims output 'service-area: verified' with rc 0. All four approve commands also exited 0, and verified_at printed as 2026-11-21. The new test file passed 17/17. The claim ID in my test file is service-area, so the printed 'ID: verified' line reads 'service-area: verified'.",
+          "file": "cottonwood/claims.py",
+          "line": 105,
+          "quote": "def yaml_value(text: str) -> str:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the ccge-124 worktree with `uv run --offline`, one per call. All four exited 0. pytest: 946 passed in 5.06s. ruff check: All checks passed!. mypy: Success: no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "pyproject.toml",
+          "line": 1,
+          "quote": "316 files already formatted"
+        }
+      ],
+      "returns_through": "2026-11-21T18:27:55.912Z"
+    }
+  ]
+}

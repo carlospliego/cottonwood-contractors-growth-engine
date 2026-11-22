@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-071",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The void_entry signature in cottonwood/events.py no longer has a now parameter. The body sets now = timeutil.utc_now() before _insert_activity. The one caller, cli.py:691, passes no time. The tests at tests/test_events_void_definition.py:83 and :110 and in tests/test_void_entry_clock.py call it without a time. A repo-wide grep found no other callers. The full suite passed (932 passed).",
+          "file": "cottonwood/cli.py",
+          "line": 691,
+          "quote": "activity_id = events.void_entry(conn, args.voids, kind, args.actor, args.note)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_events_void_definition.py changes only two lines: both events.void_entry(...) calls drop the trailing NOW argument. All other assertions are untouched. The autouse fixed_now fixture (line 25-26) still monkeypatches timeutil.utc_now to NOW, and events.py now reads now = timeutil.utc_now() inside void_entry, so the pinned time is the same and the test's behavior is unchanged. Both tests pass (2 passed).",
+          "file": "tests/test_events_void_definition.py",
+          "line": 83,
+          "quote": "time_fix = events.void_entry(conn, voided_time, events.TIME_KIND, \"founder\")"
+        }
+      ],
+      "returns_through": "2026-11-21T06:34:18.912Z"
+    }
+  ]
+}

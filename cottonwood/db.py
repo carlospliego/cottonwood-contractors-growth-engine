@@ -18,7 +18,11 @@ BUSY_TIMEOUT_SECONDS = 30.0
 _MIGRATION_NAME = re.compile(r"^(\d{3})_[a-z0-9_]+\.sql$")
 
 
-class MigrationError(Exception):
+class DatabaseError(Exception):
+    """The database could not be opened or used; base of every db error."""
+
+
+class MigrationError(DatabaseError):
     """A migration could not be found, read or applied."""
 
 
@@ -65,12 +69,12 @@ def connect(db_path: Path) -> sqlite3.Connection:
     try:
         conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_SECONDS)
     except sqlite3.Error as exc:
-        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+        raise DatabaseError(f"cannot open database {db_path}: {exc}") from exc
     try:
         conn.execute("PRAGMA foreign_keys = ON")
     except sqlite3.Error as exc:
         conn.close()
-        raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
+        raise DatabaseError(f"cannot open database {db_path}: {exc}") from exc
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -110,6 +114,20 @@ def user_version(conn: sqlite3.Connection) -> int:
     """Return the database's PRAGMA user_version."""
     row = conn.execute("PRAGMA user_version").fetchone()
     return int(row[0])
+
+
+def require_migrated(
+    conn: sqlite3.Connection, db_path: Path, migrations_dir: Path = MIGRATIONS_DIR
+) -> None:
+    """Refuse a database older than the newest migration, before a command reads or writes it."""
+    migrations = discover_migrations(migrations_dir)
+    newest = migrations[-1].number if migrations else 0
+    current = _read_version(conn, db_path)
+    if current < newest:
+        raise MigrationError(
+            f"database at version {current}, run `cottonwood migrate` "
+            f"(needs version {newest}): {db_path}"
+        )
 
 
 def _read_version(conn: sqlite3.Connection, db_path: Path) -> int:

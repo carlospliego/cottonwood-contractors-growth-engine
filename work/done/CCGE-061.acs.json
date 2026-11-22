@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-061",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_time_cost_failures.py installs a BEFORE INSERT trigger that raises on activities. It covers log-time and log-cost as new entries, and --voids on a log-time entry and on a log-cost entry. Each case asserts exit 1 (EXIT_REFUSED), stderr starting 'error: could not save the entry', no 'Traceback', and an unchanged activity count. On the unmodified worktree, 7 passed. I copied the tree to $TMPDIR and removed the `except sqlite3.Error ... could not save the entry` branch from cottonwood/cli.py (_run_entry, around line 697). I ran the tests with PYTHONPATH pointing at the copy; the traceback shows cottonwood/events.py:295 raising the IntegrityError from inside the copy, so the mutant was the code under test. 4 tests failed: new-entry log-time and log-cost, and void log-time and log-cost. The 3 blank-actor tests still passed, as expected, since they are not part of this AC.",
+          "file": "tests/test_time_cost_failures.py",
+          "line": 82,
+          "quote": "assert _run(db_path, command, *args) == EXIT_REFUSED\n\n    err = capsys.readouterr().err\n    assert err.startswith(\"error: could not save the entry\")\n    assert \"Traceback\" not in err\n    assert _count(db_path) == before"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_time_cost_failures.py has test_log_cost_with_a_blank_actor_writes_nothing, which runs log-cost with --actor ' ' and asserts exit EXIT_REFUSED, 'actor' in stderr, and an unchanged activities row count. It also has test_void_with_a_blank_actor_writes_nothing, parametrized over log-time and log-cost, which runs --voids <id> --actor ' ' and makes the same three assertions. cottonwood/cli.py:39 defines EXIT_REFUSED = 1. All 7 tests in the file pass under uv run --offline pytest. I did not mutate the code to see whether the tests fail when the behaviour breaks.",
+          "file": "tests/test_time_cost_failures.py",
+          "line": 118,
+          "quote": "assert _run(db_path, command, \"--voids\", str(target), \"--actor\", \" \") == EXIT_REFUSED"
+        }
+      ],
+      "returns_through": "2026-11-21T06:14:27.449Z"
+    }
+  ]
+}

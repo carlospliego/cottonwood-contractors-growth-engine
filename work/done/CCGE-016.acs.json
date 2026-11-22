@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-016",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_normalize_name_hyphens.py asserts normalize_name('Mary-Jane Smith') == normalize_name('Mary Jane Smith') and == 'mary jane smith', and normalize_name(\"O'Neil\") == 'oneil'. normalize.py strips apostrophes, then replaces other punctuation with a space. Ran uv run --offline pytest on the file: 3 passed.",
+          "file": "tests/test_normalize_name_hyphens.py",
+          "line": 10,
+          "quote": "    assert normalize_name(\"Mary-Jane Smith\") == normalize_name(\"Mary Jane Smith\")\n    assert normalize_name(\"Mary-Jane Smith\") == \"mary jane smith\""
+        }
+      ],
+      "returns_through": "2026-11-21T04:46:44.014Z"
+    }
+  ]
+}

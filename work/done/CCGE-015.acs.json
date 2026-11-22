@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-015",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test writes b'\\xff\\xfe' to a config file, calls config.load_config, expects ConfigError, and asserts str(path) is in the message. config.py now catches UnicodeDecodeError and raises ConfigError with the path. The test passed (1 passed).",
+          "file": "tests/test_config_encoding.py",
+          "line": 13,
+          "quote": "    path.write_bytes(b\"\\xff\\xfe\")\n    with pytest.raises(config.ConfigError) as raised:\n        config.load_config(path)\n    assert str(path) in str(raised.value)"
+        }
+      ],
+      "returns_through": "2026-11-21T04:45:05.639Z"
+    }
+  ]
+}

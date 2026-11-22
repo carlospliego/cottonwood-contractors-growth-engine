@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-017",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_normalize_domain_www.py asserts normalize_domain('www.io') == 'www.io' (line 10) and normalize_domain('https://www.example.com') == 'example.com' (line 14). I ran the file with uv run --offline pytest and both tests passed (2 passed).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-017/tests/test_normalize_domain_www.py",
+          "line": 10,
+          "quote": "assert normalize_domain(\"www.io\") == \"www.io\""
+        }
+      ],
+      "returns_through": "2026-11-21T04:48:29.251Z"
+    }
+  ]
+}

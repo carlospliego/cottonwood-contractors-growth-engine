@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-046",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Chose the 'document' option. The InboundCounts docstring and the inbound_counts docstring in cottonwood/review.py now say unknown channels or segments count toward total only, so the breakdowns may not sum to it. The new test tests/test_inbound_counts_breakdown.py shows this: two leads, one rewritten to channel 'email' and segment 'industrial', give total 2 while each breakdown sums to 1. A second test checks the docstring wording. uv run pytest passed 939 tests. ruff check, mypy and ruff format --check all passed.",
+          "file": "cottonwood/review.py",
+          "line": 53,
+          "quote": "inbound.SEGMENTS). ``total`` counts every non-test inquiry, so a row stored with any\n    other channel or segment (log-inbound cannot write one; a hand edit or an older import\n    could) is in ``total`` but in neither breakdown, and the breakdowns can sum to less."
+        }
+      ],
+      "returns_through": "2026-11-21T05:41:41.308Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-075",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep shows `def _clean` and `def _rowid` only in cottonwood/_shared.py (lines 12, 20). inbound.py and events.py import both (`from cottonwood._shared import _clean, _rowid`), and prospects.py imports _rowid. No other defs remain in the package. tests/test_shared_helpers.py asserts one definition and identity of the imported names. The full suite passed: 933 passed.",
+          "file": "cottonwood/_shared.py",
+          "line": 12,
+          "quote": "def _clean(value: str | None) -> str | None:"
+        }
+      ],
+      "returns_through": "2026-11-21T16:52:18.263Z"
+    }
+  ]
+}

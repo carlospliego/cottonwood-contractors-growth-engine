@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-125",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `grep -rn TEXT_SCOPES cottonwood tests` in the worktree: no output, exit code 1 (no match). `git diff` shows one change, in cottonwood/gate.py: the single line `TEXT_SCOPES = (\"audience\", \"offer\")` was deleted. A repo-wide grep (excluding .venv, worktrees and .git) finds TEXT_SCOPES only in work/todo.md and work/tasks/CCGE-125.md, which are task-tracking text. Nothing imports gate.TEXT_SCOPES.",
+          "file": "cottonwood/gate.py",
+          "line": 28,
+          "quote": "SCOPES = (\"lead\", \"draft\", \"claim\", \"audience\", \"offer\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command with uv run --offline in the ccge-125 worktree. All four exited 0. pytest: 929 passed in 5.32s. ruff check: All checks passed!. mypy: Success: no issues found in 105 source files. ruff format --check: 315 files already formatted.",
+          "file": "/private/tmp/claude-501/-Users-carlos-src-cottonwood-contractors-growth-engine/043590de-970e-4859-8ac9-3fdb7226d8d7/scratchpad",
+          "line": 1,
+          "quote": "929 passed in 5.32s / All checks passed! / Success: no issues found in 105 source files / 315 files already formatted"
+        }
+      ],
+      "returns_through": "2026-11-21T18:29:35.184Z"
+    }
+  ]
+}

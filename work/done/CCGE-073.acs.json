@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-073",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The EventError docstring now says it covers time and cost entries (validate_time, validate_cost, void_entry, R-30). Those functions do raise EventError (events.py:569-611, 681-695). The CLI log-time/log-cost path catches events.EventError, prints 'error: <exc>' and returns EXIT_REFUSED (cli.py:676-678, 694-696). EXIT_REFUSED = 1 (cli.py:39). The docstring's other claims also hold: validate_correction and log_correction raise it (events.py:399-458), hand_review raises it (hand_review.py:59-119), and the CLI catches it with the same message and exit code (cli.py:494). The existing refusal tests in tests/test_time_cost.py assert exit 1 and the 'error:' prefix (test_bad_hours_are_refused, test_bad_amounts_are_refused, test_void_refusals_write_nothing). All 56 tests in that file pass.",
+          "file": "cottonwood/events.py",
+          "line": 97,
+          "quote": "class EventError(ValueError):\n    \"\"\"A field failed validation or a refusal rule; ``field`` names it.\n\n    Despite the name it is not only for R-15 events: it also covers corrections\n    (validate_correction, log_correction) and time and cost entries (validate_time,\n    validate_cost, void_entry, R-30), and hand_review raises it too."
+        }
+      ],
+      "returns_through": "2026-11-21T06:40:44.229Z"
+    }
+  ]
+}

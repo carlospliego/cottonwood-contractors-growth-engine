@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-052",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Both non-tty refusal tests use the not_a_terminal fixture, which monkeypatches sys.stdin with _NonTtyStdin. Per the task description, that object's isatty() returns False and its readline() fails the test. I did not read the _NonTtyStdin class body myself. I ran `pytest -s -k same_day` and 3 passed with no hang. The full suite passed (934 passed). ruff check, mypy and ruff format --check all passed.",
+          "file": "tests/test_inbound_duplicates.py",
+          "line": 78,
+          "quote": "@pytest.fixture\ndef not_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:\n    \"\"\"Pin stdin to a non-terminal, so these tests hold under `pytest -s` too.\"\"\"\n    monkeypatch.setattr(sys, \"stdin\", _NonTtyStdin())"
+        }
+      ],
+      "returns_through": "2026-11-21T06:01:13.892Z"
+    }
+  ]
+}

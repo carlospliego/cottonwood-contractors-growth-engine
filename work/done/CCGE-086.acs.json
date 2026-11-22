@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-086",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test seeds in-period agent_runs rows (started_at 2026-11-15, inside the 2026-11-10 to 2026-11-20 period) with cost_usd 'NaN', 'Infinity' and '1.00'. It also covers '-Infinity' and 'nan'/'inf' variants. It runs `main(['report', ...])`, asserts the exit code equals EXIT_OK, and asserts the report's model cost line equals '1.00'. `uv run --offline pytest -q tests/test_report_nonfinite_run_cost.py` gave 3 passed. I did not run a mutant to confirm the test fails when non-finite costs are not skipped.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-086/tests/test_report_nonfinite_run_cost.py",
+          "line": 57,
+          "quote": "    _runs(db_path, [*bad, \"1.00\"])\n    capsys.readouterr()\n    assert main([\"report\", \"--db\", str(db_path), *PERIOD]) == EXIT_OK\n    text = capsys.readouterr().out\n    assert _metric(text, report.LABEL_MODEL_COST) == \"1.00\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In a copy under $TMPDIR I deleted the two lines (419-420) of the is_finite check in _run_costs. The worktree was not touched. I ran tests/test_report_nonfinite_run_cost.py against the copy and all 3 parametrized cases failed (bad0, bad1, bad2). The failure was: assert 'NaN' == '1.00' for the model cost metric. I did not run the test on an unmodified copy, because the first attempt was blocked by the policy gate.",
+          "file": "cottonwood/report.py",
+          "line": 419,
+          "quote": "        if not cost.is_finite():\n            continue"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four commands in the worktree with uv run --offline, each exiting 0. pytest: 932 passed in 5.14s. ruff check: All checks passed!. mypy: Success: no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "pyproject.toml",
+          "line": 1,
+          "quote": "932 passed in 5.14s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:10:02.315Z"
+    }
+  ]
+}

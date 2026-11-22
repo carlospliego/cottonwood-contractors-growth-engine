@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-145",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "All 8 tests in tests/test_review_lead_export_branches.py pass (8 passed). I did not run mutation probes, so 'would fail if broken' rests on reading the assertions against cottonwood/review.py. (1) The deleted and empty-email parametrized cases each assert draftable is False and blocked_by == ['no_contact_email']. These match the `not row['email_norm'] or row['deleted_at'] is not None` branch in _export_contact. (2) The test writes a direct_candidate checklist into the config and stores an answer for only one item. It asserts the unanswered item is 'unknown'. (3) The invalid-JSON, JSON-object and JSON-string cases all assert verified_facts == [], which covers the JSONDecodeError and non-list branches of _facts. (4) The test inserts an older and a newer evidence row. It asserts observed_at order is newest first and checks the published_at values and the newest row's url, which covers ORDER BY observed_at DESC and the published_at field. (5) The organization test asserts the exact dict {name: 'Firm (TEST)', domain: 'firm.example.com'}. Each assertion would fail if its branch regressed.",
+          "file": "tests/test_review_lead_export_branches.py",
+          "line": 53,
+          "quote": "    assert data[\"draftable\"] is False\n    assert data[\"blocked_by\"] == [\"no_contact_email\"]"
+        }
+      ],
+      "returns_through": "2026-11-21T18:53:55.106Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-040",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "cottonwood/cli.py _duplicate_confirmed now returns False when sys.stdin is None or not a tty. The new test tests/test_duplicate_prompt_no_stdin.py sets sys.stdin to None and checks that a duplicate gives EXIT_REFUSED, 'refused: duplicate not confirmed' on stderr, no AttributeError, and only one lead saved. A second test checks that --confirm-duplicate still saves. Results: pytest 931 passed, ruff check passed, mypy found no issues, ruff format --check reported all files formatted.",
+          "file": "cottonwood/cli.py",
+          "line": 170,
+          "quote": "if sys.stdin is None or not sys.stdin.isatty():"
+        }
+      ],
+      "returns_through": "2026-11-21T05:26:18.303Z"
+    }
+  ]
+}

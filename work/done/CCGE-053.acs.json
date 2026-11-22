@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-053",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_review.py now has EMPTY_REVIEW with exact whole-output equality, including the Generated line and the empty-database messages. It also has test_generated_line_follows_the_clock (re-pins the clock and asserts the Generated line), test_backslash_in_a_cell_is_escaped (company 'A\\B | C' asserted as '| A\\\\B \\| C |'), and a behavioral test_counted_leads_filter_selects_only_non_test_leads that replaces the constant-equality test; it runs the filter against a real database holding a real lead and a test lead. uv run --offline pytest passed (934 passed), ruff check passed, mypy passed (no issues in 106 files), and ruff format --check passed (316 files already formatted). I did not mutate the code to confirm that the new tests fail when the behavior breaks.",
+          "file": "tests/test_review.py",
+          "line": 126,
+          "quote": "EMPTY_REVIEW = \"\"\"\\\n# Review\n\nGenerated: 2026-11-18 10:00 -07:00"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff HEAD on tests/test_review.py shows only three kinds of change. (1) The empty-database test is renamed and strengthened to compare the whole output with EMPTY_REVIEW. The old substring (Inquiries: 0 (...). Test inquiries excluded: 0.) is still in EMPTY_REVIEW, so that behavior is kept. (2) The constant-equality test is replaced by a behavioral one. It uses the real filter, so it checks the same filter's meaning, and the CCGE-044 change from 'is_test = 0' to 'leads.is_test = 0' explains why the literal check could not stay. (3) Two tests are added: backslash escaping in a cell, and the Generated line following the clock. All other existing tests are untouched. All 10 tests in tests/test_review.py pass.",
+          "file": "tests/test_review.py",
+          "line": 126,
+          "quote": "EMPTY_REVIEW = \"\"\"\\\n# Review\n\nGenerated: 2026-11-18 10:00 -07:00"
+        }
+      ],
+      "returns_through": "2026-11-21T06:05:16.325Z"
+    }
+  ]
+}

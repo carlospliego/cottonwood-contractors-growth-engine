@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-064",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff adds conn.execute(\"BEGIN IMMEDIATE\") before the first SELECT in log_event, log_correction and void_entry. tests/test_events_write_lock.py has three trace tests that check the BEGIN IMMEDIATE statement comes before the first SELECT, one per function. It also has a two-connection test: while the first void holds the lock, a second void_entry on the same entry raises OperationalError 'database is locked'. After the first commits, the second is refused with 'already void', and exactly one void row exists. All 4 tests pass.",
+          "file": "cottonwood/events.py",
+          "line": 683,
+          "quote": "    # The write lock comes before the already-void check (F-correctness-1).\n    conn.execute(\"BEGIN IMMEDIATE\")"
+        }
+      ],
+      "returns_through": "2026-11-21T04:32:42.732Z"
+    }
+  ]
+}

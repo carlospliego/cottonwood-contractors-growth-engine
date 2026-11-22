@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-147",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "R-17 (line 47) says a deletion request (R-35) is the one exception under which activity records are changed. R-35 (line 73) says the procedure removes the person's details from activity records, and it points back to R-17 as the exception. I read both lines in docs/cottonwood-growth-engine.md and did not run any tests.",
+          "file": "docs/cottonwood-growth-engine.md",
+          "line": 73,
+          "quote": "- R-35: `docs/runbook.md` documents the deletion-request procedure: remove the person's contact fields and notes, remove the person's details from activity records (the one exception to R-17), log the removal without personal data, and keep their suppression entry."
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_deletion_request.py::test_deletion_removes_details_from_contacts_and_activities seeds a contact with name, email, phone and a note in two activity payloads. It runs `deletion-request` and asserts that none of those values appear in the contacts, activities or leads tables. It asserts exactly one new `deletion_request` activity whose payload is only {reason, activities_redacted: 2}. It asserts the suppression rows are identical before and after. All 7 tests in the file pass (`uv run pytest`: 7 passed). cottonwood/deletion.py scrubs the payloads and inserts the removal activity with no personal data.",
+          "file": "tests/test_deletion_request.py",
+          "line": 144,
+          "quote": "    for table in (\"contacts\", \"activities\", \"leads\"):\n        text = _all_text(db_path, table)\n        for value in PERSONAL:\n            assert value not in text, (table, value)"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree: uv run --offline pytest gave 936 passed; ruff check gave 'All checks passed!'; mypy gave 'Success: no issues found in 107 source files'; ruff format --check gave '317 files already formatted'. All four exited cleanly.",
+          "file": "tests/test_deletion_request.py",
+          "line": 1,
+          "quote": "936 passed in 6.74s"
+        }
+      ],
+      "returns_through": "2026-11-21T04:24:20.693Z"
+    }
+  ]
+}

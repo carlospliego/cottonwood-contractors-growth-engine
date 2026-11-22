@@ -354,3 +354,41 @@ def test_an_unknown_lead_records_nothing(ready: Setup, capsys: pytest.CaptureFix
     assert ready.prepare(lead=99) == EXIT_REFUSED
     assert capsys.readouterr().err.startswith("error: lead:")
     assert len(ready.activities()) == before
+
+
+# --- CCGE-134: the checks run inside the write transaction ------------------------------
+
+
+def test_a_suppression_committed_just_before_the_lock_is_seen(
+    ready: Setup, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another writer suppresses the address just before prepare-send takes its write lock.
+
+    The second connection commits its suppression row as the first connection starts
+    BEGIN IMMEDIATE; every R-21 check must read after that point and refuse.
+    """
+    real_connect = db.connect
+
+    def connect_with_a_racing_writer(path: Path) -> sqlite3.Connection:
+        conn = real_connect(path)
+
+        def before_statement(statement: str) -> None:
+            if statement.strip().upper().startswith("BEGIN IMMEDIATE"):
+                conn.set_trace_callback(None)
+                other = sqlite3.connect(path, timeout=0.5)
+                try:
+                    other.execute(
+                        "INSERT INTO suppression (email_norm, reason, source, added_at)"
+                        " VALUES (?, 'asked', 'suppress', ?)",
+                        (EMAIL, NOW),
+                    )
+                    other.commit()
+                finally:
+                    other.close()
+
+        conn.set_trace_callback(before_statement)
+        return conn
+
+    monkeypatch.setattr(db, "connect", connect_with_a_racing_writer)
+    lines = _assert_refused(ready, capsys, ["suppression"])
+    assert lines[0].startswith("refused: suppression:")

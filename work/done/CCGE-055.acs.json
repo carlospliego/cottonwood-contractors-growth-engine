@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-055",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_cell now backslash-escapes \\ | [ ] ( ) < > ! ` * _ via _MARKDOWN_ESCAPES. New tests/test_review_cell_escaping.py uses link, image and HTML/script payloads and asserts no unescaped metacharacters and exact literal output. uv run pytest passed (937 passed), ruff check passed, mypy passed (no issues in 106 files), ruff format --check passed (316 files already formatted).",
+          "file": "cottonwood/review.py",
+          "line": 91,
+          "quote": "_MARKDOWN_ESCAPES = \"\\\\|[]()<>!`*_\""
+        }
+      ],
+      "returns_through": "2026-11-21T04:27:11.878Z"
+    }
+  ]
+}

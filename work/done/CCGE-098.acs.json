@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-098",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran `grep -rn '\"direct_candidate\"' cottonwood/*.py` in the worktree. It returned exactly one line, cottonwood/events.py:35, which is a constant definition (DIRECT_CANDIDATE = \"direct_candidate\").",
+          "file": "cottonwood/events.py",
+          "line": 35,
+          "quote": "DIRECT_CANDIDATE = \"direct_candidate\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran grep -rn '\"relationship_prospect\"' cottonwood/*.py in the worktree. It returned exactly one line, the constant definition in events.py.",
+          "file": "cottonwood/events.py",
+          "line": 36,
+          "quote": "RELATIONSHIP_PROSPECT = \"relationship_prospect\""
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep '\"researched\"' cottonwood/prospects.py finds nothing. events.py:38 defines RESEARCHED_STAGE = \"researched\". prospects.py:28 sets IMPORTED_STAGE = events.RESEARCHED_STAGE, and the lead INSERT at prospects.py:502 uses IMPORTED_STAGE. tests/test_prospects_import.py passed (15/15), including test_json_records_become_researched_leads, which asserts imported leads have stage 'researched'. I did not run a real prospects-import against a temp db.",
+          "file": "cottonwood/prospects.py",
+          "line": 28,
+          "quote": "IMPORTED_STAGE = events.RESEARCHED_STAGE"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four commands in the worktree with uv run --offline, one per call. pytest: 929 passed. ruff check: All checks passed. mypy: no issues found in 105 source files. ruff format --check: 315 files already formatted.",
+          "file": "cottonwood",
+          "line": 1,
+          "quote": "929 passed in 5.42s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:33:16.752Z"
+    }
+  ]
+}

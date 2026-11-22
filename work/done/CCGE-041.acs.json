@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-041",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_duplicate_confirmed writes DUPLICATE_PROMPT to stderr with end='' and flush=True, then reads sys.stdin.readline(). The prompt only shows when stdin is a tty (non-tty returns False before prompting). New tests/test_duplicate_prompt_stderr.py has test_prompt_is_on_stderr_not_stdout and test_input_builtin_is_not_used. In this worktree, uv run --offline pytest gave 934 passed, ruff check passed, mypy reported no issues in 107 files, and ruff format --check reported 317 files already formatted.",
+          "file": "cottonwood/cli.py",
+          "line": 176,
+          "quote": "print(DUPLICATE_PROMPT, end=\"\", file=sys.stderr, flush=True)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_inbound_duplicates.py touches only the three tty prompt tests plus a new _TtyStdin helper and an `import io`. Parametrized answers are unchanged: y/YES/' yes ' save, n/''/maybe refuse. EOF still refuses (empty stdin, so readline returns ''). Every count and payload assertion is kept: leads==2, duplicate_of==[existing_email], counts unchanged on refusal, leads==1 on EOF. The old exact-prompt assertion (`prompts == [\"Save anyway? [y/N] \"]`) became a check that stderr holds the prompt once, which is what the AC's stderr change requires. No other tests in the file changed, and all 14 tests pass.",
+          "file": "tests/test_inbound_duplicates.py",
+          "line": 118,
+          "quote": "assert capsys.readouterr().err.count(\"Save anyway? [y/N] \") == 1"
+        }
+      ],
+      "returns_through": "2026-11-21T05:29:27.210Z"
+    }
+  ]
+}

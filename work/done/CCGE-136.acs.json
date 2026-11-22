@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-136",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep of cottonwood/send.py: 0 matches for _insert_prepared; exactly one 'INSERT INTO activities' (line 473, inside _insert); one hashlib.sha256 (line 83, in sha256_bytes). The git diff shows prepare_send now calls _insert(conn, lead_id, contact_id, PREPARED_TYPE, payload, actor, now, now), which keeps the same contact_id, type and timestamps (occurred_at and recorded_at both now) as the removed helper. uv run --offline pytest -q gave 932 passed.",
+          "file": "cottonwood/send.py",
+          "line": 83,
+          "quote": "return hashlib.sha256(data).hexdigest()"
+        }
+      ],
+      "returns_through": "2026-11-21T18:40:45.603Z"
+    }
+  ]
+}

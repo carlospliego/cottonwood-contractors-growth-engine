@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-047",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "cottonwood/cli.py defines _add_db_argument (line 55) and _db_path (line 65). _add_db_argument(parser) is called in 17 command parsers. _db_path(args) is called 19 times, and the old 'args.db if args.db is not None' pattern is gone. The only remaining \"--db\" literal is inside the helper. tests/test_cli_db_helpers.py tests the helpers: source counts, an identical option on every db command, flag over env over default, and an end-to-end 'migrate --db'. Full run: uv run pytest gave 934 passed; ruff check passed; mypy reported no issues in 106 files; ruff format --check reported 316 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-047/cottonwood/cli.py",
+          "line": 65,
+          "quote": "def _db_path(args: argparse.Namespace) -> Path:"
+        }
+      ],
+      "returns_through": "2026-11-21T05:45:00.543Z"
+    }
+  ]
+}

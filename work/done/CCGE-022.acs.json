@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-022",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_normalize_email_messages.py has two tests. The first asserts normalize_email('jane@exa mple.com') raises ValueError matching 'whitespace'. The second asserts normalize_email('@example.com') raises ValueError matching 'local part', and that the message does not contain 'whitespace'. normalize.py raises 'email must not contain whitespace' (line 21) and 'email has an empty local part' (line 23). Running the test file with uv run --offline pytest gave 2 passed.",
+          "file": "tests/test_normalize_email_messages.py",
+          "line": 11,
+          "quote": "    with pytest.raises(ValueError, match=\"whitespace\"):\n        normalize_email(\"jane@exa mple.com\")"
+        }
+      ],
+      "returns_through": "2026-11-21T04:57:44.605Z"
+    }
+  ]
+}

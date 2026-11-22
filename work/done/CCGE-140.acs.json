@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-140",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `uv run --offline pytest -q tests/test_log_reply_date_and_rollback.py -v`: 4 passed. The imported autouse fixed_now pins utc_now, and test_utc_now_is_pinned asserts it equals 2026-12-01T00:00:00Z. The parametrized test runs `log-reply 1 other --date` with 2026-12-01 and with 30/11/2026. For each, it asserts the exit code equals EXIT_REFUSED, stderr starts with 'error: date:', and the activity and suppression snapshot is unchanged. EXIT_REFUSED = 1 (cottonwood/cli.py:39). The rollback test patches gate._insert_suppression to raise sqlite3.OperationalError and runs `log-reply 1 opt_out --date 2026-11-30`. It asserts exit 1, that the patched insert was called (so the reply insert had already run), that the error text is on stderr, and that no reply activity is stored. log_reply in cottonwood/send.py does BEGIN IMMEDIATE, then inserts the reply, then calls gate._insert_suppression, and rolls back on any exception. I did not read the cli.py handler, but the tests pass through it end to end.",
+          "file": "tests/test_log_reply_date_and_rollback.py",
+          "line": 43,
+          "quote": "assert _run(database, \"log-reply\", \"1\", \"other\", \"--date\", value) == EXIT_REFUSED"
+        }
+      ],
+      "returns_through": "2026-11-21T18:51:31.611Z"
+    }
+  ]
+}

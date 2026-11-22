@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-066",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test tests/test_time_cost_ascii_digits.py parametrizes log-time with hours '١.٥' and log-cost with --date '٢٠٢٦-١١-١٦'. It asserts exit == EXIT_REFUSED (1), an 'error: <field>:' message on stderr, and zero rows in the activities table. events.py now uses [0-9] in _PLAIN_DECIMAL and _ISO_DATE. All 5 tests pass (uv run --offline pytest). I did not run the tests against the base events.py. The implementer says the hours case fails there and the date case was already refused later by date.fromisoformat.",
+          "file": "tests/test_time_cost_ascii_digits.py",
+          "line": 41,
+          "quote": "(\"log-time\", \"١.٥\", \"--date\", \"2026-11-16\", \"--category\", \"outreach\"), \"hours\"),"
+        }
+      ],
+      "returns_through": "2026-11-21T06:21:48.125Z"
+    }
+  ]
+}

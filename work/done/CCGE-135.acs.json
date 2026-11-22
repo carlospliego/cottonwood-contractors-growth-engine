@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-135",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "New test test_a_write_that_fails_partway_leaves_no_file_and_no_record monkeypatches Path.write_bytes to write half the bytes into OUT then raise OSError; it asserts exit code 1, no file named after the draft in OUT, OUT is entirely empty, and zero prepared activities (env.prepared() == 0). The test ran with the other 3 tests in the file: 4 passed. send.py now writes via _write_atomically (temp file, os.replace, removed on failure), so the partial bytes never appear under the draft name. I did not mutate the code to confirm the test fails without the fix.",
+          "file": "tests/test_prepare_send_cleanup.py",
+          "line": 161,
+          "quote": "    monkeypatch.setattr(Path, \"write_bytes\", write_half_then_fail)\n    code = env.prepare()\n    monkeypatch.undo()\n    assert code == 1\n    assert not (env.out / env.draft.name).exists()\n    assert list(env.out.iterdir()) == []\n    assert env.prepared() == 0"
+        }
+      ],
+      "returns_through": "2026-11-21T04:41:26.631Z"
+    }
+  ]
+}

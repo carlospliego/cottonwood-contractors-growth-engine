@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-096",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_shown now prints whole floats as int. The test imports founder_time_h 1234567, re-imports 1234568 through the real prospects-import CLI, and asserts the difference line contains \"stored '1234567'\" and \"incoming '1234568'\". All 3 tests in tests/test_prospects_founder_time_difference.py passed. The line format comes from cottonwood/prospects.py:75.",
+          "file": "cottonwood/prospects.py",
+          "line": 344,
+          "quote": "return str(int(value)) if value.is_integer() else repr(value)"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test test_a_whole_and_a_fractional_value_are_shown_distinctly imports a record with founder_time_h 2.0 and then re-imports it with 2.5 through the real CLI (main prospects-import). It asserts the difference line contains \"stored '2'\" and \"incoming '2.5'\". All 3 tests in the file pass. _shown now returns str(int(value)) for whole floats, so 2.0 prints '2', and repr(value) otherwise, so 2.5 prints '2.5'.",
+          "file": "cottonwood/prospects.py",
+          "line": 344,
+          "quote": "return str(int(value)) if value.is_integer() else repr(value)"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with `uv run --offline`, one per call. All four exited 0. pytest: 932 passed in 5.74s. ruff check: All checks passed!. mypy: Success: no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "tests/test_prospects_founder_time_difference.py",
+          "line": 1,
+          "quote": "932 passed in 5.74s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:27:33.651Z"
+    }
+  ]
+}

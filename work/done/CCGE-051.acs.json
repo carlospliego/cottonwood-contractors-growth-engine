@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-051",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new tests/test_parse_received_dst_2026.py asserts 2026-11-01 01:30 -> 2026-11-01T07:30:00Z. It also asserts that 2026-03-08 02:30 (and 02:00 and 02:59) raises ValueError matching 'does not exist in America/Denver', and the module docstring states the chosen behavior is to reject. It adds neighbour cases either side of each edge. I ran uv run --offline pytest (944 passed), ruff check (all checks passed), mypy (no issues in 107 files) and ruff format --check (317 files already formatted). I did not run a mutation probe against the reject behavior.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-051/tests/test_parse_received_dst_2026.py",
+          "line": 32,
+          "quote": "@pytest.mark.parametrize(\"local\", [\"2026-03-08 02:00\", \"2026-03-08 02:30\", \"2026-03-08 02:59\"])"
+        }
+      ],
+      "returns_through": "2026-11-21T05:58:32.608Z"
+    }
+  ]
+}

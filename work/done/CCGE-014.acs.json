@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-014",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_backup_failure.py has a test that chmods the destination folder to 0o500, runs main(['backup','--db',...,'--to',dest]), and asserts code == EXIT_REFUSED (cottonwood/cli.py:39 sets this to 1). It also asserts exactly one stderr line starting with 'error:', that this line contains str(dest), and that 'Traceback' is not in stderr. It restores permissions in a finally block. Running pytest on the file passed 2 of 2 tests. I did not mutate the code to check that the test fails without the fix.",
+          "file": "tests/test_backup_failure.py",
+          "line": 40,
+          "quote": "    dest.chmod(0o500)\n    try:\n        code = main([\"backup\", \"--db\", str(source), \"--to\", str(dest)])"
+        }
+      ],
+      "returns_through": "2026-11-21T04:43:28.161Z"
+    }
+  ]
+}

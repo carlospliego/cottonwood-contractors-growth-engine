@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-102",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test makes birch-2, the second of three records, raise sqlite3.IntegrityError inside _insert_lead. It first reads the record's organization row to confirm the row was already inserted, so the failure comes after the organization insert. It then asserts that leads exist for Acme and Cedar, that organizations holds only those two, and that no contacts or evidence remain for birch-2. import_records (prospects.py:136-143) runs SAVEPOINT, catches IntegrityError, does ROLLBACK TO and RELEASE, rejects the record and continues. The two tests in the file pass (2 passed).",
+          "file": "tests/test_prospects_rollback.py",
+          "line": 122,
+          "quote": "assert names == [\"Acme Dental (TEST)\", \"Cedar Pediatrics (TEST)\"]\n    assert [row[0] for row in _rows(db_path, \"SELECT name FROM organizations ORDER BY id\")] == [\n        \"Acme Dental (TEST)\",\n        \"Cedar Pediatrics (TEST)\",\n    ]"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_a_database_error_exits_1_and_writes_nothing patches prospects._insert_evidence to raise sqlite3.OperationalError on the second new record (cedar-3), after birch-2 is fully written. It asserts the exit code is 1 and that stderr is exactly one line starting 'error: could not import into the database'. It also asserts there is no Traceback and empty stdout, and that _counts(db_path) == before (counts per table, taken after an initial 1-lead import). cli.py:794-796 catches sqlite3.Error and prints that message, returning EXIT_REFUSED. Both tests in the file passed (2 passed). I did not run a mutant. I did not read _counts, so I did not check that it covers every table, and I did not check that EXIT_REFUSED is 1.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-102/tests/test_prospects_rollback.py",
+          "line": 167,
+          "quote": "assert _import(db_path, tmp_path, records) == 1\n    captured = capsys.readouterr()\n    lines = captured.err.splitlines()\n    assert len(lines) == 1\n    assert lines[0].startswith(\"error: could not import into the database\")"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I used `sir verify mutant` on a copy and replaced only the IntegrityError-branch `conn.execute(f\"ROLLBACK TO {_SAVEPOINT}\")` (prospects.py:140) with `pass`. The mutant was reported killed. The full suite gave 2 failed, 929 passed. One failure was the first test, `test_a_record_that_fails_after_its_organization_insert_is_undone_alone` (tests/test_prospects_rollback.py:87). It failed because the diff showed an extra 'Birch Orthodontics (TEST)' organization left behind, which is the missing rollback. The other failure was an unrelated `git ls-files` error (exit 128) that comes from the copy not being a git repo. I did not run the second ROLLBACK TO (line 146, the BaseException branch) separately or the both-replaced variant. Replacing line 140 alone is enough for the AC, since it makes the first test fail.",
+          "file": "cottonwood/prospects.py",
+          "line": 140,
+          "quote": "conn.execute(f\"ROLLBACK TO {_SAVEPOINT}\")"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command with uv run --offline in the worktree. pytest: exit 0, 931 passed in 5.09s. ruff check: exit 0, 'All checks passed!'. mypy: exit 0, 'Success: no issues found in 106 source files'. ruff format --check: exit 0, '316 files already formatted'.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-102/cottonwood/prospects.py",
+          "line": 1,
+          "quote": "931 passed in 5.09s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:53:13.154Z"
+    }
+  ]
+}

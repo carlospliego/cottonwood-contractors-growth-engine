@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-095",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff shows import_records changed from conn.execute(\"BEGIN\") to conn.execute(\"BEGIN IMMEDIATE\") as the first statement of the transaction, before the try/record loop. grep shows no other BEGIN in the file.",
+          "file": "cottonwood/prospects.py",
+          "line": 124,
+          "quote": "conn.execute(\"BEGIN IMMEDIATE\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test holds a write lock from a second connection (BEGIN IMMEDIATE plus an insert) and releases it with a COMMIT after 0.2s via threading.Timer. Meanwhile it runs main(['prospects-import', ...]) with the default busy timeout. It asserts exit code EXIT_OK and that the record's organization and one lead are present. The test passes (1 passed). In a mutant copy where BEGIN IMMEDIATE was changed to BEGIN, the test fails with 'database is locked', so it detects the fix.",
+          "file": "tests/test_prospects_import_write_lock.py",
+          "line": 72,
+          "quote": "release = threading.Timer(HOLD_SECONDS, holder.execute, args=(\"COMMIT\",))"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran in the worktree with uv run --offline. pytest: 930 passed. ruff check: All checks passed. mypy: no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "cottonwood/prospects.py",
+          "line": 124,
+          "quote": "conn.execute(\"BEGIN IMMEDIATE\")"
+        }
+      ],
+      "returns_through": "2026-11-21T04:35:53.670Z"
+    }
+  ]
+}

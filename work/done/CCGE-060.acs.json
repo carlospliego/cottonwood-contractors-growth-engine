@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-060",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "log_event now calls _check_not_before_latest_stage_change when --stage is given. It raises EventError (exit 1) if event.occurred_at is earlier than the latest effective stage change, so nothing is written. tests/test_events_backdated_stage.py::test_backdated_stage_change_exits_1_and_writes_nothing runs the AC scenario on lead 1: the call at 09:45 with contacted_or_replied, then the walkthrough at 09:30 with --stage walkthrough. It asserts EXIT_REFUSED, that the error mentions the latest stage change with no traceback, that the activity count is unchanged, and that leads.stage is still contacted_or_replied. It then voids the call and asserts the stage returns to candidate. I ran the file with uv run --offline pytest and all 4 tests passed.",
+          "file": "cottonwood/events.py",
+          "line": 284,
+          "quote": "def _check_not_before_latest_stage_change(conn: sqlite3.Connection, event: Event) -> None:"
+        }
+      ],
+      "returns_through": "2026-11-21T06:12:00.310Z"
+    }
+  ]
+}

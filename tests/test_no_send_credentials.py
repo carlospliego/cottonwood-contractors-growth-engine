@@ -1,8 +1,13 @@
-"""R-27: no email-sending credential is committed anywhere in the repository."""
+"""R-27: no email-sending credential is committed anywhere in the repository.
+
+The scan reads every file git lists (tracked, and untracked files not ignored), this one
+included: its sample credential lines are joined from parts at run time.
+"""
 
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from collections.abc import Iterable
 from pathlib import Path
@@ -32,6 +37,12 @@ _SMTP_URL = re.compile(r"smtps?://[^\s/:@]+:[^\s/@]+@", re.IGNORECASE)
 _COMMENT = re.compile(r"^\s*(?:#|//|;|--)")
 
 
+def _sample(*parts: str) -> str:
+    """A sample line joined at run time, so this file's own source never holds one whole and
+    the repository scan below can include this file with no exemption."""
+    return "".join(parts)
+
+
 def find_credentials(lines: Iterable[str]) -> list[int]:
     """1-based numbers of the lines that look like a committed sending credential."""
     hits = []
@@ -46,16 +57,16 @@ def find_credentials(lines: Iterable[str]) -> list[int]:
 @pytest.mark.parametrize(
     "line",
     [
-        "SMTP_PASSWORD=hunter2",
-        "SENDGRID_API_KEY: SG.abc",
-        "MAILGUN_API_KEY=key-1",
-        "POSTMARK_SERVER_TOKEN=x",
-        "SES_SECRET=y",
-        "MAIL_PASSWORD=z",
-        "SMTP_PASS=a",
-        "smtp://user:secret@mail.example:587",
-        'export APP_SMTP_PASSWORD="s3cret"',
-        '{"sendgrid_api_key": "SG.xyz"}',
+        _sample("SMTP_", "PASSWORD=hunter2"),
+        _sample("SENDGRID_", "API_KEY: SG.abc"),
+        _sample("MAILGUN_", "API_KEY=key-1"),
+        _sample("POSTMARK_", "SERVER_TOKEN=x"),
+        _sample("SES_", "SECRET=y"),
+        _sample("MAIL_", "PASSWORD=z"),
+        _sample("SMTP_", "PASS=a"),
+        _sample("smtp://user:", "secret@mail.example:587"),
+        _sample("export APP_SMTP_", 'PASSWORD="s3cret"'),
+        _sample('{"sendgrid_', 'api_key": "SG.xyz"}'),
     ],
 )
 def test_credential_lines_are_flagged(line: str) -> None:
@@ -66,7 +77,7 @@ def test_credential_lines_are_flagged(line: str) -> None:
     "line",
     [
         "# SMTP_PASSWORD=",
-        "# SMTP_PASSWORD=hunter2",
+        _sample("# SMTP_", "PASSWORD=hunter2"),
         "SMTP_PASSWORD=",
         'SMTP_PASSWORD=""',
         "smtp://mail.example:587",
@@ -82,11 +93,19 @@ def test_env_template_is_not_flagged() -> None:
     assert find_credentials(template) == []
 
 
-def _tracked_files() -> list[Path]:
+def _listed_files(root: Path) -> list[Path]:
+    """Every file git knows of under ``root``: tracked, plus untracked files not ignored."""
+    if shutil.which("git") is None:
+        pytest.skip("git is not on PATH; the R-27 credential scan lists files with git ls-files")
     listed = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
-    ).stdout.decode("utf-8")
-    return [ROOT / name for name in listed.split("\0") if name]
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if listed.returncode != 0:
+        pytest.fail(f"git ls-files failed in {root}: {listed.stderr.decode(errors='replace')}")
+    return [root / name for name in listed.stdout.decode("utf-8").split("\0") if name]
 
 
 # sir's planning records (task contracts, specs, the todo index) quote the sample credential
@@ -115,17 +134,64 @@ def test_only_planning_records_are_exempt(relative: str, exempt: bool) -> None:
     assert _is_exempt(relative) is exempt
 
 
-def test_no_tracked_file_holds_a_sending_credential() -> None:
+def _scanned_files(root: Path) -> list[tuple[str, Path]]:
+    """(repo-relative path, path) of every file the scan reads under ``root``."""
+    scanned = []
+    for path in _listed_files(root):
+        if not path.is_file():  # a tracked file deleted in the working tree
+            continue
+        relative = path.relative_to(root).as_posix()
+        if not _is_exempt(relative):
+            scanned.append((relative, path))
+    return scanned
+
+
+def scan(root: Path) -> list[str]:
+    """PATH:LINE of every sending credential in a file git lists under ``root`` (R-27)."""
     hits = []
-    this_file = Path(__file__).resolve()
-    for path in _tracked_files():
-        if path.resolve() == this_file or not path.is_file():
-            continue
-        if _is_exempt(path.relative_to(ROOT).as_posix()):
-            continue
+    for relative, path in _scanned_files(root):
         try:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        hits += [f"{path.relative_to(ROOT)}:{n}" for n in find_credentials(text.splitlines())]
-    assert hits == []
+        hits += [f"{relative}:{n}" for n in find_credentials(text.splitlines())]
+    return hits
+
+
+def test_no_listed_file_holds_a_sending_credential() -> None:
+    assert scan(ROOT) == []
+
+
+def test_the_scan_reads_this_file() -> None:
+    this_file = Path(__file__).resolve()
+    assert this_file in [path.resolve() for _relative, path in _scanned_files(ROOT)]
+
+
+def _git_repo(tmp_path: Path) -> Path:
+    if shutil.which("git") is None:
+        pytest.skip("git is not on PATH; the R-27 credential scan lists files with git ls-files")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    return repo
+
+
+def test_an_untracked_file_with_a_credential_is_reported(tmp_path: Path) -> None:
+    repo = _git_repo(tmp_path)
+    (repo / "notes.txt").write_text("harmless\n" + _sample("SMTP_", "PASSWORD=hunter2\n"))
+    assert scan(repo) == ["notes.txt:2"]
+
+
+def test_an_ignored_file_is_not_scanned(tmp_path: Path) -> None:
+    repo = _git_repo(tmp_path)
+    (repo / ".gitignore").write_text("local-secrets.txt\n")
+    (repo / "local-secrets.txt").write_text(_sample("SMTP_", "PASSWORD=hunter2\n"))
+    assert scan(repo) == []
+
+
+def test_the_scan_is_skipped_naming_git_when_git_is_not_on_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path))  # an empty directory: no git
+    with pytest.raises(pytest.skip.Exception, match="git is not on PATH"):
+        scan(ROOT)

@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-084",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Reproduced directly. I migrated a temp db, ran log-inbound for a lead, inserted a stage_change activity for lead 1 with payload '[]' and now-timestamps, then ran `cottonwood report --period 7d`. It exited 0, stderr was empty (no Traceback), and a normal report was printed. _payload now catches ValueError from json.loads and returns {} for non-object or invalid JSON, and _qualified reads through _payload. I did not run the new test file, because pytest is not available in the system python.",
+          "file": "cottonwood/report.py",
+          "line": 274,
+          "quote": "def _payload(row: sqlite3.Row) -> dict[str, object]:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Reproduced. I migrated a temp db (version 6) and inserted an agent_runs row with started_at 'not-a-time' and cost 1.50. `cottonwood report --db <db> --period 7d` exited 0 and printed the weekly report. Stderr was empty, with 0 occurrences of 'Traceback'. _run_costs catches the ValueError from timeutil.local_date and skips the row. cli.py _run_report also maps a ValueError to exit 1 with an 'error:' message as a fallback.",
+          "file": "cottonwood/report.py",
+          "line": 428,
+          "quote": "        try:\n            started = timeutil.local_date(str(row[\"started_at\"]))\n        except ValueError:  # an unparseable start time is skipped like an unreadable cost\n            continue"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep -n 'json.loads(' cottonwood/report.py returns one match, line 281, inside _payload (def at line 274). _qualified (lines 222-232) reads payloads via _payload(row).get('to'). No other json.loads( call exists in the file.",
+          "file": "cottonwood/report.py",
+          "line": 229,
+          "quote": "if row[\"lead_id\"] is not None and _payload(row).get(\"to\") == events.QUALIFIED_STAGE"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four commands in the ccge-084 worktree with uv run --offline. pytest: 933 passed, rc=0. ruff check: All checks passed, rc=0. mypy: no issues found in 106 source files, rc=0. ruff format --check: 316 files already formatted, rc=0.",
+          "file": "pyproject.toml",
+          "line": 1,
+          "quote": "933 passed in 5.53s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:04:38.901Z"
+    }
+  ]
+}

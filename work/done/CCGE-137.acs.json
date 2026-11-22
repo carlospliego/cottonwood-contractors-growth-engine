@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-137",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Reply dataclass fields are lead_id, reply_type, activity_id, suppressed_contact, eligibility_change; no field named eligibility. Grep of cottonwood/ and tests/ finds no remaining reader of a Reply's .eligibility. The only use is self.eligibility_change in lines(). Other 'eligibility' hits are SQL columns, CLI args or review.py's own row type. `uv run --offline pytest -q` gave 931 passed. `uv run --offline mypy .` gave 'Success: no issues found in 106 source files'.",
+          "file": "cottonwood/send.py",
+          "line": 511,
+          "quote": "    lead_id: int\n    reply_type: str\n    activity_id: int\n    suppressed_contact: int | None = None\n    eligibility_change: eligibility.EligibilityChange | None = None"
+        }
+      ],
+      "returns_through": "2026-11-21T18:42:47.963Z"
+    }
+  ]
+}

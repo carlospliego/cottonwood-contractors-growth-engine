@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-044",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The comment now names only real users: review counts (review.py:77,86) and report.py (report.py:201 and 371 use review.COUNTED_LEADS_FILTER). The constant is qualified as leads.is_test = 0. The new tests/test_counted_leads_filter.py checks the comment text, that report.py references the filter, and that the filter is unambiguous in a join with another is_test column. Ran with uv run --offline: pytest 932 passed, ruff check clean, mypy no issues, ruff format --check clean.",
+          "file": "cottonwood/review.py",
+          "line": 19,
+          "quote": "# The review counts and report.py's inbound and referral counts all use it, so every output\n# agrees on what a test is. It names leads.is_test, so a query that joins another table\n# with an is_test column still filters on the lead.\nCOUNTED_LEADS_FILTER = \"leads.is_test = 0\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff HEAD -- tests/test_review.py shows a single one-line change, in test_counted_leads_filter_is_the_non_test_condition. The expected string changes from 'is_test = 0' to 'leads.is_test = 0'. No other hunks, deletions or added tests, so every other behavior the file checked at base is unchanged. The test still asserts equality on review.COUNTED_LEADS_FILTER, which is what the AC's reason describes.",
+          "file": "tests/test_review.py",
+          "line": 216,
+          "quote": "assert review.COUNTED_LEADS_FILTER == \"leads.is_test = 0\""
+        }
+      ],
+      "returns_through": "2026-11-21T05:36:18.454Z"
+    }
+  ]
+}

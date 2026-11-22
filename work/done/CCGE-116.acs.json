@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-116",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "I ran `uv run --offline pytest -q tests/test_prospects_check_stored_referrer.py -v` and both tests passed (2 passed). The first test stores a direct_candidate as lead 1 and a relationship_prospect as lead 2 (the partner), so the referrer id is not 1. It writes a direct_candidate record with referred_by set to that partner id, then asserts three things. `prospects-import --check` returns EXIT_OK. Stdout is exactly 'check: 1 valid, 0 rejected\\n'. Row counts are unchanged after the check. It then runs the import without --check, asserts EXIT_OK, and asserts the new lead is (3, 'direct_candidate', partner), so referred_by is the stored id. I did not open cottonwood/prospects.py or cottonwood/cli.py. The passing tests exercise them through main().",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-116/tests/test_prospects_check_stored_referrer.py",
+          "line": 108,
+          "quote": "assert _run(db_path, path, \"--check\") == EXIT_OK\n    checked = capsys.readouterr()\n    assert checked.out == \"check: 1 valid, 0 rejected\\n\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test builds a stored direct_candidate lead (id 1) and a record whose referred_by names it. It asserts --check returns EXIT_REFUSED (1) with stderr exactly ['rejected record 1: referred_by: referrer']. It then runs the real import and asserts the import's 'rejected' stderr lines equal the check lines, and that the leads count stays at 2. The test run passed (2 passed). prospects.py _referrer_rejection (lines 167-176) rejects a stored lead whose type is not relationship_prospect, using field 'referred_by' and rule 'referrer'. cli.py returns EXIT_REFUSED (value 1) on rejection in both the check and import paths.",
+          "file": "tests/test_prospects_check_stored_referrer.py",
+          "line": 132,
+          "quote": "assert _run(db_path, path, \"--check\") == EXIT_REFUSED\n    checked = capsys.readouterr()\n    assert checked.out == \"check: 0 valid, 1 rejected\\n\"\n    check_lines = checked.err.splitlines()\n    assert check_lines == [\"rejected record 1: referred_by: referrer\"]\n\n    assert _run(db_path, path) == EXIT_REFUSED\n    imported = capsys.readouterr()\n    import_lines = [line for line in imported.err.splitlines() if line.startswith(\"rejected\")]\n    assert import_lines == check_lines"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with `uv run --offline`. pytest: 931 passed, exit 0. ruff check: All checks passed, exit 0. mypy: no issues found in 106 source files, exit 0. ruff format --check: 316 files already formatted, exit 0.",
+          "file": "pyproject.toml",
+          "line": 1,
+          "quote": "931 passed in 5.42s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:11:31.384Z"
+    }
+  ]
+}

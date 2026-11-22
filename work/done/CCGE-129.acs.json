@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-129",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test approves service-area through the CLI (_approve_service_area), then writes a claims file with service-area status prohibited. It asserts main(['claims', ...]) == EXIT_OK and that stdout is exactly 'service-area: prohibited\\nlicensed: unverified\\n'. It also checks that a standing verification exists before the prohibited file is used. cottonwood/claims.py:133-134 handles the prohibited status in effective_statuses. The pytest run passed 2 of 2 tests.",
+          "file": "tests/test_claims_prohibited_overrides_approval.py",
+          "line": 76,
+          "quote": "assert main([\"claims\", \"--claims\", str(prohibited), \"--db\", str(db_path)]) == EXIT_OK\n    assert capsys.readouterr().out == \"service-area: prohibited\\nlicensed: unverified\\n\""
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline. pytest: 931 passed in 5.19s. ruff check: All checks passed!. mypy: Success, no issues found in 106 source files. ruff format --check: 316 files already formatted. All four exited cleanly.",
+          "file": "tests/test_claims_prohibited_overrides_approval.py",
+          "line": 1,
+          "quote": "931 passed in 5.19s"
+        }
+      ],
+      "returns_through": "2026-11-21T18:38:26.443Z"
+    }
+  ]
+}

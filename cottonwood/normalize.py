@@ -7,6 +7,7 @@ import re
 _EMAIL_DOMAIN = re.compile(r"^[a-z0-9-]+(\.[a-z0-9-]+)+$")
 _PHONE_ALLOWED = re.compile(r"^\+?[0-9\s().-]+$")
 _SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*://")
+_NAME_APOSTROPHES = re.compile(r"['\u2019]")
 _NAME_PUNCTUATION = re.compile(r"[^\w\s]")
 _WHITESPACE = re.compile(r"\s+")
 
@@ -17,8 +18,10 @@ def normalize_email(value: str) -> str:
     if email.count("@") != 1:
         raise ValueError(f"email must contain exactly one @: {value!r}")
     local, domain = email.split("@")
-    if not local or any(ch.isspace() for ch in email):
-        raise ValueError(f"email has an empty or spaced local part: {value!r}")
+    if any(ch.isspace() for ch in email):
+        raise ValueError(f"email must not contain whitespace: {value!r}")
+    if not local:
+        raise ValueError(f"email has an empty local part: {value!r}")
     if not _EMAIL_DOMAIN.match(domain):
         raise ValueError(f"email domain must be a dotted name: {value!r}")
     return email
@@ -55,7 +58,8 @@ def normalize_domain(value: str) -> str:
     host = re.split(r"[/?#]", host, maxsplit=1)[0]
     host = host.rsplit("@", 1)[-1]
     host = host.split(":", 1)[0].rstrip(".")
-    if host.startswith("www."):
+    # Strip www. only when a dotted host remains, so a host such as 'www.io' stays valid.
+    if host.startswith("www.") and "." in host[4:]:
         host = host[4:]
     if not _EMAIL_DOMAIN.match(host):
         raise ValueError(f"domain must be a dotted host name: {value!r}")
@@ -63,6 +67,10 @@ def normalize_domain(value: str) -> str:
 
 
 def normalize_name(value: str) -> str:
-    """Lower-case a name, drop punctuation and collapse whitespace, for matching only."""
-    name = _NAME_PUNCTUATION.sub("", value.lower())
+    """Lower-case a name for matching only: apostrophes drop, other punctuation is a space.
+
+    So 'Mary-Jane' and 'Mary Jane' match, and "O'Neil" stays one word ('oneil').
+    """
+    name = _NAME_APOSTROPHES.sub("", value.lower())
+    name = _NAME_PUNCTUATION.sub(" ", name)
     return _WHITESPACE.sub(" ", name).strip()

@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-099",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_prospects_reimport_fields.py has one parametrized test, test_one_changed_field_gives_one_difference_line, with 10 cases. They are organization.name, organization.name-domain-free-case, organization.type, contact.name, contact.phone, contact.source_url, next_action, value.amount, value.basis and referred_by. Each case imports a base record, re-imports it with exactly one field changed, and asserts the full stdout. That output is the 'matched lead 3' line, then one '<field> differs: stored X, incoming Y (kept stored)' line, then the summary 'imported 0, matched 1, rejected 0'. The domain-free case uses _without_domain(), which deletes organization.domain, so the match goes through name_norm (_find_organization in cottonwood/prospects.py, lines 252-256). It changes the name only in letter case, from 'Acme Dental (TEST)' to 'ACME DENTAL (TEST)', and expects an organization.name difference. All field names in the cases match the pairs in _differences (cottonwood/prospects.py, lines 396-421). I ran `uv run --offline pytest -q tests/test_prospects_reimport_fields.py -v` and got 11 passed: the 10 parametrized cases plus one extra test.",
+          "file": "tests/test_prospects_reimport_fields.py",
+          "line": 232,
+          "quote": "    assert out == [\n        \"record 1 (acme-1): matched lead 3\",\n        f\"record 1 (acme-1): {field} differs: stored '{stored}', incoming '{incoming}'\"\n        \" (kept stored)\","
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test first imports a record with contact and referred_by deleted, so the lead is stored with no contact. It then re-imports the same record with a contact and asserts the exact printed lines: 'matched lead 1', one 'differs: stored '', incoming ... (kept stored)' line each for contact.name, contact.phone and contact.source_url, and the summary 'imported 0, matched 1, rejected 0'. It also asserts that no contact row was added and that leads.contact_id is still NULL. This matches the match path in cottonwood/prospects.py. _import_one calls _differences for a matched lead (line 207). _differences uses _column to return None when the lead has no contact_row (lines 376-378, 404-408), and it only compares the contact fields when the record has a contact. The file's tests all pass (11 passed).",
+          "file": "tests/test_prospects_reimport_fields.py",
+          "line": 252,
+          "quote": "    assert out == [\n        f\"{prefix} matched lead 1\",\n        f\"{prefix} contact.name differs: stored '', incoming 'Pat Lee (TEST)' (kept stored)\","
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran all four in the worktree with `uv run --offline`, one per call, and each exited 0. pytest: 940 passed in 5.15s. ruff check: All checks passed!. mypy: Success: no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "tests/test_prospects_reimport_fields.py",
+          "line": 1,
+          "quote": "940 passed in 5.15s"
+        }
+      ],
+      "returns_through": "2026-11-21T17:36:49.389Z"
+    }
+  ]
+}

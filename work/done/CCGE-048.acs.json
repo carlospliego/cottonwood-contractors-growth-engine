@@ -1,0 +1,82 @@
+{
+  "task_id": "CCGE-048",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "All six test files now define LATEST_VERSION = len(db.discover_migrations()), and no stray literal 6 about the schema version remains in them. The remaining '6' hits are a comment about a runbook step. A new guard test, tests/test_no_hardcoded_schema_version.py, checks that LATEST_VERSION equals the number of migrations and fails if any test spells out the latest version in a schema-version assertion. Full verification run: pytest 931 passed, ruff check passed, mypy found no issues, ruff format --check reported all files formatted. The guard's regex patterns cover only common assertion shapes, so it is a heuristic guard rather than a complete one.",
+          "file": "tests/test_no_hardcoded_schema_version.py",
+          "line": 11,
+          "quote": "LATEST_VERSION = len(db.discover_migrations())"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "AC2 (test_migrate.py): the diff adds LATEST_VERSION = len(db.discover_migrations()) and only replaces literal 6 in version assertions and 'at version 6 (applied 6/0)' strings (now f-strings); nothing else changed. The return format allows one object, so the other five are summarised here. All are PASS. AC3 test_schema.py, medium confidence: literal 6 became LATEST_VERSION and 'applied 5' became LATEST_VERSION - 1, which is 5 today; one readouterr() capture was split into an `out =` line, which is behavior-neutral. AC4 test_backup.py: three (6, [...]) tuples became (LATEST_VERSION, [...]). AC5 test_inbound.py: one user_version == 6 became LATEST_VERSION. AC6 test_prospects_checklist.py: one PRAGMA user_version == 6 became LATEST_VERSION. AC7 test_runbook_restore.py: 'at version 6' became an f-string with LATEST_VERSION. In every file db is imported and the constant is added with no other change. The six files' tests pass (119 passed).",
+          "file": "tests/test_migrate.py",
+          "line": 13,
+          "quote": "LATEST_VERSION = len(db.discover_migrations())"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_schema.py touches only the literal 6, and the literal 5 (applied count, rewritten as LATEST_VERSION - 1). It adds the LATEST_VERSION = len(db.discover_migrations()) definition. discover_migrations() currently returns 6 migrations, so every rewritten assertion checks the same value as before. The one structural change splits `capsys.readouterr().out` into `out = ...` for line length. It still asserts the same substring. The explicit 002..006 migration filename list is unchanged. All 52 tests in the file pass.",
+          "file": "tests/test_schema.py",
+          "line": 14,
+          "quote": "LATEST_VERSION = len(db.discover_migrations())"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_backup.py against HEAD has four hunks. One adds the LATEST_VERSION constant. The other three replace the literal 6 with LATEST_VERSION in the _version_and_suppression assertions. No other lines changed. len(db.discover_migrations()) evaluates to 6, so each assertion still checks the same value as at the base commit. All 13 tests in the file pass.",
+          "file": "tests/test_backup.py",
+          "line": 15,
+          "quote": "LATEST_VERSION = len(db.discover_migrations())"
+        },
+        {
+          "index": 5,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff HEAD on tests/test_inbound.py shows two changes. One adds the line `LATEST_VERSION = len(db.discover_migrations())`. The other replaces the literal `6` with `LATEST_VERSION` in the `db.user_version(conn)` assertion. Nothing else in the file changes. `len(db.discover_migrations())` evaluates to 6 today, so the assertion still checks the same value. All 25 tests in the file pass.",
+          "file": "tests/test_inbound.py",
+          "line": 58,
+          "quote": "assert db.user_version(conn) == LATEST_VERSION"
+        },
+        {
+          "index": 6,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git diff HEAD on tests/test_prospects_checklist.py shows only two changes. It adds `LATEST_VERSION = len(db.discover_migrations())` and replaces the literal `== 6` in the PRAGMA user_version assertion with `== LATEST_VERSION`. The file has no other schema-version literals, and nothing else changed. The assertion still checks the same value, because the latest version is 6 today. All 12 tests in the file pass.",
+          "file": "tests/test_prospects_checklist.py",
+          "line": 298,
+          "quote": "assert conn.execute(\"PRAGMA user_version\").fetchone()[0] == LATEST_VERSION"
+        },
+        {
+          "index": 7,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff of tests/test_runbook_restore.py against HEAD has two changes. It adds `LATEST_VERSION = len(db.discover_migrations())`, and it changes the step-6 assertion from the literal 'at version 6' to an f-string using LATEST_VERSION. discover_migrations() returns 6 entries, so the assertion checks the same value as before. Nothing else in the file changed. The file's 4 tests pass.",
+          "file": "tests/test_runbook_restore.py",
+          "line": 115,
+          "quote": "assert f\"at version {LATEST_VERSION}\" in capsys.readouterr().out"
+        }
+      ],
+      "returns_through": "2026-11-21T05:51:25.278Z"
+    }
+  ]
+}

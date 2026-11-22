@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-139",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The new test makes all nine checks fail at once. The draft is unapproved and has no configured values, the contact is made ineligible, the email is suppressed through the CLI, the claim is set to 'unverified', and the evidence is aged. It then calls _assert_refused, which asserts the exit code is EXIT_REFUSED and that the prepare_refused payload checks equal ALL_NINE. The test asserts the stderr check names, parsed from the 'refused: <name>: ...' lines, equal ALL_NINE in order. It also asserts the payload checks equal ALL_NINE directly. ALL_NINE is approval, eligibility, suppression, claims, evidence, sender_identity, postal_address, opt_out, ad_identification. This matches the call order in cottonwood/send.py prepare_send: _approvals, _contact_checks, _claim_checks, _evidence_check, _content_checks. Running `uv run --offline pytest -q tests/test_prepare_send_all_nine_checks.py -v` gave 1 passed.",
+          "file": "tests/test_prepare_send_all_nine_checks.py",
+          "line": 47,
+          "quote": "lines = _assert_refused(ready, capsys, ALL_NINE)\n    assert [line.split(\":\")[1].strip() for line in lines] == ALL_NINE"
+        }
+      ],
+      "returns_through": "2026-11-21T18:49:04.070Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-049",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_inbound_actor.py logs with --actor founder and asserts the stored activities.actor == ['founder']. It also has a parametrized blank-actor test, with '  ' as the first case, that expects EXIT_REFUSED and 'actor' in stderr. I did not check that EXIT_REFUSED equals 1. Full run with uv run --offline: pytest 934 passed, ruff check clean, mypy no issues, ruff format --check clean (316 files already formatted).",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-049/tests/test_inbound_actor.py",
+          "line": 53,
+          "quote": "@pytest.mark.parametrize(\"actor\", [\"  \", \"\", \"\\t\"])"
+        }
+      ],
+      "returns_through": "2026-11-21T05:53:26.087Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-043",
+  "runs": [
+    {
+      "date": "2026-11-20",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "parse_received now rejects times in the spring-forward gap with a round-trip check, and its docstring says so. The new test file covers both. It checks the docstring text. It checks that 02:00, 02:30 and 02:59 on 2027-03-14 raise ValueError. It checks that 01:59 and 03:00 are accepted. Full gate run in the worktree: pytest 935 passed, ruff check passed, mypy found no issues, ruff format --check reported all files formatted.",
+          "file": "cottonwood/timeutil.py",
+          "line": 39,
+          "quote": "first occurrence (fold=0); give the UTC form to pick the other one. A local time skipped\n    when daylight saving time starts does not exist and raises ValueError."
+        }
+      ],
+      "returns_through": "2026-11-21T05:33:46.997Z"
+    }
+  ]
+}

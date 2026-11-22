@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-093",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The diff to _csv_records flags a row whose DictReader None-key list holds a non-blank cell, and validate_record returns a Rejection for it before any schema check. The CLI-level test test_a_row_with_one_extra_cell_is_rejected_and_the_good_row_imports puts a good first row and a second row with one extra cell through prospects-import. It asserts 'rejected record 2 (wasatch-1): row: extra-cells', 'imported 1', and that only Acme Dental is in the leads table. All 4 tests in tests/test_prospects_csv_extra_cells.py passed. I did not run the CLI by hand outside that test file.",
+          "file": "cottonwood/validate.py",
+          "line": 272,
+          "quote": "extra = row.get(None) or []\n            problem = (\n                (FIELD_ROW, RULE_EXTRA_CELLS)\n                if any(isinstance(cell, str) and cell.strip() for cell in extra)\n                else None\n            )"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "git status shows only cottonwood/validate.py modified and tests/test_prospects_csv_extra_cells.py new; no existing test was changed. `uv run --offline pytest -q tests -k 'prospects or csv'` gave 107 passed. In the diff, a row gets a problem only when DictReader's None-key extra cells contain non-blank text. Rows that match the header leave problem as None, so validate_record follows the old path.",
+          "file": "cottonwood/validate.py",
+          "line": 272,
+          "quote": "extra = row.get(None) or []"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "Ran each command in the worktree with uv run --offline, one per call. All four exited 0. pytest: 933 passed in 5.21s. ruff check: All checks passed!. mypy: Success: no issues found in 106 source files. ruff format --check: 316 files already formatted.",
+          "file": "tests/test_timeutil.py",
+          "line": 1,
+          "quote": "============================= 933 passed in 5.21s =============================="
+        }
+      ],
+      "returns_through": "2026-11-21T17:21:34.262Z"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "task_id": "CCGE-100",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test is parametrized over all four key parts (url, observed_at, excerpt, observation). Each case imports a record, then re-imports the same record with exactly one evidence field changed (deepcopy, then changed[part] = CHANGES[part]). It asserts the output reads '(+1 evidence)', that evidence rows rise by exactly 1, that the lead count is unchanged, and that the rows are the original item followed by the changed one. This matches cottonwood/prospects.py, where _evidence_key (lines 306-309) is the tuple (url, observed_at, excerpt, observation) and _insert_new_evidence (lines 312-329) inserts only items whose key is not already stored. I ran the file with `uv run --offline pytest -q tests/test_prospects_evidence_dedupe.py` and all 7 tests passed.",
+          "file": "tests/test_prospects_evidence_dedupe.py",
+          "line": 104,
+          "quote": "@pytest.mark.parametrize(\"part\", list(CHANGES))\ndef test_changing_one_key_part_adds_exactly_one_evidence_row("
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test imports one record with two identical evidence items. It expects 'imported 1, matched 0, rejected 0' and exactly one evidence row. The file's 7 tests pass (7 passed). _insert_new_evidence adds each new key to the `stored` set after inserting (prospects.py:327), so the second identical item is skipped. That matches the one-row result.",
+          "file": "tests/test_prospects_evidence_dedupe.py",
+          "line": 145,
+          "quote": "assert _import_json(db_path, tmp_path, [_record([_evidence(), _evidence()])]) == EXIT_OK"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test file passes (7/7). Its _counts reads every non-sqlite_ table from sqlite_master. The test asserts the first import prints 'imported 3, matched 0, rejected 0', then that the second prints f'imported 0, matched {len(rows)}, rejected 0' and that _counts(db_path) == before. I also ran the real CLI on a temp db with a 3-row CSV. The first import printed 'imported 3, matched 0, rejected 0'. The second printed 'imported 0, matched 3, rejected 0' with exit code 0. Row counts for all 7 tables (organizations, contacts, leads, evidence, activities, agent_runs, suppression) were identical before and after: 3/0/3/3/3/0/0.",
+          "file": "tests/test_prospects_evidence_dedupe.py",
+          "line": 242,
+          "quote": "assert _import(db_path, path) == EXIT_OK\n    out = capsys.readouterr().out.splitlines()\n    assert out[-1] == f\"imported 0, matched {len(rows)}, rejected 0\"\n    assert not [line for line in out if \"differs\" in line]\n    assert _counts(db_path) == before"
+        },
+        {
+          "index": 4,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "In the worktree, `uv run --offline pytest` exited 0 with 936 passed. `uv run --offline ruff check .` exited 0 with 'All checks passed!'. `uv run --offline mypy .` exited 0 with 'Success: no issues found in 106 source files'. `uv run ruff format --check .` exited 0 with '316 files already formatted'. The `--offline` form of the format check failed on every try, but the cause is the environment. uv tried to rebuild the local package and could not find `hatchling` in its cache, so ruff never ran. Run directly as `.venv/bin/ruff format --check .`, and as `uv run ruff format --check .` without `--offline`, it passed and reported 316 files already formatted.",
+          "file": "/Users/carlos/src/cottonwood-contractors-growth-engine/.claude/worktrees/ccge-100",
+          "line": 1,
+          "quote": "316 files already formatted"
+        }
+      ],
+      "returns_through": "2026-11-21T17:40:46.571Z"
+    }
+  ]
+}

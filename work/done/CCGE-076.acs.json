@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-076",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_entry_confirmation_lines.py has exact-equality stdout assertions for a time entry (id 1, 1.5 h, category outreach, person developer, date 2026-11-16), for the default person (founder), for a cost entry (id 1, $49.00, tools, date 2026-11-16), and for voids of a time and a cost entry. The void lines carry the correction id and the voided kind and id. The expected strings match the print statements in _run_entry at cottonwood/cli.py:703-713. All 4 tests pass (4 passed). A void line has no amount, category or date, because the code does not print them, so the AC's field list applies to the entry lines.",
+          "file": "tests/test_entry_confirmation_lines.py",
+          "line": 39,
+          "quote": "assert out == \"logged time_logged activity 1: 1.5 h outreach (developer) on 2026-11-16\\n\""
+        }
+      ],
+      "returns_through": "2026-11-21T16:54:00.627Z"
+    }
+  ]
+}
