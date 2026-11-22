@@ -95,6 +95,8 @@ def discover_migrations(migrations_dir: Path = MIGRATIONS_DIR) -> list[Migration
         if match is None:
             raise MigrationError(f"migration file name is not NNN_<name>.sql: {path}")
         number = int(match.group(1))
+        if number == 0:
+            raise MigrationError(f"migration numbers start at 001: {path.name}")
         if number in found:
             raise MigrationError(
                 f"two migrations share number {number:03d}: {found[number].path.name}, {path.name}"
