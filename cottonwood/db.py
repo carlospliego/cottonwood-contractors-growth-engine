@@ -243,6 +243,12 @@ def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResu
         raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
     try:
         start = _read_version(conn, db_path)
+        newest = migrations[-1].number if migrations else 0
+        if start > newest:
+            raise MigrationError(
+                f"database {db_path} is at version {start}, newer than the newest known"
+                f" migration {newest:03d}; use a newer cottonwood"
+            )
         applied: list[Migration] = []
         for migration in migrations:
             if migration.number <= start:
