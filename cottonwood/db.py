@@ -199,6 +199,10 @@ def _apply(conn: sqlite3.Connection, migration: Migration) -> bool:
     """
     try:
         sql = migration.path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise MigrationError(
+            f"cannot read migration {migration.path}: not UTF-8 text (byte {exc.start})"
+        ) from None
     except OSError as exc:
         raise MigrationError(f"cannot read migration {migration.path}: {exc}") from exc
     keyword = _transaction_control(sql)
