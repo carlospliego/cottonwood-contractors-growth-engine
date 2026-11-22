@@ -192,7 +192,8 @@ def _apply(conn: sqlite3.Connection, migration: Migration) -> bool:
     The write lock is taken first and user_version re-read under it, so a migration
     another run applied meanwhile is skipped; returns False in that case.
 
-    A file with its own transaction control (BEGIN, COMMIT, ...) is refused before it
+    Migration files must not contain BEGIN, COMMIT or ROLLBACK: the runner wraps each file
+    in its own transaction. A file with its own transaction control is refused before it
     runs: a COMMIT inside it would commit part of the file and the version bump
     outside the runner's transaction, where a later error could not roll them back.
     """
