@@ -1,0 +1,42 @@
+{
+  "task_id": "CCGE-008",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The test writes a Latin-1 byte (\\xe9) migration file and runs main(['migrate','--db',...]). It asserts the return is EXIT_REFUSED, which is 1 (cottonwood/cli.py:40). It also asserts stderr starts with 'error: ', contains '001_latin1.sql', and has no 'Traceback'. db._apply now turns UnicodeDecodeError into MigrationError, and the cli prints that as 'error: ...'. All 3 tests in the file passed on pytest.",
+          "file": "tests/test_apply_error_branches.py",
+          "line": 25,
+          "quote": "assert main([\"migrate\", \"--db\", str(tmp_path / \"x.db\")]) == EXIT_REFUSED"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "test_no_transaction_is_left_open_after_a_failed_migration applies a migration containing invalid SQL (NOT SQL) through db._apply on an autocommit connection. It expects MigrationError and asserts conn.in_transaction is False, user_version is 0 and no tables remain. _apply rolls back if conn.in_transaction on sqlite3.Error. The run of tests/test_apply_error_branches.py gave 3 passed. I did not run a mutant check, so I have not shown that the test fails if the rollback is removed.",
+          "file": "tests/test_apply_error_branches.py",
+          "line": 46,
+          "quote": "        with pytest.raises(db.MigrationError, match=\"001_bad.sql\"):\n            db._apply(conn, migration)\n        assert conn.in_transaction is False"
+        },
+        {
+          "index": 3,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_apply_error_branches.py::test_version_prints_the_package_version asserts main([\"--version\"]) == EXIT_OK and captured stdout == \"cottonwood 0.1.0\\n\". I did not check that EXIT_OK is 0; it is imported from cottonwood.cli. The CLI defines --version as action=version with version=f\"cottonwood {__version__}\" (cottonwood/cli.py:1529), and __version__ = \"0.1.0\" (cottonwood/__init__.py:3). The run `uv run --offline pytest -q tests/test_apply_error_branches.py -v` passed 3 of 3 tests. Two things could make this less direct. I read the test and source in the ccge-008 worktree, but the session's primary directory is ccge-006. I did not run a mutation probe.",
+          "file": "tests/test_apply_error_branches.py",
+          "line": 56,
+          "quote": "def test_version_prints_the_package_version(capsys: pytest.CaptureFixture[str]) -> None:\n    assert main([\"--version\"]) == EXIT_OK\n    assert capsys.readouterr().out == \"cottonwood 0.1.0\\n\""
+        }
+      ],
+      "returns_through": "2026-11-22T00:40:55.031Z"
+    }
+  ]
+}

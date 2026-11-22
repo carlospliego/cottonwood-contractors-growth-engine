@@ -13,7 +13,9 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] With a database at user_version 5 and migrations 001 only, `cottonwood migrate --db` on that file exits 1 and stderr names both the database version and the newest known migration number; a test asserts it.
+- [x] With a database at user_version 5 and migrations 001 only, `cottonwood migrate --db` on that file exits 1 and stderr names both the database version and the newest known migration number; a test asserts it.
+
+All criteria verified 2026-11-21.
 
 ## Depends on
 _None._

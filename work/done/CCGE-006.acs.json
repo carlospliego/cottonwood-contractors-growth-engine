@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-006",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep shows EXIT_USAGE defined at line 41 and returned in _exit_code at line 1546. The old string branch is gone: _exit_code returns EXIT_OK for None or 0 and EXIT_USAGE for any other code. tests/test_exit_code_usage.py:16 asserts main([]) == EXIT_USAGE, and EXIT_USAGE is 2. The test file passed, 6 of 6.",
+          "file": "cottonwood/cli.py",
+          "line": 1544,
+          "quote": "    if code is None or code == 0:\n        return EXIT_OK\n    return EXIT_USAGE"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_exit_code returns EXIT_OK for None/0 and EXIT_USAGE otherwise, with no string-to-EXIT_REFUSED branch (EXIT_REFUSED does not appear in the function). `uv run --offline mypy .` reported: Success: no issues found in 192 source files. `uv run --offline pytest -q` reported: 1354 passed.",
+          "file": "cottonwood/cli.py",
+          "line": 1544,
+          "quote": "    if code is None or code == 0:\n        return EXIT_OK\n    return EXIT_USAGE"
+        }
+      ],
+      "returns_through": "2026-11-22T00:41:12.747Z"
+    }
+  ]
+}

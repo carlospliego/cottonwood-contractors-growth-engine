@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-007",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "The 001_baseline.sql header (lines 4-5) says migration files must not contain BEGIN, COMMIT or ROLLBACK. The _apply docstring in cottonwood/db.py (line 193) says the same. `uv run --offline pytest -q tests/test_migration_transaction_docs.py tests/test_migrate.py` gave 27 passed, so the runner still accepts 001 with the new header. The runner refuses a file that contains transaction control as SQL; the header words are inside `--` comments, and the tests pass.",
+          "file": "cottonwood/migrations/001_baseline.sql",
+          "line": 4,
+          "quote": "-- The runner wraps each file in its own transaction, so migration files must not contain\n-- BEGIN, COMMIT or ROLLBACK (a file that does is refused before it runs)."
+        }
+      ],
+      "returns_through": "2026-11-22T00:40:55.031Z"
+    }
+  ]
+}

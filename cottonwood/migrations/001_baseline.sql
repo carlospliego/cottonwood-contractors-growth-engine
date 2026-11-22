@@ -1,3 +1,5 @@
 -- 001_baseline: the skeleton's starting version. Creates no tables.
 -- Later migrations (002_*.sql onward) add the schema; each runs once, in order,
 -- and `cottonwood migrate` sets PRAGMA user_version to its number.
+-- The runner wraps each file in its own transaction, so migration files must not contain
+-- BEGIN, COMMIT or ROLLBACK (a file that does is refused before it runs).

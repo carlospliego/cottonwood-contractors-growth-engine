@@ -13,7 +13,9 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] The header comment of cottonwood/migrations/001_baseline.sql and the _apply docstring both state that migration files must not contain BEGIN, COMMIT or ROLLBACK.
+- [x] The header comment of cottonwood/migrations/001_baseline.sql and the _apply docstring both state that migration files must not contain BEGIN, COMMIT or ROLLBACK.
+
+All criteria verified 2026-11-21.
 
 ## Depends on
 _None._

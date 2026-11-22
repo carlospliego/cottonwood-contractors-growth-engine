@@ -1536,13 +1536,14 @@ def build_parser(commands: Sequence[Command] | None = None) -> argparse.Argument
 
 
 def _exit_code(code: str | int | None) -> int:
-    """Turn a SystemExit code into an int exit code."""
-    if code is None:
+    """Turn argparse's SystemExit code into this CLI's exit code.
+
+    argparse exits with None or 0 after --help and --version, and with 2 after a usage
+    error (it has already printed the message); every other code is a usage error too.
+    """
+    if code is None or code == 0:
         return EXIT_OK
-    if isinstance(code, int):
-        return code
-    print(code, file=sys.stderr)
-    return EXIT_REFUSED
+    return EXIT_USAGE
 
 
 def main(argv: Sequence[str] | None = None, commands: Sequence[Command] | None = None) -> int:

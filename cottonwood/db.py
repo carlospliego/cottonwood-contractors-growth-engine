@@ -95,6 +95,8 @@ def discover_migrations(migrations_dir: Path = MIGRATIONS_DIR) -> list[Migration
         if match is None:
             raise MigrationError(f"migration file name is not NNN_<name>.sql: {path}")
         number = int(match.group(1))
+        if number == 0:
+            raise MigrationError(f"migration numbers start at 001: {path.name}")
         if number in found:
             raise MigrationError(
                 f"two migrations share number {number:03d}: {found[number].path.name}, {path.name}"
@@ -190,12 +192,17 @@ def _apply(conn: sqlite3.Connection, migration: Migration) -> bool:
     The write lock is taken first and user_version re-read under it, so a migration
     another run applied meanwhile is skipped; returns False in that case.
 
-    A file with its own transaction control (BEGIN, COMMIT, ...) is refused before it
+    Migration files must not contain BEGIN, COMMIT or ROLLBACK: the runner wraps each file
+    in its own transaction. A file with its own transaction control is refused before it
     runs: a COMMIT inside it would commit part of the file and the version bump
     outside the runner's transaction, where a later error could not roll them back.
     """
     try:
         sql = migration.path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise MigrationError(
+            f"cannot read migration {migration.path}: not UTF-8 text (byte {exc.start})"
+        ) from None
     except OSError as exc:
         raise MigrationError(f"cannot read migration {migration.path}: {exc}") from exc
     keyword = _transaction_control(sql)
@@ -243,12 +250,23 @@ def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResu
         raise MigrationError(f"cannot open database {db_path}: {exc}") from exc
     try:
         start = _read_version(conn, db_path)
+        newest = migrations[-1].number if migrations else 0
+        if start > newest:
+            raise MigrationError(
+                f"database {db_path} is at version {start}, newer than the newest known"
+                f" migration {newest:03d}; use a newer cottonwood"
+            )
         applied: list[Migration] = []
         for migration in migrations:
             if migration.number <= start:
                 continue
-            if _apply(conn, migration):
-                applied.append(migration)
+            try:
+                if _apply(conn, migration):
+                    applied.append(migration)
+            except MigrationError as exc:
+                # Earlier migrations stay committed; say where that leaves the database.
+                now = _read_version(conn, db_path)
+                raise MigrationError(f"{exc}; the database is now at version {now}") from exc
         return MigrateResult(start, _read_version(conn, db_path), tuple(applied))
     finally:
         conn.close()
