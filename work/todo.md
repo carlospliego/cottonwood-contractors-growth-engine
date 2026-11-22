@@ -4,16 +4,16 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Open
 
-- [ ] `CCGE-004` — Reject a migration numbered 000 with a specific message → [CCGE-004.md](tasks/CCGE-004.md)
-- [ ] `CCGE-005` — Report already-committed migrations when a later one fails → [CCGE-005.md](tasks/CCGE-005.md)
-- [ ] `CCGE-006` — Tie usage-error exits to EXIT_USAGE and drop the unreachable string branch → [CCGE-006.md](tasks/CCGE-006.md)
-- [ ] `CCGE-007` — Document that migration files must not contain transaction control → [CCGE-007.md](tasks/CCGE-007.md)
-- [ ] `CCGE-008` — Test the unreadable-migration and rollback branches of _apply → [CCGE-008.md](tasks/CCGE-008.md)
-- [ ] `CCGE-009` — Refuse a database newer than the known migrations → [CCGE-009.md](tasks/CCGE-009.md)
 - [ ] `CCGE-148` — Website privacy page denies analytics, but Google Analytics is installed (website repo, not this one) → [CCGE-148.md](tasks/CCGE-148.md)
 
 ## Done
 
+- [x] `CCGE-009` — Refuse a database newer than the known migrations → [CCGE-009.md](done/CCGE-009.md)
+- [x] `CCGE-008` — Test the unreadable-migration and rollback branches of _apply → [CCGE-008.md](done/CCGE-008.md)
+- [x] `CCGE-007` — Document that migration files must not contain transaction control → [CCGE-007.md](done/CCGE-007.md)
+- [x] `CCGE-006` — Tie usage-error exits to EXIT_USAGE and drop the unreachable string branch → [CCGE-006.md](done/CCGE-006.md)
+- [x] `CCGE-005` — Report already-committed migrations when a later one fails → [CCGE-005.md](done/CCGE-005.md)
+- [x] `CCGE-004` — Reject a migration numbered 000 with a specific message → [CCGE-004.md](done/CCGE-004.md)
 - [x] `CCGE-147` — Deletion requests remove personal details from activity records (founder decision: Option A) → [CCGE-147.md](done/CCGE-147.md)
 - [x] `CCGE-145` — Untested lead export branches → [CCGE-145.md](done/CCGE-145.md)
 - [x] `CCGE-140` — log-reply date refusals and transaction atomicity are untested → [CCGE-140.md](done/CCGE-140.md)

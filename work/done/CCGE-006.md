@@ -13,8 +13,10 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] `grep -n EXIT_USAGE cottonwood/cli.py` shows it used in _exit_code, and `main([])` still returns 2 in tests.
-- [ ] _exit_code has no branch that maps a string SystemExit code to EXIT_REFUSED, and `uv run mypy` and `uv run pytest` pass.
+- [x] `grep -n EXIT_USAGE cottonwood/cli.py` shows it used in _exit_code, and `main([])` still returns 2 in tests.
+- [x] _exit_code has no branch that maps a string SystemExit code to EXIT_REFUSED, and `uv run mypy` and `uv run pytest` pass.
+
+All criteria verified 2026-11-21.
 
 ## Depends on
 _None._

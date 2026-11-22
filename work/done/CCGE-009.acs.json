@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-009",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "db.migrate raises MigrationError when start > newest, with a message naming the database version and the newest migration number as %03d. MigrationError subclasses DatabaseError, so cli._run_migrate catches it, prints 'error: ...' to stderr and returns EXIT_REFUSED, which is 1 (cli.py:40). tests/test_migrate_newer_database.py builds a DB at user_version 5 with only 001_only.sql and runs main(['migrate','--db',path]). It asserts the return is EXIT_REFUSED, that stderr starts with 'error: ' and contains 'version 5' and '001', and that the DB is unchanged. The test passed (1 passed). The test monkeypatches db.migrate to use the temp migrations folder, which is a reasonable way to get 'migrations 001 only'.",
+          "file": "cottonwood/db.py",
+          "line": 246,
+          "quote": "newest = migrations[-1].number if migrations else 0\n        if start > newest:\n            raise MigrationError(\n                f\"database {db_path} is at version {start}, newer than the newest known\"\n                f\" migration {newest:03d}; use a newer cottonwood\"\n            )"
+        }
+      ],
+      "returns_through": "2026-11-22T00:41:19.719Z"
+    }
+  ]
+}

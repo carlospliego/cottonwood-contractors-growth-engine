@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-004",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_migration_numbered_000.py::test_a_migration_numbered_000_is_refused_by_name writes only 000_x.sql into tmp_path, calls db.discover_migrations, and asserts MigrationError whose message contains '000_x.sql'. db.py raises MigrationError with path.name for number 0. Ran pytest: 2 passed.",
+          "file": "cottonwood/db.py",
+          "line": 99,
+          "quote": "raise MigrationError(f\"migration numbers start at 001: {path.name}\")"
+        }
+      ],
+      "returns_through": "2026-11-22T00:40:50.373Z"
+    }
+  ]
+}

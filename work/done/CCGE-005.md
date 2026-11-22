@@ -13,7 +13,9 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] With migrations 001 (valid) and 002 (invalid SQL) on a new database, `cottonwood migrate` exits 1 and stderr contains both the failing file name and `version 1`; a test asserts it.
+- [x] With migrations 001 (valid) and 002 (invalid SQL) on a new database, `cottonwood migrate` exits 1 and stderr contains both the failing file name and `version 1`; a test asserts it.
+
+All criteria verified 2026-11-21.
 
 ## Depends on
 _None._

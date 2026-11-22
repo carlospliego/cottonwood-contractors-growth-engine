@@ -1,0 +1,22 @@
+{
+  "task_id": "CCGE-005",
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "db.migrate wraps a MigrationError from _apply and re-raises it with '; the database is now at version N' appended (cottonwood/db.py:253-256). _run_migrate prints 'error: ...' to stderr and returns EXIT_REFUSED (cottonwood/cli.py:82-84), and EXIT_REFUSED = 1 (cottonwood/cli.py:40). The new test builds 001_ok.sql (valid) and 002_bad.sql (invalid SQL) on a new db. It asserts main(['migrate']) == EXIT_REFUSED, that stderr contains '002_bad.sql' and 'version 1', and that PRAGMA user_version == 1. I ran it with `uv run --offline pytest -q tests/test_migrate_failure_reports_version.py -v`: 1 passed. The test redirects migrations by monkeypatching db.migrate, which is the same helper tests/test_migrate.py uses. It calls main() in-process, not a subprocess.",
+          "file": "cottonwood/db.py",
+          "line": 253,
+          "quote": "            except MigrationError as exc:\n                # Earlier migrations stay committed; say where that leaves the database.\n                now = _read_version(conn, db_path)\n                raise MigrationError(f\"{exc}; the database is now at version {now}\") from exc"
+        }
+      ],
+      "returns_through": "2026-11-22T00:40:51.767Z"
+    }
+  ]
+}

@@ -13,7 +13,9 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] A test with only `000_x.sql` in the migrations folder shows discover_migrations raises MigrationError whose message contains `000_x.sql`.
+- [x] A test with only `000_x.sql` in the migrations folder shows discover_migrations raises MigrationError whose message contains `000_x.sql`.
+
+All criteria verified 2026-11-21.
 
 ## Depends on
 _None._

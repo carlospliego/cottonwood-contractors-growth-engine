@@ -13,9 +13,11 @@ _None._
 _None._
 
 ## Acceptance Criteria
-- [ ] A test writes a non-UTF-8 migration file and asserts `cottonwood migrate` exits 1 with an `error:` line naming it (no traceback).
-- [ ] A test shows the connection is not in a transaction after a failed migration.
-- [ ] A test asserts `main(["--version"])` returns 0 and prints `cottonwood 0.1.0`.
+- [x] A test writes a non-UTF-8 migration file and asserts `cottonwood migrate` exits 1 with an `error:` line naming it (no traceback).
+- [x] A test shows the connection is not in a transaction after a failed migration.
+- [x] A test asserts `main(["--version"])` returns 0 and prints `cottonwood 0.1.0`.
+
+All criteria verified 2026-11-21.
 
 ## Depends on
 _None._
