@@ -247,8 +247,13 @@ def migrate(db_path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> MigrateResu
         for migration in migrations:
             if migration.number <= start:
                 continue
-            if _apply(conn, migration):
-                applied.append(migration)
+            try:
+                if _apply(conn, migration):
+                    applied.append(migration)
+            except MigrationError as exc:
+                # Earlier migrations stay committed; say where that leaves the database.
+                now = _read_version(conn, db_path)
+                raise MigrationError(f"{exc}; the database is now at version {now}") from exc
         return MigrateResult(start, _read_version(conn, db_path), tuple(applied))
     finally:
         conn.close()
