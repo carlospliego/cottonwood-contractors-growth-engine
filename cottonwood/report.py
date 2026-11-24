@@ -24,6 +24,8 @@ _LAST_WORKING_WEEKDAY = 4
 LABEL_INQUIRIES = "Inquiries"
 LABEL_CHANNEL = "Channel"
 LABEL_SEGMENT = "Segment"
+# Channel or segment line for a value outside inbound.CHANNELS / SEGMENTS (CCGE-156).
+OTHER = "other"
 LABEL_ACK_WITHIN = "Acknowledged within target"
 LABEL_ACK_OUTSIDE = "Acknowledged outside target"
 LABEL_NOT_ACKNOWLEDGED = "Not acknowledged"
@@ -186,6 +188,17 @@ class InboundMetrics:
     not_acknowledged: int
 
 
+def _count(counts: dict[str, int], known: tuple[str, ...], value: object) -> None:
+    """Count ``value`` under its own name, or under OTHER when it is not a known one.
+
+    leads.channel and leads.segment have no CHECK constraint, so a value written by SQL or a
+    restore must still be counted somewhere, or the lines would not add up to the total. OTHER
+    is added after the known keys only when something lands in it.
+    """
+    key = value if isinstance(value, str) and value in known else OTHER
+    counts[key] = counts.get(key, 0) + 1
+
+
 def _inbound(conn: sqlite3.Connection, period: Period) -> InboundMetrics:
     """Count inquiries by channel and segment and judge each against the ack target."""
     by_channel = dict.fromkeys(inbound.CHANNELS, 0)
@@ -206,10 +219,8 @@ def _inbound(conn: sqlite3.Connection, period: Period) -> InboundMetrics:
         if not period.contains(received):
             continue
         total += 1
-        if row["channel"] in by_channel:
-            by_channel[row["channel"]] += 1
-        if row["segment"] in by_segment:
-            by_segment[row["segment"]] += 1
+        _count(by_channel, inbound.CHANNELS, row["channel"])
+        _count(by_segment, inbound.SEGMENTS, row["segment"])
         ack = first_ack.get(int(row["id"]))
         if ack is None:
             missing += 1
