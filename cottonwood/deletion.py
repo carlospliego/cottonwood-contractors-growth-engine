@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from cottonwood import gate
+from cottonwood._shared import _rowid
 from cottonwood.inbound import BUDGET_BASIS
 
 DEFAULT_ACTOR = "founder"
@@ -159,9 +160,7 @@ def _insert_removal(
         " VALUES (?, ?, ?, ?, ?, ?)",
         (contact_id, ACTIVITY_TYPE, payload, actor, now, now),
     )
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("the removal activity has no id")
-    return cursor.lastrowid
+    return _rowid(cursor)
 
 
 def _redact_activities(conn: sqlite3.Connection, contact_id: int, secrets: tuple[str, ...]) -> int:

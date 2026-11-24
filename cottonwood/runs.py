@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from cottonwood import timeutil
+from cottonwood._shared import _rowid
 
 VALIDATIONS = ("passed", "failed")
 COST_SOURCES = ("claude-code-cost", "billing-console")
@@ -199,8 +200,10 @@ def record_run(conn: sqlite3.Connection, record: RunRecord) -> int:
                 None if record.cost_estimated is None else int(record.cost_estimated),
             ),
         )
+        # Read the id before committing, so a run with no id is rolled back, not kept.
+        run_id = _rowid(cursor)
         conn.commit()
     except BaseException:
         conn.rollback()
         raise
-    return int(cursor.lastrowid or 0)
+    return run_id
