@@ -128,7 +128,7 @@ def prepare_send(
         _evidence_check(conn, lead_id, settings.review.max_evidence_age_days, today, refusals)
         _content_checks(text, settings.sending, refusals)
         if refusals:
-            refused_id = events._insert_activity(
+            refused_id = events.insert_activity(
                 conn,
                 lead_id,
                 REFUSED_TYPE,
@@ -197,7 +197,7 @@ def _standing_approvals(conn: sqlite3.Connection, lead_id: int, scope: str) -> l
     """The lead's unvoided approvals of a scope, newest first."""
     rows = conn.execute(
         "SELECT a.id, a.payload FROM activities AS a"
-        f" WHERE a.lead_id = ? AND a.type = 'approval' AND NOT {events._voided_sql('a.id')}"
+        f" WHERE a.lead_id = ? AND a.type = 'approval' AND NOT {events.voided_sql('a.id')}"
         " ORDER BY a.id DESC",
         (lead_id,),
     )
@@ -378,11 +378,11 @@ def log_outreach(
     if not who:
         raise SendError("sender", "must not be empty")
     try:
-        day = events._parse_entry_date(sent_on, today)
+        day = events.parse_entry_date(sent_on, today)
     except events.EventError as exc:
         raise SendError("date", str(exc).removeprefix("date: ")) from None
     url = source_url.strip()
-    if not events._is_http_url(url):
+    if not events.is_http_url(url):
         raise SendError("source_url", f"must be an http(s) URL, got {source_url!r}")
     try:
         recipient_norm = normalize.normalize_email(recipient)
@@ -432,7 +432,7 @@ def log_outreach(
                 "recipient_matches": matches,
             },
             actor,
-            events._day_start(day),
+            events.day_start(day),
             now,
         )
         violation_id = None
@@ -555,7 +555,7 @@ def log_reply(
         day = today
     else:
         try:
-            day = events._parse_entry_date(received_on, today)
+            day = events.parse_entry_date(received_on, today)
         except events.EventError as exc:
             raise SendError("date", str(exc).removeprefix("date: ")) from None
     lead = conn.execute("SELECT id, contact_id FROM leads WHERE id = ?", (lead_id,)).fetchone()
@@ -575,7 +575,7 @@ def log_reply(
             REPLY_TYPE,
             {"type": reply_type, "received_on": day.isoformat(), "note": text},
             actor,
-            events._day_start(day),
+            events.day_start(day),
             now,
         )
         suppressed_contact = None

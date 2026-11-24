@@ -850,3 +850,4 @@ insert_activity = _insert_activity
 day_start = _day_start
 voided_sql = _voided_sql
 parse_entry_date = _parse_entry_date
+is_http_url = _is_http_url
