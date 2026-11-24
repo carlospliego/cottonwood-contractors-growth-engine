@@ -20,6 +20,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from cottonwood import claims, config, draft_claims, eligibility, events, evidence, gate, normalize
+from cottonwood._shared import _rowid
 
 PREPARED_TYPE = "draft_prepared"
 REFUSED_TYPE = "prepare_refused"
@@ -497,9 +498,7 @@ def _insert(
         " recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (lead_id, contact_id, activity_type, json.dumps(payload), actor, occurred_at, recorded_at),
     )
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return cursor.lastrowid
+    return _rowid(cursor)
 
 
 REPLY_TYPE = "reply"
