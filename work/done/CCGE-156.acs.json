@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-156",
+  "runs": [
+    {
+      "date": "2026-11-24",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_report_inbound_other.py inserts a lead with channel 'fax' and segment 'industrial' by raw SQL INSERT (_insert_raw), then runs the report. It asserts the inquiry total is 3, the channel counts sum to 3 and the segment counts sum to 3. It also asserts the unknown value is counted under report.OTHER ('other'): channels == {form:1, phone:1, other:1}, segments == {commercial:1, residential:1, unknown:0, other:1}. cottonwood/report.py adds _count(), which puts any value outside inbound.CHANNELS or inbound.SEGMENTS under OTHER. Both tests in the file pass (2 passed).",
+          "file": "tests/test_report_inbound_other.py",
+          "line": 98,
+          "quote": "    _insert_raw(db_path, \"fax\", \"industrial\")"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "_count in report.py adds the OTHER key only when an unknown value lands in it, so a report with only known channels and segments has no 'other' line. test_no_other_line_when_every_value_is_known asserts this and passes. I ran all four commands: uv run pytest gave 1366 passed, ruff check gave 'All checks passed!', mypy gave 'no issues found in 198 source files', and ruff format --check gave '408 files already formatted'.",
+          "file": "cottonwood/report.py",
+          "line": 191,
+          "quote": "key = value if isinstance(value, str) and value in known else OTHER\n    counts[key] = counts.get(key, 0) + 1"
+        }
+      ],
+      "returns_through": "2026-11-24T15:40:37.381Z"
+    }
+  ]
+}

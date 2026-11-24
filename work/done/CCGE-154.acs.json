@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-154",
+  "runs": [
+    {
+      "date": "2026-11-24",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep -rnE 'events\\._[A-Za-z]' over cottonwood/ excluding events.py returned no matches. tests/test_no_private_events_names.py scans every *.py under the package except events.py with the regex \\bevents\\._[A-Za-z] and asserts there are no offenders. The test file passes (3 passed).",
+          "file": "tests/test_no_private_events_names.py",
+          "line": 21,
+          "quote": "assert offenders == []"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "events.py:853 defines public is_http_url as an alias of _is_http_url; send.py:385 uses events.is_http_url. Ran pytest (1367 passed), ruff check (All checks passed), mypy (no issues in 198 source files), ruff format --check (408 files already formatted).",
+          "file": "cottonwood/events.py",
+          "line": 853,
+          "quote": "is_http_url = _is_http_url"
+        }
+      ],
+      "returns_through": "2026-11-24T15:33:13.163Z"
+    }
+  ]
+}
