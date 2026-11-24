@@ -41,7 +41,7 @@ def parse_review_date(value: str | None, today: date) -> date:
     """The --date value (default today in America/Denver); not after today."""
     if value is None:
         return today
-    return events._parse_entry_date(value, today)
+    return events.parse_entry_date(value, today)
 
 
 def mark_reviewed(
@@ -77,7 +77,7 @@ def standing_review(conn: sqlite3.Connection, lead_id: int) -> sqlite3.Row | Non
     """The lead's latest hand_review that no correction voids, or None."""
     row: sqlite3.Row | None = conn.execute(
         "SELECT a.id, a.payload FROM activities AS a"
-        f" WHERE a.lead_id = ? AND a.type = ? AND NOT {events._voided_sql('a.id')}"
+        f" WHERE a.lead_id = ? AND a.type = ? AND NOT {events.voided_sql('a.id')}"
         " ORDER BY a.id DESC LIMIT 1",
         (lead_id, ACTIVITY_TYPE),
     ).fetchone()
@@ -122,7 +122,7 @@ def _apply(
                 " use --replace to record a new result",
             )
         replaced = int(standing["id"])
-        events._insert_activity(
+        events.insert_activity(
             conn,
             lead_id,
             CORRECTION_TYPE,
@@ -132,13 +132,13 @@ def _apply(
             now,
             voids_activity_id=replaced,
         )
-    activity_id = events._insert_activity(
+    activity_id = events.insert_activity(
         conn,
         lead_id,
         ACTIVITY_TYPE,
         {"result": result, "reviewer": reviewer},
         actor,
-        events._day_start(day),
+        events.day_start(day),
         now,
     )
     return HandReviewResult(lead_id, result, activity_id, replaced)
