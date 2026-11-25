@@ -13,6 +13,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 
+from cottonwood._shared import _rowid
 from cottonwood.validate import is_http_url
 
 ELIGIBLE = "eligible"
@@ -124,9 +125,7 @@ def _apply(
         " recorded_at) VALUES (NULL, ?, ?, ?, ?, ?, ?)",
         (contact_id, ACTIVITY_TYPE, json.dumps(payload), actor, now, now),
     )
-    if cursor.lastrowid is None:
-        raise sqlite3.DatabaseError("insert returned no row id")
-    return EligibilityChange(contact_id, previous, to, cursor.lastrowid)
+    return EligibilityChange(contact_id, previous, to, _rowid(cursor))
 
 
 def _failures(

@@ -4,10 +4,11 @@ Index of tasks. Each entry links to its contract in `tasks/`. Managed by `/sir:t
 
 ## Open
 
-- [ ] `CCGE-148` — Website privacy page denies analytics, but Google Analytics is installed (website repo, not this one) → [CCGE-148.md](tasks/CCGE-148.md)
-
 ## Done
 
+- [x] `CCGE-156` — The inbound report counts a channel or segment it does not know instead of dropping it → [CCGE-156.md](done/CCGE-156.md)
+- [x] `CCGE-155` — Every insert's row id goes through _shared._rowid; record-run no longer turns a missing id into 0 → [CCGE-155.md](done/CCGE-155.md)
+- [x] `CCGE-154` — hand_review and send call events' public helper names, not the underscored ones → [CCGE-154.md](done/CCGE-154.md)
 - [x] `CCGE-009` — Refuse a database newer than the known migrations → [CCGE-009.md](done/CCGE-009.md)
 - [x] `CCGE-008` — Test the unreadable-migration and rollback branches of _apply → [CCGE-008.md](done/CCGE-008.md)
 - [x] `CCGE-007` — Document that migration files must not contain transaction control → [CCGE-007.md](done/CCGE-007.md)

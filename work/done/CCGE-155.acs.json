@@ -1,0 +1,32 @@
+{
+  "task_id": "CCGE-155",
+  "runs": [
+    {
+      "date": "2026-11-24",
+      "commit": null,
+      "results": [
+        {
+          "index": 1,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "grep -rn lastrowid cottonwood/ matched only cottonwood/_shared.py (lines 22 and 24). No other file under cottonwood/ contains the text.",
+          "file": "cottonwood/_shared.py",
+          "line": 22,
+          "quote": "    if cursor.lastrowid is None:"
+        },
+        {
+          "index": 2,
+          "verdict": "PASS",
+          "method": "verifier+refuter",
+          "refuter": "confirmed",
+          "evidence": "tests/test_rowid_single_helper.py::test_record_run_raises_when_the_insert_has_no_row_id wraps the connection so the agent_runs INSERT returns a cursor with lastrowid None. It asserts runs.record_run raises sqlite3.DatabaseError matching 'no row id', and that agent_runs is left empty (rolled back). runs.py now calls _rowid(cursor) before commit and returns run_id, replacing int(cursor.lastrowid or 0). I ran all four commands: pytest gave 1368 passed, ruff check passed, mypy reported no issues in 198 files, and ruff format --check reported 408 files already formatted.",
+          "file": "tests/test_rowid_single_helper.py",
+          "line": 79,
+          "quote": "with pytest.raises(sqlite3.DatabaseError, match=\"no row id\"):\n            runs.record_run(wrapper, _record())"
+        }
+      ],
+      "returns_through": "2026-11-24T15:37:19.279Z"
+    }
+  ]
+}
